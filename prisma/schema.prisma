@@ -1,0 +1,158 @@
+// Portale PFC — schema database
+// Dev: SQLite (auto-configurato)
+// Prod (Vercel + Supabase): cambia `provider` in "postgresql" — tutto il resto è compatibile.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(cuid())
+  username          String   @unique
+  name              String
+  passwordHash      String   @map("password_hash")
+  role              String   @default("client") // "admin" | "client"
+  exemptMaintenance Boolean  @default(false) @map("exempt_maintenance")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  messages        Message[]
+  notifications   Notification[]
+  favorites       Favorite[]
+  fileViews       FileView[]
+  fileDownloads   FileDownload[]
+  auditLogs       AuditLog[]
+  archivedMsgs    MessageArchive[]
+
+  @@map("users")
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text            String
+  timestamp       DateTime @default(now())
+  read            Boolean  @default(false)
+  requiresUpload  Boolean  @default(false) @map("requires_upload")
+  uploadReceived  Boolean  @default(false) @map("upload_received")
+  archivedBy      MessageArchive[]
+
+  @@index([userId])
+  @@map("messages")
+}
+
+model MessageArchive {
+  id        String   @id @default(cuid())
+  messageId String   @map("message_id")
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@map("message_archives")
+}
+
+model Notice {
+  id        String   @id @default(cuid())
+  text      String
+  timestamp DateTime @default(now())
+
+  @@map("notices")
+}
+
+model Notification {
+  id     String   @id @default(cuid())
+  userId String   @map("user_id")
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   String // "documento_nuovo" | "messaggio" | "avviso" | "richiesta_upload" | "upload_confermato"
+  text   String
+  detail String   @default("")
+  ts     DateTime @default(now())
+  read   Boolean  @default(false)
+  year   String?
+  folder String?
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model Favorite {
+  id       String @id @default(cuid())
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filePath String @map("file_path")
+
+  @@unique([userId, filePath])
+  @@index([userId])
+  @@map("favorites")
+}
+
+model FileView {
+  id       String   @id @default(cuid())
+  userId   String   @map("user_id")
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filePath String   @map("file_path")
+  ts       DateTime @default(now())
+
+  @@unique([userId, filePath])
+  @@index([userId])
+  @@map("file_views")
+}
+
+model FileDownload {
+  id       String   @id @default(cuid())
+  userId   String   @map("user_id")
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filePath String   @map("file_path")
+  ts       DateTime @default(now())
+
+  @@unique([userId, filePath])
+  @@index([userId])
+  @@map("file_downloads")
+}
+
+model AuditLog {
+  id       String   @id @default(cuid())
+  ts       DateTime @default(now())
+  userId   String?  @map("user_id")
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username String
+  action   String
+  detail   String   @default("")
+
+  @@index([username])
+  @@index([ts])
+  @@map("audit_log")
+}
+
+model LoginAttempt {
+  id       String   @id @default(cuid())
+  username String
+  ts       DateTime @default(now())
+
+  @@index([username])
+  @@index([ts])
+  @@map("login_attempts")
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+
+  @@map("system_settings")
+}
+
+model UploadDate {
+  id       String   @id @default(cuid())
+  filePath String   @unique @map("file_path")
+  ts       DateTime @default(now())
+
+  @@index([filePath])
+  @@map("upload_dates")
+}
