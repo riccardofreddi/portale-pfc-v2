@@ -120,4 +120,9 @@ export const api = {
         body: formData,
       }),
   },
+  ricerca: (q: string, username?: string) => {
+    const params = new URLSearchParams({ q })
+    if (username) params.set('username', username)
+    return apiFetch<{ results: Array<{ nome: string; key: string; anno: string; cartella: string; size: number; sizeStr: string; score: number }> }>(`/api/ricerca?${params}`)
+  },
 }
