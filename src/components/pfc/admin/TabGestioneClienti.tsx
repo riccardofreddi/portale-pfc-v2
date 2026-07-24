@@ -34,8 +34,7 @@ export function TabGestioneClienti() {
   const [editUsername, setEditUsername] = useState('')
   const [editPassword, setEditPassword] = useState('')
 
-  // Archivio cliente selezionato
-  const [selectedCliente, setSelectedCliente] = useState<string>('none')
+  const [selectedCliente, setSelectedCliente] = useState<string>('')
   const [cassettoFiles, setCassettoFiles] = useState<CassettoFile[]>([])
   const [archivioAnni, setArchivioAnni] = useState<string[]>([])
   const [archivioCartelle, setArchivioCartelle] = useState<Record<string, CartellaMeta[]>>({})
@@ -43,8 +42,8 @@ export function TabGestioneClienti() {
   const [loadingArchivio, setLoadingArchivio] = useState(false)
   const [openAnno, setOpenAnno] = useState<string | null>(null)
   const [openCartella, setOpenCartella] = useState<string | null>(null)
-  
-  // Upload cassetto
+  const [openCassetto, setOpenCassetto] = useState(false)
+
   const [uploadTipo, setUploadTipo] = useState('')
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -52,10 +51,8 @@ export function TabGestioneClienti() {
 
   async function refresh() {
     setLoading(true)
-    try {
-      const r = await api.clienti.list()
-      setClienti(r.clienti)
-    } catch { toast.error('Errore caricamento clienti') }
+    try { const r = await api.clienti.list(); setClienti(r.clienti) }
+    catch { toast.error('Errore caricamento clienti') }
     finally { setLoading(false) }
   }
 
@@ -64,21 +61,16 @@ export function TabGestioneClienti() {
   async function loadArchivioCliente(username: string) {
     setLoadingArchivio(true)
     try {
-      // Carica cassetto
       const rCass = await api.cassetto.list(username)
       setCassettoFiles(rCass.files)
-      
-      // Carica anni
       const rAnni = await api.documenti.list({ username })
       setArchivioAnni(rAnni.anni ?? [])
-      
-      // Per ogni anno, carica cartelle e file
       const cartelleMap: Record<string, CartellaMeta[]> = {}
       const filesMap: Record<string, ArchivioFile[]> = {}
       for (const anno of (rAnni.anni ?? [])) {
         const rCart = await api.documenti.list({ username, anno })
         cartelleMap[anno] = (rCart.cartelle ?? []) as unknown as CartellaMeta[]
-        for (const cart of cartelleMap[anno]) {
+        for (const cart of cartellaMap[anno]) {
           const rFiles = await api.documenti.list({ username, anno, cartella: cart.nome })
           filesMap[`${anno}_${cart.nome}`] = (rFiles.files ?? []) as unknown as ArchivioFile[]
         }
@@ -90,10 +82,15 @@ export function TabGestioneClienti() {
   }
 
   useEffect(() => {
-    if (selectedCliente !== 'none') {
-      loadArchivioCliente(selectedCliente)
-    }
+    if (selectedCliente) { loadArchivioCliente(selectedCliente) }
   }, [selectedCliente])
+
+  function handleSelectCliente(v: string | null) {
+    setSelectedCliente(v ?? '')
+    setOpenAnno(null)
+    setOpenCartella(null)
+    setOpenCassetto(false)
+  }
 
   async function handleCreate() {
     setCreating(true)
@@ -124,7 +121,7 @@ export function TabGestioneClienti() {
   }
 
   async function handleUploadCassetto() {
-    if (!uploadTipo || !uploadFile || selectedCliente === 'none') { toast.error('Seleziona tipo e file'); return }
+    if (!uploadTipo || !uploadFile || !selectedCliente) { toast.error('Seleziona tipo e file'); return }
     setUploading(true)
     try {
       const formData = new FormData()
@@ -139,19 +136,13 @@ export function TabGestioneClienti() {
   }
 
   async function handleDeleteCassettoFile(key: string) {
-    try {
-      await api.cassetto.delete(key)
-      toast.success('File eliminato')
-      await loadArchivioCliente(selectedCliente)
-    } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
+    try { await api.cassetto.delete(key); toast.success('File eliminato'); await loadArchivioCliente(selectedCliente) }
+    catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
   }
 
   async function handleDeleteArchivioFile(key: string) {
-    try {
-      await api.documenti.delete([key])
-      toast.success('File eliminato e spostato nel cestino')
-      await loadArchivioCliente(selectedCliente)
-    } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
+    try { await api.documenti.delete([key]); toast.success('File spostato nel cestino'); await loadArchivioCliente(selectedCliente) }
+    catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
   }
 
   async function handleDownload(key: string, nome: string) {
@@ -172,52 +163,39 @@ export function TabGestioneClienti() {
 
   return (
     <div className="space-y-6">
-      {/* Form nuovo cliente */}
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><UserPlus className="h-5 w-5 text-emerald-600" /> Nuovo Cliente</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-          <div className="space-y-1.5">
-            <Label>Ragione Sociale</Label>
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="es. Rossi Mario S.r.l." />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Username</Label>
-            <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} placeholder="es. rossi" maxLength={20} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Password</Label>
-            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 4 caratteri" />
-          </div>
+          <div className="space-y-1.5"><Label>Ragione Sociale</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="es. Rossi Mario S.r.l." /></div>
+          <div className="space-y-1.5"><Label>Username</Label><Input value={newUsername} onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} placeholder="es. rossi" maxLength={20} /></div>
+          <div className="space-y-1.5"><Label>Password</Label><Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 4 caratteri" /></div>
           <Button onClick={handleCreate} disabled={creating || !newName || !newUsername || !newPassword} className="bg-emerald-700 hover:bg-emerald-800 text-white">
             {creating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />} Registra
           </Button>
         </CardContent>
       </Card>
 
-      {/* Archivio Cliente (admin preview) */}
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><FolderOpen className="h-5 w-5 text-emerald-600" /> Archivio Cliente</CardTitle></CardHeader>
         <CardContent>
-          <Select value={selectedCliente} onValueChange={(v) => { setSelectedCliente(v ?? 'none'); setOpenAnno(null); setOpenCartella(null) }}>
-            <SelectTrigger><SelectValue placeholder="Seleziona cliente per visualizzare l'archivio" /></SelectTrigger>
+          <Select value={selectedCliente} onValueChange={handleSelectCliente}>
+            <SelectTrigger><SelectValue placeholder="Seleziona cliente" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">Seleziona</SelectItem>
               {clienti.map((c) => <SelectItem key={c.username} value={c.username}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
 
           {loadingArchivio && <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>}
 
-          {selectedCliente !== 'none' && !loadingArchivio && (
+          {selectedCliente && !loadingArchivio && (
             <div className="mt-4 space-y-4">
-              {/* Cassetto Digitale */}
-              <Collapsible defaultOpen>
+              <Collapsible open={openCassetto} onOpenChange={setOpenCassetto}>
                 <Card>
                   <CollapsibleTrigger>
                     <CardHeader className="cursor-pointer hover:bg-slate-50">
                       <CardTitle className="text-sm flex items-center justify-between">
                         <span className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-emerald-600" /> Cassetto Digitale ({cassettoFiles.length})</span>
-                        <ChevronDown className="h-4 w-4" />
+                        {openCassetto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       </CardTitle>
                     </CardHeader>
                   </CollapsibleTrigger>
@@ -245,7 +223,7 @@ export function TabGestioneClienti() {
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="text-red-600"><Trash2 className="h-3 w-3" /></Button></AlertDialogTrigger>
                                     <AlertDialogContent>
-                                      <AlertDialogHeader><AlertDialogTitle>Eliminare {f.nome}?</AlertDialogTitle><AlertDialogDescription>Il file verrà spostato nel cestino.</AlertDialogDescription></AlertDialogHeader>
+                                      <AlertDialogHeader><AlertDialogTitle>Eliminare {f.nome}?</AlertDialogTitle><AlertDialogDescription>Il file verra spostato nel cestino.</AlertDialogDescription></AlertDialogHeader>
                                       <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCassettoFile(f.key)} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
                                     </AlertDialogContent>
                                   </AlertDialog>
@@ -260,7 +238,6 @@ export function TabGestioneClienti() {
                 </Card>
               </Collapsible>
 
-              {/* Archivio documenti per anno/cartella */}
               {archivioAnni.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-4">Nessun documento nell'archivio</p>
               ) : (
@@ -287,7 +264,7 @@ export function TabGestioneClienti() {
                                     <button className="w-full flex items-center justify-between p-2 hover:bg-slate-50 text-left text-sm">
                                       <div className="flex items-center gap-2">
                                         {openCartella === cartKey ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                        <span className="font-medium">📂 {cart.nome}</span>
+                                        <span className="font-medium">{cart.nome}</span>
                                       </div>
                                       <span className="text-xs text-slate-500">{cart.nFiles} file</span>
                                     </button>
@@ -309,7 +286,7 @@ export function TabGestioneClienti() {
                                               <AlertDialog>
                                                 <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="text-red-600"><Trash2 className="h-3 w-3" /></Button></AlertDialogTrigger>
                                                 <AlertDialogContent>
-                                                  <AlertDialogHeader><AlertDialogTitle>Eliminare {f.nome}?</AlertDialogTitle><AlertDialogDescription>Il file verrà spostato nel cestino.</AlertDialogDescription></AlertDialogHeader>
+                                                  <AlertDialogHeader><AlertDialogTitle>Eliminare {f.nome}?</AlertDialogTitle><AlertDialogDescription>Il file verra spostato nel cestino.</AlertDialogDescription></AlertDialogHeader>
                                                   <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteArchivioFile(f.key)} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
                                                 </AlertDialogContent>
                                               </AlertDialog>
@@ -334,13 +311,10 @@ export function TabGestioneClienti() {
         </CardContent>
       </Card>
 
-      {/* Lista clienti */}
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5 text-emerald-600" /> Clienti registrati ({clienti.length})</CardTitle></CardHeader>
         <CardContent>
-          {clienti.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-8">Nessun cliente registrato</p>
-          ) : (
+          {clienti.length === 0 ? <p className="text-sm text-slate-500 text-center py-8">Nessun cliente registrato</p> : (
             <div className="space-y-2">
               {clienti.map((c) => (
                 <div key={c.username} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
@@ -354,18 +328,10 @@ export function TabGestioneClienti() {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Edit className="h-4 w-4" /></Button>
                     <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4" /></Button>
-                      </AlertDialogTrigger>
+                      <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                       <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Elimina cliente {c.name}?</AlertDialogTitle>
-                          <AlertDialogDescription>Operazione irreversibile. Verranno eliminati anche tutti i documenti su Cloudflare R2 e lo storico messaggi/notifiche.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annulla</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(c.username)} className="bg-red-600 hover:bg-red-700">Elimina definitivamente</AlertDialogAction>
-                        </AlertDialogFooter>
+                        <AlertDialogHeader><AlertDialogTitle>Elimina cliente {c.name}?</AlertDialogTitle><AlertDialogDescription>Operazione irreversibile.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(c.username)} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
@@ -376,50 +342,36 @@ export function TabGestioneClienti() {
         </CardContent>
       </Card>
 
-      {/* Dialog modifica */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Modifica cliente</DialogTitle>
-            <DialogDescription>Modifica i dati del cliente. Lascia la password vuota per mantenerla.</DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Modifica cliente</DialogTitle><DialogDescription>Lascia la password vuota per mantenerla.</DialogDescription></DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5"><Label>Ragione Sociale</Label><Input value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
             <div className="space-y-1.5"><Label>Username</Label><Input value={editUsername} onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} maxLength={20} /></div>
             <div className="space-y-1.5"><Label>Nuova password (opzionale)</Label><Input type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} placeholder="Mantieni attuale" /></div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button>
-            <Button onClick={handleSaveEdit} className="bg-emerald-700 hover:bg-emerald-800 text-white">Salva</Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button><Button onClick={handleSaveEdit} className="bg-emerald-700 hover:bg-emerald-800 text-white">Salva</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog upload cassetto */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Carica nel cassetto di {clienti.find(c => c.username === selectedCliente)?.name}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Carica nel cassetto di {clienti.find(c => c.username === selectedCliente)?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Tipo documento</Label>
+            <div className="space-y-2"><Label>Tipo documento</Label>
               <Select value={uploadTipo} onValueChange={(v) => setUploadTipo(v ?? '')}>
                 <SelectTrigger><SelectValue placeholder="Seleziona tipo..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="QR Code P.IVA">QR Code P.IVA</SelectItem>
                   <SelectItem value="Certificato P.IVA">Certificato P.IVA</SelectItem>
                   <SelectItem value="Visura Camerale">Visura Camerale</SelectItem>
-                  <SelectItem value="Doc. Identità">Doc. Identità</SelectItem>
+                  <SelectItem value="Doc. Identita">Doc. Identita</SelectItem>
                   <SelectItem value="IBAN">IBAN</SelectItem>
                   <SelectItem value="Altro">Altro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>File (max {MAX_FILE_SIZE_MB}MB)</Label>
-              <Input type="file" onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)} />
-            </div>
+            <div className="space-y-2"><Label>File (max {MAX_FILE_SIZE_MB}MB)</Label><Input type="file" onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUploadOpen(false)}>Annulla</Button>
