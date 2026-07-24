@@ -7,7 +7,8 @@ import 'react-pdf/dist/Page/TextLayer.css'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+// Usa cdnjs (più affidabile di unpkg) per il worker
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
 
 export default function PdfViewer({ url }: { url: string }) {
   const [numPages, setNumPages] = useState<number>(0)
@@ -18,14 +19,15 @@ export default function PdfViewer({ url }: { url: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   function onDocumentLoadSuccess({ numPages: n }: { numPages: number }) {
+    console.log('[PDF] caricato con successo, pagine:', n)
     setNumPages(n)
     setLoading(false)
     setError(null)
   }
 
   function onDocumentLoadError(err: Error) {
-    console.error('[PDF] errore:', err)
-    setError('Impossibile caricare il documento PDF')
+    console.error('[PDF] errore caricamento:', err)
+    setError(`Impossibile caricare il PDF: ${err.message || 'errore sconosciuto'}`)
     setLoading(false)
   }
 
@@ -51,6 +53,20 @@ export default function PdfViewer({ url }: { url: string }) {
     if (containerRef.current) containerRef.current.scrollTop = 0
   }
 
+  if (error) {
+    return (
+      <div className="text-center text-red-600 mt-12 max-w-md mx-auto">
+        <p className="font-medium mb-2">{error}</p>
+        <p className="text-xs text-slate-500 mt-2">
+          URL: <code className="bg-slate-100 px-1 rounded">{url}</code>
+        </p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => window.open(url, '_blank')}>
+          Apri in nuova scheda
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div ref={containerRef} className="flex flex-col items-center w-full">
       {numPages > 1 && (
@@ -68,14 +84,10 @@ export default function PdfViewer({ url }: { url: string }) {
       )}
 
       {loading && (
-        <div className="flex items-center gap-2 text-slate-500 mt-12">
-          <Loader2 className="h-5 w-5 animate-spin" /> Caricamento PDF...
-        </div>
-      )}
-
-      {error && (
-        <div className="text-center text-red-600 mt-12">
-          <p className="font-medium mb-2">{error}</p>
+        <div className="flex flex-col items-center gap-3 text-slate-500 mt-12">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <p className="text-sm">Caricamento PDF...</p>
+          <p className="text-xs text-slate-400">Se resta bloccato, controlla la console (F12)</p>
         </div>
       )}
 
