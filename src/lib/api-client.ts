@@ -133,6 +133,10 @@ export const api = {
     recover: (key: string) =>
       apiFetch<{ ok: boolean; originalKey: string }>('/api/cestino/recover', { method: 'POST', body: JSON.stringify({ key }) }),
     deletePermanent: (key: string) =>
-      apiFetch<{ ok: boolean }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ key }) }),
+      apiFetch<{ ok: boolean; deleted?: number }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ key }) }),
+    deleteMultiple: (keys: string[]) =>
+      apiFetch<{ ok: boolean; deleted: number }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ keys }) }),
+    deleteAll: () =>
+      apiFetch<{ ok: boolean; deleted: number }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ deleteAll: true }) }),
   },
 }

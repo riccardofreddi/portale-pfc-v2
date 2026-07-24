@@ -18,20 +18,28 @@ export async function GET() {
     const prefix = `${DOCS_PREFIX}/_cestino/`
     const objs = await listaOggetti(prefix)
 
-    const files = objs.map((o) => {
-      const rel = o.key.slice(prefix.length)
-      const parts = rel.split('/')
-      const username = parts[0] ?? ''
-      const anno = parts[1] ?? ''
-      const cartella = parts[2] ?? ''
-      const nome = parts.slice(3).join('/') || ''
-      const originalKey = `${DOCS_PREFIX}/${rel}`
+    const files = objs
+      .filter((o) => {
+        // Filtra file di sistema
+        const name = o.key.split('/').pop() ?? ''
+        if (name.startsWith('.')) return false
+        if (o.key.includes('/.metadata/')) return false
+        return true
+      })
+      .map((o) => {
+        const rel = o.key.slice(prefix.length)
+        const parts = rel.split('/')
+        const username = parts[0] ?? ''
+        const anno = parts[1] ?? ''
+        const cartella = parts[2] ?? ''
+        const nome = parts.slice(3).join('/') || ''
+        const originalKey = `${DOCS_PREFIX}/${rel}`
 
-      return {
-        key: o.key, nome, username, anno, cartella, originalKey,
-        size: o.size, sizeStr: formatBytesLocal(o.size), lastModified: o.lastModified,
-      }
-    })
+        return {
+          key: o.key, nome, username, anno, cartella, originalKey,
+          size: o.size, sizeStr: formatBytesLocal(o.size), lastModified: o.lastModified,
+        }
+      })
 
     return NextResponse.json({ files })
   } catch (err) {
