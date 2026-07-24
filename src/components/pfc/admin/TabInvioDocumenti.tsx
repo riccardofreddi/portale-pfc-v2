@@ -15,6 +15,7 @@ import { formatBytes, MAX_FILE_SIZE_MB } from '@/lib/pfc-utils'
 
 interface Cliente { username: string; name: string }
 interface UploadResult { nome: string; key: string; size: number; status: 'caricato' | 'saltato' | 'rinominato' | 'sostituito' }
+interface CartellaMeta { nome: string; nFiles: number; nNuovi: number }
 
 export function TabInvioDocumenti() {
   const [clienti, setClienti] = useState<Cliente[]>([])
@@ -38,7 +39,12 @@ export function TabInvioDocumenti() {
   useEffect(() => {
     if (!clienteSelezionato || !annoFinale) { setCartelleDisponibili([]); return }
     api.documenti.list({ username: clienteSelezionato, anno: annoFinale })
-      .then((r) => setCartelleDisponibili(r.cartelle ?? []))
+      .then((r) => {
+        // FIX: gestisci sia vecchio formato (string[]) che nuovo (oggetti)
+        const carts = (r.cartelle ?? []) as unknown as Array<CartellaMeta | string>
+        const nomi = carts.map((c) => typeof c === 'string' ? c : c.nome)
+        setCartelleDisponibili(nomi)
+      })
       .catch(() => setCartelleDisponibili([]))
   }, [clienteSelezionato, annoFinale])
 
@@ -70,7 +76,10 @@ export function TabInvioDocumenti() {
       const nSaltati = r.filter((x) => x.status === 'saltato').length
       toast.success(`${nCaricati} file caricati${nSaltati > 0 ? `, ${nSaltati} saltati` : ''}`)
       setFiles([])
-      api.documenti.list({ username: clienteSelezionato, anno: annoFinale }).then((r2) => setCartelleDisponibili(r2.cartelle ?? [])).catch(() => {})
+      api.documenti.list({ username: clienteSelezionato, anno: annoFinale }).then((r2) => {
+        const carts = (r2.cartelle ?? []) as unknown as Array<CartellaMeta | string>
+        setCartelleDisponibili(carts.map((c) => typeof c === 'string' ? c : c.nome))
+      }).catch(() => {})
       const input = document.getElementById('file-input') as HTMLInputElement | null
       if (input) input.value = ''
     } catch (err) {
@@ -94,7 +103,7 @@ export function TabInvioDocumenti() {
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-slate-700">1. Cliente destinatario</Label>
-          <Select value={clienteSelezionato} onValueChange={(v) => setClienteSelezionato(v ?? '')}>
+          <Select value={clienteSelezionato} onValueChange={setClienteSelezionato}>
             <SelectTrigger><SelectValue placeholder="Seleziona un cliente" /></SelectTrigger>
             <SelectContent>{clienti.map((c) => <SelectItem key={c.username} value={c.username}>{c.name}</SelectItem>)}</SelectContent>
           </Select>
@@ -104,7 +113,7 @@ export function TabInvioDocumenti() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-slate-500 mb-1 block">Anno esistente</Label>
-              <Select value={annoEsistente} onValueChange={(v) => setAnnoEsistente(v ?? 'none')} disabled={!!annoNuovo.trim()}>
+              <Select value={annoEsistente} onValueChange={setAnnoEsistente} disabled={!!annoNuovo.trim()}>
                 <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">- Nessuno -</SelectItem>
@@ -123,7 +132,7 @@ export function TabInvioDocumenti() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-slate-500 mb-1 block">Cartella esistente</Label>
-              <Select value={cartellaEsistente} onValueChange={(v) => setCartellaEsistente(v ?? 'none')} disabled={!!cartellaNuova.trim()}>
+              <Select value={cartellaEsistente} onValueChange={setCartellaEsistente} disabled={!!cartellaNuova.trim()}>
                 <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">- Nessuna -</SelectItem>
