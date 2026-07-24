@@ -14,6 +14,7 @@ export default function PdfViewer({ url }: { url: string }) {
   const [pageNumber, setPageNumber] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(800)
 
   function onDocumentLoadSuccess({ numPages: n }: { numPages: number }) {
     setNumPages(n)
@@ -27,18 +28,62 @@ export default function PdfViewer({ url }: { url: string }) {
     setLoading(false)
   }
 
+  function measureContainer(el: HTMLDivElement | null) {
+    if (el) {
+      const w = el.clientWidth - 32
+      if (w > 0 && w !== containerWidth) setContainerWidth(w)
+    }
+  }
+
   return (
-    <div className="flex flex-col items-center w-full">
-      {loading && (<div className="flex items-center gap-2 text-slate-500 mt-12"><Loader2 className="h-5 w-5 animate-spin" /> Caricamento PDF...</div>)}
-      {error && (<div className="text-center text-red-600 mt-12"><p className="font-medium">{error}</p></div>)}
-      <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={onDocumentLoadError} loading={null} className="flex flex-col items-center">
-        <Page pageNumber={pageNumber} renderTextLayer={false} renderAnnotationLayer={false} className="shadow-lg" width={Math.min(800, typeof window !== 'undefined' ? window.innerWidth - 80 : 800)} />
+    <div ref={measureContainer} className="flex flex-col items-center w-full min-h-full">
+      {loading && (
+        <div className="flex items-center gap-2 text-slate-500 mt-12">
+          <Loader2 className="h-5 w-5 animate-spin" /> Caricamento PDF...
+        </div>
+      )}
+      {error && (
+        <div className="text-center text-red-600 mt-12">
+          <p className="font-medium">{error}</p>
+        </div>
+      )}
+      <Document
+        file={url}
+        onLoadSuccess={onDocumentLoadSuccess}
+        onLoadError={onDocumentLoadError}
+        loading={null}
+        className="flex flex-col items-center"
+      >
+        <Page
+          pageNumber={pageNumber}
+          renderTextLayer={false}
+          renderAnnotationLayer={false}
+          className="shadow-lg"
+          width={Math.min(containerWidth, 1200)}
+        />
       </Document>
+
       {numPages > 1 && (
-        <div className="sticky bottom-0 mt-4 px-4 py-2 border-t border-slate-200 flex items-center justify-center gap-3 bg-white shadow-lg rounded">
-          <Button variant="outline" size="sm" disabled={pageNumber <= 1} onClick={() => setPageNumber((p) => Math.max(1, p - 1))}><ChevronLeft className="h-4 w-4" /></Button>
-          <span className="text-sm text-slate-700">Pagina {pageNumber} di {numPages}</span>
-          <Button variant="outline" size="sm" disabled={pageNumber >= numPages} onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}><ChevronRight className="h-4 w-4" /></Button>
+        <div className="sticky bottom-0 mt-4 px-4 py-2 border-t border-slate-200 flex items-center justify-center gap-3 bg-white shadow-lg rounded-t">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pageNumber <= 1}
+            onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-slate-700">
+            Pagina {pageNumber} di {numPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pageNumber >= numPages}
+            onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       )}
     </div>
