@@ -81,6 +81,10 @@ export const api = {
       if (username) q.set('username', username)
       return apiFetch<{ logs: Array<{ id: string; ts: string; username: string; action: string; detail: string }> }>(`/api/audit?${q}`)
     },
+    meList: (limit?: number) => {
+      const q = limit ? `?limit=${limit}` : ''
+      return apiFetch<{ logs: Array<{ id: string; ts: string; action: string; detail: string }> }>(`/api/audit/me${q}`)
+    },
     reset: () => apiFetch('/api/audit', { method: 'DELETE' }),
   },
   sistema: {
