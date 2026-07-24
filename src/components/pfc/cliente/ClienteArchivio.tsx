@@ -32,7 +32,7 @@ export function ClienteArchivio() {
   const [r2Error, setR2Error] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Array<{ nome: string; key: string; anno: string; cartella: string; sizeStr: string; stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'; isPreferito: boolean }>>([]))
+  const [searchResults, setSearchResults] = useState<Array<{ nome: string; key: string; anno: string; cartella: string; sizeStr: string; stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'; isPreferito: boolean }>>([])))
   const [searching, setSearching] = useState(false)
   const searchTimer = useRef<NodeJS.Timeout | null>(null)
 
