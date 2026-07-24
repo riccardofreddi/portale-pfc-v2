@@ -13,14 +13,18 @@ import { FolderOpen, Folder, Download, Eye, Star, StarOff, Package, Loader2, Che
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 10
-const STATO_CONFIG = {
-  preferito: { icon: '⭐', label: 'Preferito', color: 'text-amber-600' },
-  nuovo: { icon: '🔴', label: 'Nuovo', color: 'text-red-600' },
-  visto: { icon: '🔵', label: 'Visto', color: 'text-blue-600' },
-  scaricato: { icon: '🟢', label: 'Scaricato', color: 'text-emerald-600' },
+const STATO_CONFIG: Record<string, { icon: string; label: string }> = {
+  preferito: { icon: '⭐', label: 'Preferito' },
+  nuovo: { icon: '🔴', label: 'Nuovo' },
+  visto: { icon: '🔵', label: 'Visto' },
+  scaricato: { icon: '🟢', label: 'Scaricato' },
 }
 
 interface CartellaMeta { nome: string; nFiles: number; nNuovi: number }
+interface SearchResult {
+  nome: string; key: string; anno: string; cartella: string; sizeStr: string;
+  stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'; isPreferito: boolean;
+}
 
 export function ClienteArchivio() {
   const { user, annoSelezionato, cartellaSelezionata, setAnno, setCartella, setPreviewFile, selectedFiles, toggleSelected, clearSelected } = usePfcStore()
@@ -32,7 +36,7 @@ export function ClienteArchivio() {
   const [r2Error, setR2Error] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Array<{ nome: string; key: string; anno: string; cartella: string; sizeStr: string; stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'; isPreferito: boolean }>>([])))
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const searchTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -45,7 +49,7 @@ export function ClienteArchivio() {
     searchTimer.current = setTimeout(async () => {
       try {
         const r = await api.ricerca(searchQuery.trim(), username)
-        setSearchResults(r.results)
+        setSearchResults(r.results as unknown as SearchResult[])
       } catch { toast.error('Errore ricerca'); setSearchResults([]) }
       finally { setSearching(false) }
     }, 300)
@@ -95,7 +99,6 @@ export function ClienteArchivio() {
     } catch { toast.error('Errore') }
   }
 
-
   async function handleTogglePreferitoSearch(filePath: string) {
     try {
       const r = await api.preferiti.toggle(filePath)
@@ -103,6 +106,7 @@ export function ClienteArchivio() {
       toast.success(r.isPreferito ? 'Aggiunto ai preferiti' : 'Rimosso dai preferiti')
     } catch { toast.error('Errore') }
   }
+
   async function handleDownload(key: string, nome: string) {
     try {
       const res = await fetch(`/api/documenti/download?key=${encodeURIComponent(key)}`)
@@ -190,19 +194,38 @@ export function ClienteArchivio() {
               <div className="space-y-1.5">
                 {searchResults.map((r) => {
                   const icon = ottieniIconaFile(r.nome)
+                  const statoCfg = STATO_CONFIG[r.stato]
                   const canPreview = canPreviewFile(r.nome)
                   return (
                     <div key={r.key} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 hover:shadow-sm transition-all">
+                      <button onClick={(e) => { e.stopPropagation(); handleTogglePreferitoSearch(r.key) }} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded" title={r.isPreferito ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}>
+                        {r.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500" /> : <StarOff className="h-4 w-4 text-slate-300" />}
+                      </button>
                       <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{r.nome}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none" title={statoCfg.label}>{statoCfg.icon}</span>
+                          <p className="font-medium text-slate-900 truncate">{r.nome}</p>
+                        </div>
                         <p className="text-xs text-slate-500 flex items-center gap-3">
                           <span>📅 {r.anno}</span><span>📂 {r.cartella}</span><span>📦 {r.sizeStr}</span>
                         </p>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {canPreview && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...r, stato: 'visto' as const, isPreferito: false, size: 0, lastModified: null })}><Eye className="h-3.5 w-3.5 mr-1" /> Anteprima</Button>}
-                        <Button variant="outline" size="sm" onClick={() => handleDownload(r.key, r.nome)}><Download className="h-3.5 w-3.5 mr-1" /> Scarica</Button>
+                        {canPreview && (
+                          <Button variant="outline" size="sm" onClick={() => {
+                            setPreviewFile({ ...r, size: 0, lastModified: null } as unknown as FileItem)
+                            setSearchResults((rs) => rs.map((x) => x.key === r.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x))
+                          }}>
+                            <Eye className="h-3.5 w-3.5 mr-1" /> Anteprima
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => {
+                          handleDownload(r.key, r.nome)
+                          setSearchResults((rs) => rs.map((x) => x.key === r.key ? { ...x, stato: 'scaricato' } : x))
+                        }}>
+                          <Download className="h-3.5 w-3.5 mr-1" /> Scarica
+                        </Button>
                       </div>
                     </div>
                   )
