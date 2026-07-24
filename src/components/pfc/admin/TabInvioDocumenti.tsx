@@ -103,7 +103,7 @@ export function TabInvioDocumenti() {
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-slate-700">1. Cliente destinatario</Label>
-          <Select value={clienteSelezionato} onValueChange={setClienteSelezionato}>
+          <Select value={clienteSelezionato} onValueChange={(v) => setClienteSelezionato(v ?? '')}>
             <SelectTrigger><SelectValue placeholder="Seleziona un cliente" /></SelectTrigger>
             <SelectContent>{clienti.map((c) => <SelectItem key={c.username} value={c.username}>{c.name}</SelectItem>)}</SelectContent>
           </Select>
@@ -113,7 +113,7 @@ export function TabInvioDocumenti() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-slate-500 mb-1 block">Anno esistente</Label>
-              <Select value={annoEsistente} onValueChange={setAnnoEsistente} disabled={!!annoNuovo.trim()}>
+              <Select value={annoEsistente} onValueChange={(v) => setAnnoEsistente(v ?? 'none')} disabled={!!annoNuovo.trim()}>
                 <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">- Nessuno -</SelectItem>
@@ -132,7 +132,7 @@ export function TabInvioDocumenti() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-slate-500 mb-1 block">Cartella esistente</Label>
-              <Select value={cartellaEsistente} onValueChange={setCartellaEsistente} disabled={!!cartellaNuova.trim()}>
+              <Select value={cartellaEsistente} onValueChange={(v) => setCartellaEsistente(v ?? 'none')} disabled={!!cartellaNuova.trim()}>
                 <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">- Nessuna -</SelectItem>
