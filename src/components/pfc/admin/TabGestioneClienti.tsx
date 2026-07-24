@@ -70,7 +70,7 @@ export function TabGestioneClienti() {
       for (const anno of (rAnni.anni ?? [])) {
         const rCart = await api.documenti.list({ username, anno })
         cartelleMap[anno] = (rCart.cartelle ?? []) as unknown as CartellaMeta[]
-        for (const cart of cartellaMap[anno]) {
+        for (const cart of cartelleMap[anno]) {
           const rFiles = await api.documenti.list({ username, anno, cartella: cart.nome })
           filesMap[`${anno}_${cart.nome}`] = (rFiles.files ?? []) as unknown as ArchivioFile[]
         }
