@@ -7,8 +7,8 @@ import 'react-pdf/dist/Page/TextLayer.css'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-// Usa cdnjs (più affidabile di unpkg) per il worker
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
+// Worker PDF.js servito dal nostro dominio (no CDN esterno)
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf-worker/pdf.worker.min.mjs'
 
 export default function PdfViewer({ url }: { url: string }) {
   const [numPages, setNumPages] = useState<number>(0)
@@ -57,9 +57,6 @@ export default function PdfViewer({ url }: { url: string }) {
     return (
       <div className="text-center text-red-600 mt-12 max-w-md mx-auto">
         <p className="font-medium mb-2">{error}</p>
-        <p className="text-xs text-slate-500 mt-2">
-          URL: <code className="bg-slate-100 px-1 rounded">{url}</code>
-        </p>
         <Button variant="outline" size="sm" className="mt-3" onClick={() => window.open(url, '_blank')}>
           Apri in nuova scheda
         </Button>
@@ -87,7 +84,6 @@ export default function PdfViewer({ url }: { url: string }) {
         <div className="flex flex-col items-center gap-3 text-slate-500 mt-12">
           <Loader2 className="h-6 w-6 animate-spin" />
           <p className="text-sm">Caricamento PDF...</p>
-          <p className="text-xs text-slate-400">Se resta bloccato, controlla la console (F12)</p>
         </div>
       )}
 
