@@ -40,7 +40,7 @@ export const api = {
       const q = new URLSearchParams({ username: params.username })
       if (params.anno) q.set('anno', params.anno)
       if (params.cartella) q.set('cartella', params.cartella)
-      return apiFetch<{ anni?: string[]; cartelle?: string[]; files?: Array<Record<string, unknown>>; r2NotConfigured?: boolean; error?: string }>(`/api/documenti/list?${q}`)
+      return apiFetch<{ anni?: string[]; cartelle?: Array<Record<string, unknown>>; files?: Array<Record<string, unknown>>; r2NotConfigured?: boolean; error?: string }>(`/api/documenti/list?${q}`)
     },
     upload: (formData: FormData) =>
       apiFetch<{ ok: boolean; results?: Array<Record<string, unknown>> }>('/api/documenti/upload', {
@@ -112,5 +112,12 @@ export const api = {
       apiFetch<{ ok: boolean }>('/api/cassetto/delete', { method: 'POST', body: JSON.stringify({ key }) }),
     rename: (key: string, newName: string) =>
       apiFetch<{ ok: boolean; newKey: string; newName: string }>('/api/cassetto/rename', { method: 'POST', body: JSON.stringify({ key, newName }) }),
+  },
+  risposte: {
+    upload: (formData: FormData) =>
+      apiFetch<{ ok: boolean; key: string; nome: string }>('/api/risposte/upload', {
+        method: 'POST',
+        body: formData,
+      }),
   },
 }
