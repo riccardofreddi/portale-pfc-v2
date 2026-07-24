@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const key = searchParams.get('key') ?? ''
+  const rawKey = searchParams.get('key') ?? ''
+  const key = rawKey.startsWith('/') ? rawKey.slice(1) : rawKey
   if (!key || !key.startsWith(`${DOCS_PREFIX}/`)) {
     return NextResponse.json({ error: 'Path non valido' }, { status: 400 })
   }
