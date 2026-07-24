@@ -7,7 +7,8 @@ import { ClienteArchivio } from './cliente/ClienteArchivio'
 import { ClienteMessaggi } from './cliente/ClienteMessaggi'
 import { ClienteAvvisi } from './cliente/ClienteAvvisi'
 import { ClienteCassetto } from './cliente/ClienteCassetto'
-import { FolderOpen, MessageSquare, Megaphone, Bell, Briefcase } from 'lucide-react'
+import { ClienteAttivita } from './cliente/ClienteAttivita'
+import { FolderOpen, MessageSquare, Megaphone, Bell, Briefcase, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api-client'
 import { Card, CardContent } from '@/components/ui/card'
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'cassetto', label: 'Cassetto Digitale', icon: Briefcase },
   { id: 'messaggi', label: 'Messaggi', icon: MessageSquare },
   { id: 'avvisi', label: 'Avvisi', icon: Megaphone },
+  { id: 'attivita', label: 'Le mie attività', icon: ClipboardList },
 ] as const
 
 export function ClienteArea() {
@@ -123,6 +125,7 @@ export function ClienteArea() {
         {clienteTab === 'cassetto' && <ClienteCassetto />}
         {clienteTab === 'messaggi' && <ClienteMessaggi />}
         {clienteTab === 'avvisi' && <ClienteAvvisi />}
+        {clienteTab === 'attivita' && <ClienteAttivita />}
       </main>
     </div>
   )

@@ -18,7 +18,7 @@ export interface FileItem {
 }
 
 export type AdminTab = 'invio' | 'clienti' | 'bacheca' | 'resoconto'
-export type ClienteTab = 'archivio' | 'messaggi' | 'avvisi' | 'cassetto'
+export type ClienteTab = 'archivio' | 'messaggi' | 'avvisi' | 'cassetto' | 'attivita'
 
 interface PfcState {
   user: User | null
