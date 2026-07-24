@@ -175,7 +175,7 @@ export function ClienteMessaggi() {
                 <div className="mt-3 bg-emerald-50 border border-emerald-300 rounded-lg p-3 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                   <p className="text-xs text-emerald-800 font-medium">
-                    File inviato allo studio. Lo studio confermerà la ricezione.
+                    File inviato con successo.
                   </p>
                 </div>
               )}
