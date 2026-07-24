@@ -201,7 +201,10 @@ export function ClienteArchivio() {
                         <p className="text-xs text-slate-500">{f.sizeStr}{f.lastModified && <span className="ml-2">- {formatDateShort(f.lastModified)}</span>}</p>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {canPreview && <Button variant="outline" size="sm" onClick={() => setPreviewFile(f)}><Eye className="h-3.5 w-3.5 mr-1" /> Anteprima</Button>}
+                        {canPreview && <Button variant="outline" size="sm" onClick={() => {
+                            setPreviewFile(f)
+                            setFiles((fs) => fs.map((x) => x.key === f.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x))
+                          }}><Eye className="h-3.5 w-3.5 mr-1" /> Anteprima</Button>}
                         <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3.5 w-3.5 mr-1" /> Scarica</Button>
                       </div>
                     </div>
