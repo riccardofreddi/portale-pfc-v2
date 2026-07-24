@@ -128,4 +128,11 @@ export const api = {
     if (username) params.set('username', username)
     return apiFetch<{ results: Array<{ nome: string; key: string; anno: string; cartella: string; size: number; sizeStr: string; score: number }> }>(`/api/ricerca?${params}`)
   },
+  cestino: {
+    list: () => apiFetch<{ files: Array<{ key: string; nome: string; username: string; anno: string; cartella: string; originalKey: string; size: number; sizeStr: string; lastModified: Date | null }> }>('/api/cestino/list'),
+    recover: (key: string) =>
+      apiFetch<{ ok: boolean; originalKey: string }>('/api/cestino/recover', { method: 'POST', body: JSON.stringify({ key }) }),
+    deletePermanent: (key: string) =>
+      apiFetch<{ ok: boolean }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ key }) }),
+  },
 }
