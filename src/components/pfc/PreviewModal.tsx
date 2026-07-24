@@ -1,21 +1,10 @@
 ﻿'use client'
 
-import { Suspense } from 'react'
-import dynamic from 'next/dynamic'
 import { usePfcStore } from '@/store/pfc'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Download, X, Loader2 } from 'lucide-react'
+import { Download, X } from 'lucide-react'
 import { toast } from 'sonner'
-
-const PdfViewer = dynamic(() => import('./PdfViewer'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center gap-2 text-slate-500 mt-12">
-      <Loader2 className="h-5 w-5 animate-spin" /> Caricamento visualizzatore PDF...
-    </div>
-  ),
-})
 
 export function PreviewModal() {
   const { previewFile, setPreviewFile } = usePfcStore()
@@ -58,7 +47,7 @@ export function PreviewModal() {
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <Button variant="default" size="sm" onClick={handleDownload} className="h-8 bg-blue-700 hover:bg-blue-800">
-              <Download className="h-3.5 w-3.5 mr-1.5" /> Scarica PDF completo
+              <Download className="h-3.5 w-3.5 mr-1.5" /> Scarica
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setPreviewFile(null)} className="h-8 w-8 p-0">
               <X className="h-4 w-4" />
@@ -66,13 +55,16 @@ export function PreviewModal() {
           </div>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto bg-slate-100 px-4 py-3">
+        <div className="flex-1 min-h-0 bg-slate-100">
           {isPdf ? (
-            <Suspense fallback={<div className="text-slate-500 mt-12 text-center">Caricamento...</div>}>
-              <PdfViewer url={previewUrl} />
-            </Suspense>
+            // Usa il visualizzatore PDF nativo del browser (sempre funzionante)
+            <iframe
+              src={previewUrl}
+              className="w-full h-full border-0"
+              title={previewFile.nome}
+            />
           ) : isImage ? (
-            <div className="flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
               <img
                 src={previewUrl}
                 alt={previewFile.nome}
