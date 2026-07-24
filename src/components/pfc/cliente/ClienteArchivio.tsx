@@ -14,9 +14,9 @@ import { cn } from '@/lib/utils'
 const PAGE_SIZE = 10
 const STATO_CONFIG = {
   preferito: { icon: '*', label: 'Preferito', color: 'text-amber-600' },
-  nuovo: { icon: 'N', label: 'Nuovo', color: 'text-red-600' },
-  visto: { icon: 'V', label: 'Visto', color: 'text-blue-600' },
-  scaricato: { icon: 'S', label: 'Scaricato', color: 'text-emerald-600' },
+  nuovo: { icon: '🔴', label: 'Nuovo', color: 'text-red-600' },
+  visto: { icon: '🔵', label: 'Visto', color: 'text-blue-600' },
+  scaricato: { icon: '🟢', label: 'Scaricato', color: 'text-emerald-600' },
 }
 
 export function ClienteArchivio() {
