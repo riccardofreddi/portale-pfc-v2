@@ -32,7 +32,7 @@ export function ClienteArchivio() {
   const [r2Error, setR2Error] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Array<{ nome: string; key: string; anno: string; cartella: string; sizeStr: string }>>([])
+  const [searchResults, setSearchResults] = useState<Array<{ nome: string; key: string; anno: string; cartella: string; sizeStr: string; stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'; isPreferito: boolean }>>([]))
   const [searching, setSearching] = useState(false)
   const searchTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -95,6 +95,14 @@ export function ClienteArchivio() {
     } catch { toast.error('Errore') }
   }
 
+
+  async function handleTogglePreferitoSearch(filePath: string) {
+    try {
+      const r = await api.preferiti.toggle(filePath)
+      setSearchResults((rs) => rs.map((x) => x.key === filePath ? { ...x, isPreferito: r.isPreferito, stato: r.isPreferito ? 'preferito' : 'nuovo' } : x))
+      toast.success(r.isPreferito ? 'Aggiunto ai preferiti' : 'Rimosso dai preferiti')
+    } catch { toast.error('Errore') }
+  }
   async function handleDownload(key: string, nome: string) {
     try {
       const res = await fetch(`/api/documenti/download?key=${encodeURIComponent(key)}`)

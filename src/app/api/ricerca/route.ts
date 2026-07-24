@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { db } from '@/lib/db'
 import { listaOggetti, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
 
 export const dynamic = 'force-dynamic'
@@ -18,10 +19,7 @@ function fuzzyMatch(queryTokens: string[], targetTokens: string[]): boolean {
   for (const qt of queryTokens) {
     let trovato = false
     for (const tt of targetTokens) {
-      if (tt.includes(qt)) {
-        trovato = true
-        break
-      }
+      if (tt.includes(qt)) { trovato = true; break }
     }
     if (!trovato) return false
   }
@@ -55,9 +53,28 @@ export async function GET(req: NextRequest) {
   const prefix = `${DOCS_PREFIX}/${username}/`
   const objs = await listaOggetti(prefix)
 
+  // Per cliente: carica stato (visto/scaricato) per arricchire risultati
+  let scaricati = new Set<string>()
+  let visti = new Set<string>()
+  let preferiti = new Set<string>()
+  if (session.role === 'client') {
+    const user = await db.user.findUnique({ where: { username: session.sub } })
+    if (user) {
+      const [dls, views, prefs] = await Promise.all([
+        db.fileDownload.findMany({ where: { userId: user.id } }),
+        db.fileView.findMany({ where: { userId: user.id } }),
+        db.favorite.findMany({ where: { userId: user.id } }),
+      ])
+      scaricati = new Set(dls.map((d) => d.filePath))
+      visti = new Set(views.map((v) => v.filePath))
+      preferiti = new Set(prefs.map((p) => p.filePath))
+    }
+  }
+
   const risultati: Array<{
     nome: string; key: string; anno: string; cartella: string;
-    size: number; sizeStr: string; score: number
+    size: number; sizeStr: string; score: number;
+    stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'; isPreferito: boolean;
   }> = []
 
   for (const o of objs) {
@@ -86,9 +103,19 @@ export async function GET(req: NextRequest) {
       if (fileTokens.length > 0 && fileTokens[0].includes(qt)) score += 2
     }
 
+    // Calcola stato (come archivio normale)
+    const stato = preferiti.has(o.key)
+      ? 'preferito'
+      : scaricati.has(o.key)
+        ? 'scaricato'
+        : visti.has(o.key)
+          ? 'visto'
+          : 'nuovo'
+
     risultati.push({
       nome: file, key: o.key, anno, cartella,
       size: o.size, sizeStr: formatBytesLocal(o.size), score,
+      stato, isPreferito: preferiti.has(o.key),
     })
 
     if (risultati.length >= 50) break
