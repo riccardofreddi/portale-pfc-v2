@@ -92,4 +92,21 @@ export const api = {
   },
   resoconto: () => apiFetch<{ stats: Array<Record<string, unknown>>; r2NotConfigured?: boolean }>('/api/resoconto'),
   setup: () => apiFetch('/api/setup'),
+  cassetto: {
+    list: (username?: string) => {
+      const q = username ? `?username=${encodeURIComponent(username)}` : ''
+      return apiFetch<{ files: Array<{ nome: string; key: string; size: number; sizeStr: string; lastModified: Date | null }> }>(`/api/cassetto/list${q}`)
+    },
+    upload: (formData: FormData, username?: string) => {
+      const q = username ? `?username=${encodeURIComponent(username)}` : ''
+      return apiFetch<{ ok: boolean; key: string; nome: string }>(`/api/cassetto/upload${q}`, {
+        method: 'POST',
+        body: formData,
+      })
+    },
+    delete: (key: string) =>
+      apiFetch<{ ok: boolean }>('/api/cassetto/delete', { method: 'POST', body: JSON.stringify({ key }) }),
+    rename: (key: string, newName: string) =>
+      apiFetch<{ ok: boolean; newKey: string; newName: string }>('/api/cassetto/rename', { method: 'POST', body: JSON.stringify({ key, newName }) }),
+  },
 }

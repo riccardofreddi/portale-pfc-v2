@@ -201,3 +201,28 @@ function formatBytesLocal(bytes: number): string {
   const v = bytes / Math.pow(1024, i)
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }
+
+/**
+ * Cassetto Digitale - documenti anagrafici cliente.
+ * Path: Documenti/{username}/_anagrafica/{filename}
+ */
+export const ANAGRAFICA_DIR = '_anagrafica'
+
+export function buildCassettoKey(username: string, filename: string): string {
+  return `${DOCS_PREFIX}/${username}/${ANAGRAFICA_DIR}/${filename}`
+}
+
+export async function listCassettoFiles(username: string): Promise<FileMeta[]> {
+  const prefix = `${DOCS_PREFIX}/${username}/${ANAGRAFICA_DIR}/`
+  const objs = await listaOggetti(prefix)
+  return objs.map((o) => {
+    const nome = o.key.slice(prefix.length)
+    return {
+      nome,
+      key: o.key,
+      size: o.size,
+      sizeStr: formatBytesLocal(o.size),
+      lastModified: o.lastModified,
+    }
+  })
+}

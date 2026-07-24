@@ -6,7 +6,8 @@ import { TopBar } from './TopBar'
 import { ClienteArchivio } from './cliente/ClienteArchivio'
 import { ClienteMessaggi } from './cliente/ClienteMessaggi'
 import { ClienteAvvisi } from './cliente/ClienteAvvisi'
-import { FolderOpen, MessageSquare, Megaphone, Bell } from 'lucide-react'
+import { ClienteCassetto } from './cliente/ClienteCassetto'
+import { FolderOpen, MessageSquare, Megaphone, Bell, Briefcase } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -86,6 +87,7 @@ export function ClienteArea() {
           </nav>
         </div>
         {clienteTab === 'archivio' && <ClienteArchivio />}
+        {clienteTab === 'cassetto' && <ClienteCassetto />}
         {clienteTab === 'messaggi' && <ClienteMessaggi />}
         {clienteTab === 'avvisi' && <ClienteAvvisi />}
       </main>
