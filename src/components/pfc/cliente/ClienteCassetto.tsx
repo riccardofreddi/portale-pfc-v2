@@ -246,9 +246,9 @@ export function ClienteCassetto() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Eliminare {f.nome}?</AlertDialogTitle>
+                          <AlertDialogTitle>Eliminare definitivamente {f.nome}?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Il file verrà spostato nel cestino. Potrai recuperarlo in seguito.
+                            Operazione irreversibile. Il file verra eliminato definitivamente e non sara piu recuperabile.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
