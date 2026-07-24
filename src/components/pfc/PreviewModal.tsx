@@ -54,7 +54,7 @@ export function PreviewModal() {
             <Button variant="ghost" size="sm" onClick={() => setPreviewFile(null)} className="h-8 w-8 p-0"><X className="h-4 w-4" /></Button>
           </div>
         </DialogHeader>
-        <div className="flex-1 overflow-auto bg-slate-100 flex items-start justify-center p-4">
+        <div className="flex-1 overflow-auto bg-slate-100 flex items-center justify-center p-4 min-h-0">
           {isPdf ? (
             <Suspense fallback={<div className="text-slate-500 mt-12">Caricamento...</div>}>
               <PdfViewer url={previewUrl} />
