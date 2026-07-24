@@ -213,7 +213,7 @@ export function TabGestioneClienti() {
               {/* Cassetto Digitale */}
               <Collapsible defaultOpen>
                 <Card>
-                  <CollapsibleTrigger asChild>
+                  <CollapsibleTrigger>
                     <CardHeader className="cursor-pointer hover:bg-slate-50">
                       <CardTitle className="text-sm flex items-center justify-between">
                         <span className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-emerald-600" /> Cassetto Digitale ({cassettoFiles.length})</span>
@@ -267,7 +267,7 @@ export function TabGestioneClienti() {
                 archivioAnni.map((anno) => (
                   <Collapsible key={anno} open={openAnno === anno} onOpenChange={(o) => setOpenAnno(o ? anno : null)}>
                     <Card>
-                      <CollapsibleTrigger asChild>
+                      <CollapsibleTrigger>
                         <CardHeader className="cursor-pointer hover:bg-slate-50">
                           <CardTitle className="text-sm flex items-center justify-between">
                             <span className="flex items-center gap-2"><FolderOpen className="h-4 w-4 text-blue-600" /> Anno {anno}</span>
@@ -283,7 +283,7 @@ export function TabGestioneClienti() {
                             return (
                               <Collapsible key={cartKey} open={openCartella === cartKey} onOpenChange={(o) => setOpenCartella(o ? cartKey : null)}>
                                 <div className="border border-slate-200 rounded-lg overflow-hidden">
-                                  <CollapsibleTrigger asChild>
+                                  <CollapsibleTrigger>
                                     <button className="w-full flex items-center justify-between p-2 hover:bg-slate-50 text-left text-sm">
                                       <div className="flex items-center gap-2">
                                         {openCartella === cartKey ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
