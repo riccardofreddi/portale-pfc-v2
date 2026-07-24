@@ -17,7 +17,7 @@ export interface FileItem {
   isPreferito: boolean
 }
 
-export type AdminTab = 'invio' | 'clienti' | 'bacheca' | 'resoconto'
+export type AdminTab = 'invio' | 'clienti' | 'bacheca' | 'cestino' | 'resoconto'
 export type ClienteTab = 'archivio' | 'messaggi' | 'avvisi' | 'cassetto' | 'attivita'
 
 interface PfcState {

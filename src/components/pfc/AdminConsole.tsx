@@ -5,14 +5,16 @@ import { TopBar } from './TopBar'
 import { TabInvioDocumenti } from './admin/TabInvioDocumenti'
 import { TabGestioneClienti } from './admin/TabGestioneClienti'
 import { TabBacheca } from './admin/TabBacheca'
+import { TabCestino } from './admin/TabCestino'
 import { TabResoconto } from './admin/TabResoconto'
-import { Upload, Users, MessageSquare, BarChart3 } from 'lucide-react'
+import { Upload, Users, MessageSquare, Archive, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TABS = [
   { id: 'invio', label: 'Invio Documenti', icon: Upload },
   { id: 'clienti', label: 'Gestione Clienti', icon: Users },
   { id: 'bacheca', label: 'Bacheca e Messaggi', icon: MessageSquare },
+  { id: 'cestino', label: 'Cestino', icon: Archive },
   { id: 'resoconto', label: 'Resoconto Archivio', icon: BarChart3 },
 ] as const
 
@@ -42,6 +44,7 @@ export function AdminConsole() {
         {adminTab === 'invio' && <TabInvioDocumenti />}
         {adminTab === 'clienti' && <TabGestioneClienti />}
         {adminTab === 'bacheca' && <TabBacheca />}
+        {adminTab === 'cestino' && <TabCestino />}
         {adminTab === 'resoconto' && <TabResoconto />}
       </main>
     </div>
