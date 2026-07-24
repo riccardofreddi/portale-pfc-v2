@@ -198,7 +198,7 @@ export function TabGestioneClienti() {
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><FolderOpen className="h-5 w-5 text-emerald-600" /> Archivio Cliente</CardTitle></CardHeader>
         <CardContent>
-          <Select value={selectedCliente} onValueChange={(v) => setSelectedCliente(v ?? 'none'); setOpenAnno(null); setOpenCartella(null)}>
+          <Select value={selectedCliente} onValueChange={(v) => { setSelectedCliente(v ?? 'none'); setOpenAnno(null); setOpenCartella(null) }}>
             <SelectTrigger><SelectValue placeholder="Seleziona cliente per visualizzare l'archivio" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Seleziona</SelectItem>
