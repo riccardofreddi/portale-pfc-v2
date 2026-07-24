@@ -11,15 +11,10 @@ export async function GET() {
   const user = await db.user.findUnique({ where: { username: session.sub } })
   if (!user) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
 
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
-  await db.notification.deleteMany({
-    where: { userId: user.id, read: true, ts: { lt: cutoff } },
-  })
-
+  // Recupera tutte le notifiche (nessuna cancellazione automatica, storico persistente)
   const notifiche = await db.notification.findMany({
     where: { userId: user.id },
     orderBy: { ts: 'desc' },
-    take: 20,
   })
 
   return NextResponse.json({
@@ -42,11 +37,18 @@ export async function POST(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const action = searchParams.get('action')
+  const id = searchParams.get('id') // ID singola notifica per segna letta
   const user = await db.user.findUnique({ where: { username: session.sub } })
   if (!user) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
 
   if (action === 'segna_lette') {
-    await db.notification.updateMany({ where: { userId: user.id, read: false }, data: { read: true } })
+    if (id) {
+      // Segna singola notifica come letta
+      await db.notification.updateMany({ where: { id, userId: user.id }, data: { read: true } })
+    } else {
+      // Segna tutte come lette
+      await db.notification.updateMany({ where: { userId: user.id, read: false }, data: { read: true } })
+    }
     return NextResponse.json({ ok: true })
   }
   if (action === 'pulisci_lette') {
