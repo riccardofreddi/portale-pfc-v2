@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -15,6 +15,7 @@ export default function PdfViewer({ url }: { url: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [containerWidth, setContainerWidth] = useState<number>(800)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   function onDocumentLoadSuccess({ numPages: n }: { numPages: number }) {
     setNumPages(n)
@@ -28,61 +29,85 @@ export default function PdfViewer({ url }: { url: string }) {
     setLoading(false)
   }
 
-  function measureContainer(el: HTMLDivElement | null) {
-    if (el) {
-      const w = el.clientWidth - 32
-      if (w > 0 && w !== containerWidth) setContainerWidth(w)
+  useEffect(() => {
+    function measure() {
+      if (containerRef.current) {
+        const w = containerRef.current.clientWidth - 32
+        if (w > 0) setContainerWidth(w)
+      }
     }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [])
+
+  function goToPrevPage() {
+    setPageNumber((p) => Math.max(1, p - 1))
+    if (containerRef.current) containerRef.current.scrollTop = 0
+  }
+
+  function goToNextPage() {
+    setPageNumber((p) => Math.min(numPages, p + 1))
+    if (containerRef.current) containerRef.current.scrollTop = 0
   }
 
   return (
-    <div ref={measureContainer} className="flex flex-col items-center w-full min-h-full">
+    <div ref={containerRef} className="flex flex-col items-center w-full">
+      {numPages > 1 && (
+        <div className="sticky top-0 z-10 w-full bg-slate-100/95 backdrop-blur border-b border-slate-200 px-4 py-2 flex items-center justify-center gap-4 mb-3">
+          <Button variant="outline" size="sm" disabled={pageNumber <= 1} onClick={goToPrevPage} className="h-8">
+            <ChevronLeft className="h-4 w-4 mr-1" /> Precedente
+          </Button>
+          <span className="text-sm text-slate-700 font-medium min-w-[140px] text-center">
+            Pagina {pageNumber} di {numPages}
+          </span>
+          <Button variant="outline" size="sm" disabled={pageNumber >= numPages} onClick={goToNextPage} className="h-8">
+            Successiva <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center gap-2 text-slate-500 mt-12">
           <Loader2 className="h-5 w-5 animate-spin" /> Caricamento PDF...
         </div>
       )}
+
       {error && (
         <div className="text-center text-red-600 mt-12">
-          <p className="font-medium">{error}</p>
+          <p className="font-medium mb-2">{error}</p>
         </div>
       )}
-      <Document
-        file={url}
-        onLoadSuccess={onDocumentLoadSuccess}
-        onLoadError={onDocumentLoadError}
-        loading={null}
-        className="flex flex-col items-center"
-      >
-        <Page
-          pageNumber={pageNumber}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-          className="shadow-lg"
-          width={Math.min(containerWidth, 1200)}
-        />
-      </Document>
 
-      {numPages > 1 && (
-        <div className="sticky bottom-0 mt-4 px-4 py-2 border-t border-slate-200 flex items-center justify-center gap-3 bg-white shadow-lg rounded-t">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pageNumber <= 1}
-            onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+      {!loading && !error && (
+        <div className="bg-white shadow-lg rounded">
+          <Document
+            file={url}
+            onLoadSuccess={onDocumentLoadSuccess}
+            onLoadError={onDocumentLoadError}
+            loading={null}
+            className="flex flex-col items-center"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <Page
+              pageNumber={pageNumber}
+              renderTextLayer={false}
+              renderAnnotationLayer={false}
+              width={containerWidth}
+            />
+          </Document>
+        </div>
+      )}
+
+      {!loading && !error && numPages > 1 && (
+        <div className="w-full bg-slate-100/95 border-t border-slate-200 px-4 py-2 flex items-center justify-center gap-4 mt-3">
+          <Button variant="outline" size="sm" disabled={pageNumber <= 1} onClick={goToPrevPage} className="h-8">
+            <ChevronLeft className="h-4 w-4 mr-1" /> Pagina precedente
           </Button>
-          <span className="text-sm text-slate-700">
+          <span className="text-sm text-slate-700 font-medium min-w-[140px] text-center">
             Pagina {pageNumber} di {numPages}
           </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pageNumber >= numPages}
-            onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
-          >
-            <ChevronRight className="h-4 w-4" />
+          <Button variant="outline" size="sm" disabled={pageNumber >= numPages} onClick={goToNextPage} className="h-8">
+            Pagina successiva <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </div>
       )}
