@@ -13,16 +13,22 @@ import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 10
 const STATO_CONFIG = {
-  preferito: { icon: '*', label: 'Preferito', color: 'text-amber-600' },
+  preferito: { icon: '⭐', label: 'Preferito', color: 'text-amber-600' },
   nuovo: { icon: '🔴', label: 'Nuovo', color: 'text-red-600' },
   visto: { icon: '🔵', label: 'Visto', color: 'text-blue-600' },
   scaricato: { icon: '🟢', label: 'Scaricato', color: 'text-emerald-600' },
 }
 
+interface CartellaMeta {
+  nome: string
+  nFiles: number
+  nNuovi: number
+}
+
 export function ClienteArchivio() {
   const { user, annoSelezionato, cartellaSelezionata, setAnno, setCartella, setPreviewFile, selectedFiles, toggleSelected, clearSelected } = usePfcStore()
   const [anni, setAnni] = useState<string[]>([])
-  const [cartelle, setCartelle] = useState<string[]>([])
+  const [cartelle, setCartelle] = useState<CartellaMeta[]>([])
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -35,7 +41,11 @@ export function ClienteArchivio() {
     setLoading(true)
     api.documenti.list({ username })
       .then((r) => {
-        if (r.r2NotConfigured) { setR2Error(true); setAnni([]); return }
+        if (r.r2NotConfigured) {
+          setR2Error(true)
+          setAnni([])
+          return
+        }
         setR2Error(false)
         setAnni(r.anni ?? [])
         if ((r.anni ?? []).length > 0 && !annoSelezionato) setAnno(r.anni![0])
@@ -48,9 +58,13 @@ export function ClienteArchivio() {
     if (!username || !annoSelezionato) { setCartelle([]); return }
     api.documenti.list({ username, anno: annoSelezionato })
       .then((r) => {
-        setCartelle(r.cartelle ?? [])
-        if ((r.cartelle ?? []).length > 0 && !cartellaSelezionata) setCartella(r.cartelle![0])
-        else if ((r.cartelle ?? []).length === 0) setCartella(null)
+        const carts = (r.cartelle ?? []) as unknown as CartellaMeta[]
+        setCartelle(carts)
+        if (carts.length > 0 && !cartellaSelezionata) {
+          setCartella(carts[0].nome)
+        } else if (carts.length === 0) {
+          setCartella(null)
+        }
       })
       .catch(() => toast.error('Errore caricamento cartelle'))
   }, [username, annoSelezionato, cartellaSelezionata, setCartella])
@@ -110,7 +124,7 @@ export function ClienteArchivio() {
     <Card><CardContent className="py-12 text-center">
       <AlertCircle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
       <p className="text-slate-700 font-medium mb-1">Cloudflare R2 non configurato</p>
-      <p className="text-sm text-slate-500">Lo studio deve ancora configurare lo storage dei documenti. Riprova piu tardi.</p>
+      <p className="text-sm text-slate-500">Lo studio deve ancora configurare lo storage dei documenti.</p>
     </CardContent></Card>
   )
 
@@ -136,22 +150,45 @@ export function ClienteArchivio() {
           <button key={a} onClick={() => setAnno(a)} className={cn('px-4 py-2 rounded-lg text-sm font-medium border transition-colors', annoSelezionato === a ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50')}>{a}</button>
         ))}
       </div>
+
       {cartelle.length > 1 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {cartelle.map((c) => {
-            const active = cartellaSelezionata === c
+            const active = cartellaSelezionata === c.nome
             return (
-              <button key={c} onClick={() => setCartella(c)} className={cn('p-4 rounded-xl border text-left transition-all', active ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-white shadow-md ring-2 ring-emerald-100' : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm')}>
-                <div className="flex items-center gap-2 mb-2">
-                  <FolderOpen className={cn('h-5 w-5', active ? 'text-emerald-600' : 'text-slate-400')} />
-                  <span className="font-bold text-slate-900">{c}</span>
+              <button
+                key={c.nome}
+                onClick={() => setCartella(c.nome)}
+                className={cn(
+                  'p-4 rounded-xl border text-left transition-all',
+                  active
+                    ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-white shadow-md ring-2 ring-emerald-100'
+                    : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm'
+                )}
+              >
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <FolderOpen className={cn('h-5 w-5 flex-shrink-0', active ? 'text-emerald-600' : 'text-slate-400')} />
+                  <span className="font-bold text-slate-900">{c.nome}</span>
+                  {c.nNuovi > 0 && (
+                    <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                      +{c.nNuovi} nuovi
+                    </span>
+                  )}
                 </div>
-                {active && <div className="text-xs font-semibold text-emerald-700 bg-emerald-100 rounded px-2 py-1 inline-block">Aperta</div>}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">📄 {c.nFiles} file</span>
+                  {active && (
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 rounded px-2 py-0.5">
+                      ✓ Aperta
+                    </span>
+                  )}
+                </div>
               </button>
             )
           })}
         </div>
       )}
+
       {annoSelezionato && cartellaSelezionata && (
         <>
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -171,12 +208,14 @@ export function ClienteArchivio() {
               )}
             </div>
           </div>
+
           <div className="text-xs text-slate-500 flex items-center gap-3">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span>Nuovo</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span>Visto</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>Scaricato</span>
-            <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-500 fill-amber-500" />Preferito</span>
+            <span>🔴 Nuovo</span>
+            <span>🔵 Visto</span>
+            <span>🟢 Scaricato</span>
+            <span>⭐ Preferito</span>
           </div>
+
           {files.length === 0 ? (
             <Card><CardContent className="py-12 text-center text-slate-500"><Folder className="h-10 w-10 mx-auto mb-2 text-slate-300" />Cartella vuota</CardContent></Card>
           ) : (
@@ -187,25 +226,49 @@ export function ClienteArchivio() {
                   const statoCfg = STATO_CONFIG[f.stato]
                   const canPreview = canPreviewFile(f.nome)
                   return (
-                    <div key={f.key} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 hover:shadow-sm transition-all">
-                      <Checkbox checked={selectedFiles.has(f.key)} onCheckedChange={() => toggleSelected(f.key)} />
-                      <button onClick={(e) => handleTogglePreferito(f.key, e)} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded" title={f.isPreferito ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}>
+                    <div
+                      key={f.key}
+                      className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 hover:shadow-sm transition-all"
+                    >
+                      <Checkbox
+                        checked={selectedFiles.has(f.key)}
+                        onCheckedChange={() => toggleSelected(f.key)}
+                      />
+                      <button
+                        onClick={(e) => handleTogglePreferito(f.key, e)}
+                        className="flex-shrink-0 p-1 hover:bg-amber-50 rounded"
+                        title={f.isPreferito ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                      >
                         {f.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500" /> : <StarOff className="h-4 w-4 text-slate-300" />}
                       </button>
-                      <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
+
+                      <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ background: icon.bg, color: icon.fg }}>
+                        {icon.icon}
+                      </div>
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold" style={{ color: statoCfg.color }}>[{statoCfg.icon}]</span>
+                          <span className="text-base leading-none" title={statoCfg.label}>{statoCfg.icon}</span>
                           <p className="font-medium text-slate-900 truncate">{f.nome}</p>
                         </div>
-                        <p className="text-xs text-slate-500">{f.sizeStr}{f.lastModified && <span className="ml-2">- {formatDateShort(f.lastModified)}</span>}</p>
+                        <p className="text-xs text-slate-500">
+                          📦 {f.sizeStr}
+                          {f.lastModified && <span className="ml-2">· {formatDateShort(f.lastModified)}</span>}
+                        </p>
                       </div>
+
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {canPreview && <Button variant="outline" size="sm" onClick={() => {
+                        {canPreview && (
+                          <Button variant="outline" size="sm" onClick={() => {
                             setPreviewFile(f)
                             setFiles((fs) => fs.map((x) => x.key === f.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x))
-                          }}><Eye className="h-3.5 w-3.5 mr-1" /> Anteprima</Button>}
-                        <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3.5 w-3.5 mr-1" /> Scarica</Button>
+                          }}>
+                            <Eye className="h-3.5 w-3.5 mr-1" /> Anteprima
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}>
+                          <Download className="h-3.5 w-3.5 mr-1" /> Scarica
+                        </Button>
                       </div>
                     </div>
                   )
@@ -213,9 +276,13 @@ export function ClienteArchivio() {
               </div>
               {totalPages > 1 && (
                 <div className="flex items-center justify-between">
-                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4 mr-1" /> Precedente</Button>
+                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Precedente
+                  </Button>
                   <span className="text-sm text-slate-600">Pagina {page} di {totalPages}</span>
-                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Successiva <ChevronRight className="h-4 w-4 ml-1" /></Button>
+                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>
+                    Successiva <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
                 </div>
               )}
             </>

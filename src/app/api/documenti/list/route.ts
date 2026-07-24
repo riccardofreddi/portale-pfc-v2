@@ -38,7 +38,32 @@ export async function GET(req: NextRequest) {
     }
     if (!cartella) {
       const cartelle = await listCartelleForAnno(username, anno)
-      return NextResponse.json({ cartelle })
+
+      let cartelleWithMeta: Array<{ nome: string; nFiles: number; nNuovi: number }> = []
+      if (session.role === 'client') {
+        const user = await db.user.findUnique({ where: { username: session.sub } })
+        if (user) {
+          const [dls, views] = await Promise.all([
+            db.fileDownload.findMany({ where: { userId: user.id } }),
+            db.fileView.findMany({ where: { userId: user.id } }),
+          ])
+          const scaricati = new Set(dls.map((d) => d.filePath))
+          const visti = new Set(views.map((v) => v.filePath))
+
+          for (const c of cartelle) {
+            const filesInCartella = await listFilesInCartella(username, anno, c)
+            const nNuovi = filesInCartella.filter((f) => !scaricati.has(f.key) && !visti.has(f.key)).length
+            cartelleWithMeta.push({ nome: c, nFiles: filesInCartella.length, nNuovi })
+          }
+        }
+      } else {
+        for (const c of cartelle) {
+          const filesInCartella = await listFilesInCartella(username, anno, c)
+          cartelleWithMeta.push({ nome: c, nFiles: filesInCartella.length, nNuovi: 0 })
+        }
+      }
+
+      return NextResponse.json({ cartelle: cartelleWithMeta })
     }
 
     const files = await listFilesInCartella(username, anno, cartella)
