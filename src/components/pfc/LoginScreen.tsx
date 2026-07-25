@@ -15,6 +15,7 @@ export function LoginScreen() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [maintenance, setMaintenance] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -30,13 +31,45 @@ export function LoginScreen() {
         const me = await api.auth.me()
         setUser(me.user)
       } else {
-        toast.error(res.error ?? 'Credenziali non valide')
+        // Se l'errore contiene "manutenzione", mostra la schermata di manutenzione
+        if (res.error?.toLowerCase().includes('manutenzione')) {
+          setMaintenance(true)
+        } else {
+          toast.error(res.error ?? 'Credenziali non valide')
+        }
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Errore di login')
+      const errorMsg = err instanceof Error ? err.message : 'Errore di login'
+      if (errorMsg.toLowerCase().includes('manutenzione')) {
+        setMaintenance(true)
+      } else {
+        toast.error(errorMsg)
+      }
     } finally {
       setLoading(false)
     }
+  }
+
+  // Schermata manutenzione a tutto schermo
+  if (maintenance) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="text-center bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-400 rounded-3xl p-8 sm:p-12 max-w-2xl shadow-xl">
+          <div className="text-6xl mb-6">🚧</div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-900 mb-4">App in aggiornamento</h2>
+          <p className="text-amber-800 text-base sm:text-lg leading-relaxed mb-6">
+            Stiamo svolgendo operazioni di manutenzione per migliorare il servizio.<br/>
+            Tornerai a poter accedere ai tuoi documenti a breve.
+          </p>
+          <div className="border-t border-amber-300 pt-6 mt-6">
+            <p className="text-amber-700 text-sm">
+              Per urgenze, contatta lo studio.<br/>
+              Grazie per la pazienza. 🙏
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
