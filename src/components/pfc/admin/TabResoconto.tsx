@@ -85,7 +85,7 @@ export function TabResoconto() {
 
       <Collapsible open={openDiag} onOpenChange={setOpenDiag}>
         <Card>
-          <CollapsibleTrigger asChild>
+          <CollapsibleTrigger>
             <CardHeader className="cursor-pointer hover:bg-slate-50 transition-colors">
               <CardTitle className="text-base flex items-center justify-between">
                 <span className="flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Stato del Sistema</span>
@@ -124,7 +124,7 @@ export function TabResoconto() {
               {stats.map((c) => (
                 <Collapsible key={c.username} open={openCliente === c.username} onOpenChange={(o) => setOpenCliente(o ? c.username : null)}>
                   <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <CollapsibleTrigger asChild>
+                    <CollapsibleTrigger>
                       <button className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left">
                         <div className="flex items-center gap-2 min-w-0">
                           {openCliente === c.username ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -159,7 +159,7 @@ export function TabResoconto() {
                                 return (
                                   <Collapsible key={cartKey} open={isCartOpen} onOpenChange={(o) => setOpenCartella(o ? cartKey : null)}>
                                     <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-                                      <CollapsibleTrigger asChild>
+                                      <CollapsibleTrigger>
                                         <button className="w-full flex items-center justify-between p-2 hover:bg-slate-50 text-left text-sm">
                                           <div className="flex items-center gap-2">
                                             {isCartOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
