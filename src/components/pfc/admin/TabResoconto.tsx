@@ -5,23 +5,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
-import { formatDateAudit, formatBytes } from '@/lib/pfc-utils'
-import { Loader2, Database, HardDrive, Activity, RefreshCw, Trash2, ChevronDown, ChevronRight, Users, FileText, BarChart3 } from 'lucide-react'
+import { formatDateAudit, formatBytes, ottieniIconaFile } from '@/lib/pfc-utils'
+import { Loader2, Database, HardDrive, Activity, RefreshCw, Trash2, ChevronDown, ChevronRight, Users, FileText, BarChart3, Eye, Download, ShieldCheck } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 
 interface Diagnostica { db: { tabelle: Array<{ nome: string; righe: number }> }; r2: { configurato: boolean; nFiles: number; sizeTotale: number; errore: string | null } }
-interface StatsCliente { username: string; name: string; nFiles: number; sizeBytes: number; sizeStr: string; anni: { anno: string; cartelle: { cartella: string; nFiles: number; sizeBytes: number }[] }[] }
+interface ResocontoFile { nome: string; key: string; size: number; sizeStr: string }
+interface StatsCliente {
+  username: string; name: string; nFiles: number; sizeBytes: number; sizeStr: string; exemptMaintenance: boolean;
+  anni: { anno: string; cartelle: { cartella: string; nFiles: number; sizeBytes: number; files: ResocontoFile[] }[] }[]
+}
 interface AuditLog { id: string; ts: string; username: string; action: string; detail: string }
 
 export function TabResoconto() {
+  const { setPreviewFile } = usePfcStore()
   const [diagnostica, setDiagnostica] = useState<Diagnostica | null>(null)
   const [stats, setStats] = useState<StatsCliente[]>([])
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
   const [openDiag, setOpenDiag] = useState(false)
   const [openCliente, setOpenCliente] = useState<string | null>(null)
+  const [openCartella, setOpenCartella] = useState<string | null>(null)
 
   async function refresh() {
     setLoading(true)
@@ -39,6 +46,28 @@ export function TabResoconto() {
     catch { toast.error('Errore reset log') }
   }
 
+  async function handleToggleExempt(username: string, current: boolean) {
+    try {
+      await api.clienti.setExempt(username, !current)
+      setStats((curr) => curr.map((c) => c.username === username ? { ...c, exemptMaintenance: !current } : c))
+      toast.success(!current ? 'Esenzione manutenzione attivata' : 'Esenzione manutenzione disattivata')
+    } catch { toast.error('Errore') }
+  }
+
+  async function handleDownload(key: string, nome: string) {
+    try {
+      const res = await fetch(`/api/documenti/download?key=${encodeURIComponent(key)}`)
+      if (!res.ok) throw new Error('Errore')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = nome
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success(`Download: ${nome}`)
+    } catch { toast.error('Errore download') }
+  }
+
   if (loading) return (<div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>)
 
   const totalFiles = stats.reduce((s, c) => s + c.nFiles, 0)
@@ -53,9 +82,10 @@ export function TabResoconto() {
         <Card className="border-l-4 border-l-purple-500"><CardContent className="pt-5"><div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Spazio</p><HardDrive className="h-4 w-4 text-slate-400" /></div><p className="text-2xl font-bold text-slate-900 mt-1">{formatBytes(totalSize)}</p></CardContent></Card>
         <Card className="border-l-4 border-l-amber-500"><CardContent className="pt-5"><div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Media file/cliente</p><BarChart3 className="h-4 w-4 text-slate-400" /></div><p className="text-2xl font-bold text-slate-900 mt-1">{avgFiles}</p></CardContent></Card>
       </div>
+
       <Collapsible open={openDiag} onOpenChange={setOpenDiag}>
         <Card>
-          <CollapsibleTrigger>
+          <CollapsibleTrigger asChild>
             <CardHeader className="cursor-pointer hover:bg-slate-50 transition-colors">
               <CardTitle className="text-base flex items-center justify-between">
                 <span className="flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Stato del Sistema</span>
@@ -72,63 +102,99 @@ export function TabResoconto() {
                     <div className="bg-emerald-50 border border-emerald-200 rounded p-3"><p className="text-xs text-slate-500">Stato</p><p className="font-semibold text-emerald-700">Configurato</p></div>
                     <div className="bg-white border border-slate-200 rounded p-3"><p className="text-xs text-slate-500">File totali</p><p className="font-semibold text-slate-900">{diagnostica.r2.nFiles}</p></div>
                     <div className="bg-white border border-slate-200 rounded p-3"><p className="text-xs text-slate-500">Spazio</p><p className="font-semibold text-slate-900">{formatBytes(diagnostica.r2.sizeTotale)}</p></div>
-                    {diagnostica.r2.errore && <div className="col-span-full bg-red-50 border border-red-200 rounded p-3 text-xs text-red-700">Errore: {diagnostica.r2.errore}</div>}
                   </div>
-                ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">R2 non configurato.</div>
-                )}
+                ) : <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">R2 non configurato.</div>}
               </div>
               <div>
                 <h4 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2"><Database className="h-4 w-4" /> Database</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {diagnostica?.db.tabelle.map((t) => (
-                    <div key={t.nome} className="bg-white border border-slate-200 rounded p-3 text-sm"><p className="text-xs text-slate-500">{t.nome}</p><p className="font-semibold text-slate-900">{t.righe} righe</p></div>
-                  ))}
+                  {diagnostica?.db.tabelle.map((t) => <div key={t.nome} className="bg-white border border-slate-200 rounded p-3 text-sm"><p className="text-xs text-slate-500">{t.nome}</p><p className="font-semibold text-slate-900">{t.righe} righe</p></div>)}
                 </div>
               </div>
             </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>
+
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5 text-emerald-600" /> Archivio per Cliente</CardTitle></CardHeader>
         <CardContent>
-          {stats.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-6">Nessun cliente</p>
-          ) : (
+          {stats.length === 0 ? <p className="text-sm text-slate-500 text-center py-6">Nessun cliente</p> : (
             <div className="space-y-2">
               {stats.map((c) => (
                 <Collapsible key={c.username} open={openCliente === c.username} onOpenChange={(o) => setOpenCliente(o ? c.username : null)}>
                   <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <CollapsibleTrigger>
-                      <div className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left cursor-pointer">
+                    <CollapsibleTrigger asChild>
+                      <button className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left">
                         <div className="flex items-center gap-2 min-w-0">
                           {openCliente === c.username ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                           <p className="font-semibold text-slate-900 truncate">{c.name}</p>
                           <span className="text-xs text-slate-500">@{c.username}</span>
+                          {c.exemptMaintenance && <Badge variant="outline" className="text-[10px] border-amber-400 bg-amber-50 text-amber-700">Esente</Badge>}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-slate-500 flex-shrink-0"><span>{c.nFiles} file</span><span>{c.sizeStr}</span></div>
-                      </div>
+                      </button>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="border-t border-slate-200 p-3 space-y-3 bg-slate-50/50">
-                        {c.anni.length === 0 ? (
-                          <p className="text-sm text-slate-500 italic">Archivio vuoto</p>
-                        ) : (
-                          c.anni.map((a) => (
-                            <div key={a.anno}>
-                              <p className="text-sm font-semibold text-slate-800 mb-1">Anno {a.anno}</p>
-                              <div className="space-y-1 pl-4">
-                                {a.cartelle.map((cart) => (
-                                  <div key={cart.cartella} className="flex items-center justify-between text-sm">
-                                    <span><strong>{cart.cartella}</strong></span>
-                                    <span className="text-xs text-slate-500">{cart.nFiles} file - {formatBytes(cart.sizeBytes)}</span>
-                                  </div>
-                                ))}
-                              </div>
+                        {/* Checkbox esenzione manutenzione */}
+                        <div className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg">
+                          <ShieldCheck className={`h-4 w-4 ${c.exemptMaintenance ? 'text-emerald-600' : 'text-slate-400'}`} />
+                          <span className="text-sm text-slate-700">Esente da manutenzione</span>
+                          <button
+                            onClick={() => handleToggleExempt(c.username, c.exemptMaintenance)}
+                            className={`ml-auto relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${c.exemptMaintenance ? 'bg-emerald-600' : 'bg-slate-300'}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${c.exemptMaintenance ? 'translate-x-4' : 'translate-x-1'}`} />
+                          </button>
+                        </div>
+
+                        {c.anni.length === 0 ? <p className="text-sm text-slate-500 italic">Archivio vuoto</p> : c.anni.map((a) => (
+                          <div key={a.anno}>
+                            <p className="text-sm font-semibold text-slate-800 mb-2">Anno {a.anno}</p>
+                            <div className="space-y-2 pl-4">
+                              {a.cartelle.map((cart) => {
+                                const cartKey = `${c.username}_${a.anno}_${cart.cartella}`
+                                const isCartOpen = openCartella === cartKey
+                                return (
+                                  <Collapsible key={cartKey} open={isCartOpen} onOpenChange={(o) => setOpenCartella(o ? cartKey : null)}>
+                                    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                                      <CollapsibleTrigger asChild>
+                                        <button className="w-full flex items-center justify-between p-2 hover:bg-slate-50 text-left text-sm">
+                                          <div className="flex items-center gap-2">
+                                            {isCartOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                            <span className="font-medium">📂 {cart.cartella}</span>
+                                          </div>
+                                          <span className="text-xs text-slate-500">{cart.nFiles} file · {formatBytes(cart.sizeBytes)}</span>
+                                        </button>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent>
+                                        <div className="border-t border-slate-200 p-2 space-y-1 bg-slate-50/30">
+                                          {cart.files.map((f) => {
+                                            const icon = ottieniIconaFile(f.nome)
+                                            return (
+                                              <div key={f.key} className="flex items-center gap-3 p-2 bg-white border border-slate-200 rounded-lg">
+                                                <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-sm font-medium text-slate-900 truncate">{f.nome}</p>
+                                                  <p className="text-xs text-slate-500">{f.sizeStr}</p>
+                                                </div>
+                                                <div className="flex items-center gap-1 flex-shrink-0">
+                                                  <Button variant="outline" size="sm" onClick={() => setPreviewFile({ nome: f.nome, key: f.key, size: f.size, sizeStr: f.sizeStr, lastModified: null, stato: 'nuovo', isPreferito: false })}><Eye className="h-3.5 w-3.5 mr-1" /> Visualizza</Button>
+                                                  <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3.5 w-3.5 mr-1" /> Scarica</Button>
+                                                </div>
+                                              </div>
+                                            )
+                                          })}
+                                        </div>
+                                      </CollapsibleContent>
+                                    </div>
+                                  </Collapsible>
+                                )
+                              })}
                             </div>
-                          ))
-                        )}
+                          </div>
+                        ))}
                       </div>
                     </CollapsibleContent>
                   </div>
@@ -138,52 +204,27 @@ export function TabResoconto() {
           )}
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Log Attivita Clienti ({logs.length})</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Log Attivita ({logs.length})</CardTitle>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={refresh}><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Aggiorna</Button>
             <AlertDialog>
-              <AlertDialogTrigger>
-                <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50 border-red-200"><Trash2 className="h-3.5 w-3.5 mr-1.5" /> Azzera</Button>
-              </AlertDialogTrigger>
+              <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50 border-red-200"><Trash2 className="h-3.5 w-3.5 mr-1.5" /> Azzera</Button></AlertDialogTrigger>
               <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Azzerare il log attivita?</AlertDialogTitle>
-                  <AlertDialogDescription>Tutti i record del log verranno eliminati definitivamente.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Annulla</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleResetLog} className="bg-red-600 hover:bg-red-700">Azzera log</AlertDialogAction>
-                </AlertDialogFooter>
+                <AlertDialogHeader><AlertDialogTitle>Azzerare il log?</AlertDialogTitle><AlertDialogDescription>Tutti i record verranno eliminati.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={handleResetLog} className="bg-red-600 hover:bg-red-700">Azzera</AlertDialogAction></AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           </div>
         </CardHeader>
         <CardContent>
-          {logs.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-6">Nessuna attivita registrata</p>
-          ) : (
+          {logs.length === 0 ? <p className="text-sm text-slate-500 text-center py-6">Nessuna attivita</p> : (
             <div className="max-h-96 overflow-y-auto border border-slate-200 rounded">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 sticky top-0">
-                  <tr>
-                    <th className="text-left p-2 font-medium text-slate-600">Data</th>
-                    <th className="text-left p-2 font-medium text-slate-600">Utente</th>
-                    <th className="text-left p-2 font-medium text-slate-600">Azione</th>
-                    <th className="text-left p-2 font-medium text-slate-600 hidden md:table-cell">Dettaglio</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((l) => (
-                    <tr key={l.id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <td className="p-2 text-xs text-slate-500 whitespace-nowrap">{formatDateAudit(l.ts)}</td>
-                      <td className="p-2 font-mono text-xs">{l.username}</td>
-                      <td className="p-2"><Badge variant="outline" className="text-xs">{l.action}</Badge></td>
-                      <td className="p-2 text-xs text-slate-600 hidden md:table-cell max-w-xs truncate">{l.detail}</td>
-                    </tr>
-                  ))}
-                </tbody>
+                <thead className="bg-slate-50 sticky top-0"><tr><th className="text-left p-2 font-medium text-slate-600">Data</th><th className="text-left p-2 font-medium text-slate-600">Utente</th><th className="text-left p-2 font-medium text-slate-600">Azione</th><th className="text-left p-2 font-medium text-slate-600 hidden md:table-cell">Dettaglio</th></tr></thead>
+                <tbody>{logs.map((l) => (<tr key={l.id} className="border-t border-slate-100 hover:bg-slate-50"><td className="p-2 text-xs text-slate-500 whitespace-nowrap">{formatDateAudit(l.ts)}</td><td className="p-2 font-mono text-xs">{l.username}</td><td className="p-2"><Badge variant="outline" className="text-xs">{l.action}</Badge></td><td className="p-2 text-xs text-slate-600 hidden md:table-cell max-w-xs truncate">{l.detail}</td></tr>))}</tbody>
               </table>
             </div>
           )}

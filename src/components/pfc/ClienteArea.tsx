@@ -8,7 +8,7 @@ import { ClienteMessaggi } from './cliente/ClienteMessaggi'
 import { ClienteAvvisi } from './cliente/ClienteAvvisi'
 import { ClienteCassetto } from './cliente/ClienteCassetto'
 import { ClienteAttivita } from './cliente/ClienteAttivita'
-import { FolderOpen, MessageSquare, Megaphone, Bell, Briefcase, ClipboardList, Check, Trash2, BellOff, X, ChevronLeft, ChevronRight, Wrench } from 'lucide-react'
+import { FolderOpen, MessageSquare, Megaphone, Bell, Briefcase, ClipboardList, Check, Trash2, BellOff, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -119,21 +119,25 @@ export function ClienteArea() {
 
   if (!user) return null
 
-  // BLOCCO MANUTENZIONE: se attiva e il cliente non è esente, mostra solo il banner
+  // BLOCCO MANUTENZIONE
   if (maintenance && !user.exemptMaintenance) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50">
         <TopBar />
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-center">
-          <div className="text-center max-w-md">
-            <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600 mx-auto mb-4 shadow-sm">
-              <Wrench className="h-8 w-8" />
-            </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">App in aggiornamento</h2>
-            <p className="text-sm text-slate-500">
-              Il portale è temporaneamente in manutenzione per migliorare il servizio.<br/>
-              Riprova tra poco, grazie per la pazienza.
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-400 rounded-3xl p-8 sm:p-12 max-w-2xl shadow-xl">
+            <div className="text-6xl mb-6">🚧</div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-900 mb-4">App in aggiornamento</h2>
+            <p className="text-amber-800 text-base sm:text-lg leading-relaxed mb-6">
+              Stiamo svolgendo operazioni di manutenzione per migliorare il servizio.<br/>
+              Tornerai a poter accedere ai tuoi documenti a breve.
             </p>
+            <div className="border-t border-amber-300 pt-6 mt-6">
+              <p className="text-amber-700 text-sm">
+                Per urgenze, contatta lo studio.<br/>
+                Grazie per la pazienza. 🙏
+              </p>
+            </div>
           </div>
         </main>
       </div>
