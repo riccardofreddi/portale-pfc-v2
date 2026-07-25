@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, type FormEvent } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,13 +8,14 @@ import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api-client'
 import { usePfcStore } from '@/store/pfc'
 import { toast } from 'sonner'
-import { Loader2, LogIn, User, Lock } from 'lucide-react'
+import { Loader2, LogIn, User, Lock, Eye, EyeOff } from 'lucide-react'
 
 export function LoginScreen() {
   const { setUser } = usePfcStore()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [maintenance, setMaintenance] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
@@ -94,7 +95,10 @@ export function LoginScreen() {
                 <Label htmlFor="password" className="text-sm font-medium text-slate-700">Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input id="password" type="password" autoComplete="current-password" placeholder="La tua password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9" disabled={loading} />
+                  <Input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="La tua password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9 pr-10" disabled={loading} />
+                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors" tabIndex={-1} aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}>
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
               <Button type="submit" disabled={loading || !username || !password} className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold">

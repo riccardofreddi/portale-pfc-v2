@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -76,7 +76,6 @@ export function TopBar() {
           <DropdownMenuContent align="end" className="w-56">
             <div className="px-2 py-1.5 sm:hidden">
               <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-              <p className="text-xs text-slate-500">@{user.username}</p>
             </div>
             <DropdownMenuSeparator className="sm:hidden" />
             <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-700 focus:bg-red-50 cursor-pointer">
