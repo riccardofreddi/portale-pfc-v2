@@ -128,3 +128,54 @@
     @apply font-sans;
   }
 }
+/* ===== OTTIMIZZAZIONI MOBILE ===== */
+@media (max-width: 640px) {
+  /* Riduci padding generale della pagina */
+  main {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-top: 1rem !important;
+  }
+
+  /* Header più compatto */
+  header {
+    height: 56px !important;
+  }
+
+  /* Tab navigation: scroll orizzontale fluido senza scrollbar visibile */
+  nav[aria-label="Tabs"] {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  nav[aria-label="Tabs"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Pulsanti più grandi per touch (min 44px) */
+  button {
+    min-height: 36px;
+  }
+
+  /* Dialog/Modal a tutto schermo */
+  [role="dialog"] {
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+  }
+
+  /* Tabella log audit: scroll orizzontale */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Font base leggermente più grande per leggibilità */
+  body {
+    font-size: 15px;
+  }
+}

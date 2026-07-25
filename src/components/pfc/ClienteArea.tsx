@@ -150,8 +150,8 @@ export function ClienteArea() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Welcome banner */}
-        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
-          <h2 className="text-2xl font-bold tracking-tight">Benvenuto, {user.name}!</h2>
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6 text-white shadow-lg">
+          <h2 className="text-lg sm:text-2xl font-bold tracking-tight">Benvenuto, {user.name}!</h2>
           <p className="text-emerald-100 mt-1 text-sm">I tuoi documenti fiscali sempre con te.</p>
           <div className="mt-3 flex items-center gap-3 flex-wrap">
             {nNotifiche > 0 && (
@@ -319,7 +319,7 @@ export function ClienteArea() {
                   key={t.id}
                   onClick={() => setClienteTab(t.id)}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative',
+                    'flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative',
                     active ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   )}
                 >

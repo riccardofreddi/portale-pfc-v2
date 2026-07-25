@@ -25,7 +25,7 @@ export function AdminConsole() {
       <TopBar />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Console di Amministrazione</h2>
+          <h2 className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight">Console di Amministrazione</h2>
           <p className="text-sm text-slate-500 mt-1">Gestisci clienti, documenti, comunicazioni e monitora lo stato del sistema.</p>
         </div>
         <div className="border-b border-slate-200 mb-6">
@@ -34,7 +34,7 @@ export function AdminConsole() {
               const Icon = t.icon
               const active = adminTab === t.id
               return (
-                <button key={t.id} onClick={() => setAdminTab(t.id)} className={cn('flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap', active ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300')}>
+                <button key={t.id} onClick={() => setAdminTab(t.id)} className={cn('flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap', active ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300')}>
                   <Icon className="h-4 w-4" />{t.label}
                 </button>
               )
