@@ -168,8 +168,8 @@ export function ClienteArchivio() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Cerca nei documenti (min 2 caratteri)..."
-          className="pl-9 pr-10"
+          placeholder="Cerca nei documenti..."
+          className="pl-9 pr-10 h-9"
         />
         {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />}
         {searchQuery && !searching && (
@@ -188,44 +188,30 @@ export function ClienteArchivio() {
             </CardContent></Card>
           ) : (
             <>
-              <div className="bg-emerald-50 border border-emerald-300 rounded-lg px-4 py-2 text-sm text-emerald-800 font-semibold">
-                🔍 {searchResults.length} {searchResults.length === 1 ? 'documento trovato' : 'documenti trovati'} per "{searchQuery}"
+              <div className="bg-emerald-50 border border-emerald-300 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-emerald-800 font-semibold">
+                🔍 {searchResults.length} risultati per "{searchQuery}"
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {searchResults.map((r) => {
                   const icon = ottieniIconaFile(r.nome)
                   const statoCfg = STATO_CONFIG[r.stato]
                   const canPreview = canPreviewFile(r.nome)
                   return (
-                    <div key={r.key} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 hover:shadow-sm transition-all">
-                      <button onClick={(e) => { e.stopPropagation(); handleTogglePreferitoSearch(r.key) }} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded" title={r.isPreferito ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}>
+                    <div key={r.key} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 transition-all">
+                      <button onClick={(e) => { e.stopPropagation(); handleTogglePreferitoSearch(r.key) }} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded">
                         {r.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500" /> : <StarOff className="h-4 w-4 text-slate-300" />}
                       </button>
-                      <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
+                      <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-base sm:text-xl" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base leading-none" title={statoCfg.label}>{statoCfg.icon}</span>
-                          <p className="font-medium text-slate-900 truncate">{r.nome}</p>
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <span className="text-sm sm:text-base leading-none">{statoCfg.icon}</span>
+                          <p className="font-medium text-slate-900 truncate text-xs sm:text-sm">{r.nome}</p>
                         </div>
-                        <p className="text-xs text-slate-500 flex items-center gap-3">
-                          <span>📅 {r.anno}</span><span>📂 {r.cartella}</span><span>📦 {r.sizeStr}</span>
-                        </p>
+                        <p className="text-[10px] sm:text-xs text-slate-500 truncate">{r.anno} · {r.cartella} · {r.sizeStr}</p>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {canPreview && (
-                          <Button variant="outline" size="sm" onClick={() => {
-                            setPreviewFile({ ...r, size: 0, lastModified: null } as unknown as FileItem)
-                            setSearchResults((rs) => rs.map((x) => x.key === r.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x))
-                          }}>
-                            <Eye className="h-3.5 w-3.5 mr-1" /> Anteprima
-                          </Button>
-                        )}
-                        <Button variant="outline" size="sm" onClick={() => {
-                          handleDownload(r.key, r.nome)
-                          setSearchResults((rs) => rs.map((x) => x.key === r.key ? { ...x, stato: 'scaricato' } : x))
-                        }}>
-                          <Download className="h-3.5 w-3.5 mr-1" /> Scarica
-                        </Button>
+                      <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                        {canPreview && <Button variant="outline" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-auto sm:px-2" onClick={() => setPreviewFile({ ...r, size: 0, lastModified: null } as unknown as FileItem)}><Eye className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Anteprima</span></Button>}
+                        <Button variant="outline" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-auto sm:px-2" onClick={() => handleDownload(r.key, r.nome)}><Download className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Scarica</span></Button>
                       </div>
                     </div>
                   )
@@ -241,24 +227,24 @@ export function ClienteArchivio() {
         <>
           <div className="flex flex-wrap gap-2">
             {anni.map((a) => (
-              <button key={a} onClick={() => setAnno(a)} className={cn('px-4 py-2 rounded-lg text-sm font-medium border transition-colors', annoSelezionato === a ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50')}>{a}</button>
+              <button key={a} onClick={() => setAnno(a)} className={cn('px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium border transition-colors', annoSelezionato === a ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50')}>{a}</button>
             ))}
           </div>
 
           {cartelle.length > 1 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {cartelle.map((c) => {
                 const active = cartellaSelezionata === c.nome
                 return (
-                  <button key={c.nome} onClick={() => setCartella(c.nome)} className={cn('p-4 rounded-xl border text-left transition-all', active ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-white shadow-md ring-2 ring-emerald-100' : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm')}>
+                  <button key={c.nome} onClick={() => setCartella(c.nome)} className={cn('p-3 sm:p-4 rounded-xl border text-left transition-all', active ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-white shadow-md ring-2 ring-emerald-100' : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm')}>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <FolderOpen className={cn('h-5 w-5 flex-shrink-0', active ? 'text-emerald-600' : 'text-slate-400')} />
-                      <span className="font-bold text-slate-900">{c.nome}</span>
-                      {c.nNuovi > 0 && <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">+{c.nNuovi} nuovi</span>}
+                      <FolderOpen className={cn('h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0', active ? 'text-emerald-600' : 'text-slate-400')} />
+                      <span className="font-bold text-slate-900 text-sm sm:text-base">{c.nome}</span>
+                      {c.nNuovi > 0 && <span className="bg-red-100 text-red-700 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full">+{c.nNuovi}</span>}
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">📄 {c.nFiles} file</span>
-                      {active && <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 rounded px-2 py-0.5">✓ Aperta</span>}
+                      <span className="text-[10px] sm:text-xs text-slate-500">{c.nFiles} file</span>
+                      {active && <span className="text-[10px] sm:text-xs font-semibold text-emerald-700 bg-emerald-100 rounded px-1.5 py-0.5">Aperta</span>}
                     </div>
                   </button>
                 )
@@ -270,24 +256,24 @@ export function ClienteArchivio() {
             <>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="bg-gradient-to-r from-emerald-600 to-emerald-800 text-white text-sm font-bold px-3 py-1 rounded">{cartellaSelezionata}</span>
-                  <span className="text-sm text-slate-500">{files.length} file - {formatBytes(files.reduce((s, f) => s + f.size, 0))}</span>
+                  <span className="bg-gradient-to-r from-emerald-600 to-emerald-800 text-white text-xs sm:text-sm font-bold px-2 py-1 sm:px-3 rounded">{cartellaSelezionata}</span>
+                  <span className="text-xs sm:text-sm text-slate-500">{files.length} file · {formatBytes(files.reduce((s, f) => s + f.size, 0))}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {selectedFiles.size > 0 ? (
-                    <Button size="sm" onClick={() => handleDownloadZip(Array.from(selectedFiles), `selezionati_${cartellaSelezionata}_${annoSelezionato}.zip`)}>
-                      <Package className="h-3.5 w-3.5 mr-1.5" /> Scarica selezione ({selectedFiles.size})
+                    <Button size="sm" className="h-7 text-xs" onClick={() => handleDownloadZip(Array.from(selectedFiles), `selezionati.zip`)}>
+                      <Package className="h-3 w-3 mr-1" /> ZIP ({selectedFiles.size})
                     </Button>
                   ) : files.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={() => handleDownloadZip(files.map((f) => f.key), `${cartellaSelezionata}_${annoSelezionato}.zip`)}>
-                      <Package className="h-3.5 w-3.5 mr-1.5" /> Scarica tutto (ZIP)
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleDownloadZip(files.map((f) => f.key), `archivio.zip`)}>
+                      <Package className="h-3 w-3 mr-1" /> ZIP tutti
                     </Button>
                   )}
                 </div>
               </div>
 
-              <div className="text-xs text-slate-500 flex items-center gap-3">
-                <span>🔴 Nuovo</span><span>🔵 Visto</span><span>🟢 Scaricato</span><span>⭐ Preferito</span>
+              <div className="text-[10px] sm:text-xs text-slate-500 flex items-center gap-2 sm:gap-3">
+                <span>🔴 Nuovo</span><span>🔵 Visto</span><span>🟢 Scaricato</span><span>⭐ Pref.</span>
               </div>
 
               {files.length === 0 ? (
@@ -300,27 +286,27 @@ export function ClienteArchivio() {
                       const statoCfg = STATO_CONFIG[f.stato]
                       const canPreview = canPreviewFile(f.nome)
                       return (
-                        <div key={f.key} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 hover:shadow-sm transition-all">
-                          <Checkbox checked={selectedFiles.has(f.key)} onCheckedChange={() => toggleSelected(f.key)} />
-                          <button onClick={(e) => handleTogglePreferito(f.key, e)} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded" title={f.isPreferito ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}>
+                        <div key={f.key} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 transition-all">
+                          <Checkbox checked={selectedFiles.has(f.key)} onCheckedChange={() => toggleSelected(f.key)} className="flex-shrink-0" />
+                          <button onClick={(e) => handleTogglePreferito(f.key, e)} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded">
                             {f.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500" /> : <StarOff className="h-4 w-4 text-slate-300" />}
                           </button>
-                          <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
+                          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-base sm:text-xl" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base leading-none" title={statoCfg.label}>{statoCfg.icon}</span>
-                              <p className="font-medium text-slate-900 truncate">{f.nome}</p>
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                              <span className="text-sm sm:text-base leading-none">{statoCfg.icon}</span>
+                              <p className="font-medium text-slate-900 truncate text-xs sm:text-sm">{f.nome}</p>
                             </div>
-                            <p className="text-xs text-slate-500">📦 {f.sizeStr}{f.lastModified && <span className="ml-2">· {formatDateShort(f.lastModified)}</span>}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500">{f.sizeStr}{f.lastModified && <span className="ml-2">· {formatDateShort(f.lastModified)}</span>}</p>
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                             {canPreview && (
-                              <Button variant="outline" size="sm" onClick={() => { setPreviewFile(f); setFiles((fs) => fs.map((x) => x.key === f.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x)) }}>
-                                <Eye className="h-3.5 w-3.5 mr-1" /> Anteprima
+                              <Button variant="outline" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-auto sm:px-2" onClick={() => { setPreviewFile(f); setFiles((fs) => fs.map((x) => x.key === f.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x)) }}>
+                                <Eye className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Anteprima</span>
                               </Button>
                             )}
-                            <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}>
-                              <Download className="h-3.5 w-3.5 mr-1" /> Scarica
+                            <Button variant="outline" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-auto sm:px-2" onClick={() => handleDownload(f.key, f.nome)}>
+                              <Download className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Scarica</span>
                             </Button>
                           </div>
                         </div>
@@ -329,9 +315,9 @@ export function ClienteArchivio() {
                   </div>
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between">
-                      <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4 mr-1" /> Precedente</Button>
-                      <span className="text-sm text-slate-600">Pagina {page} di {totalPages}</span>
-                      <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Successiva <ChevronRight className="h-4 w-4 ml-1" /></Button>
+                      <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="h-7 text-xs"><ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prec</Button>
+                      <span className="text-xs text-slate-600">Pag {page} di {totalPages}</span>
+                      <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className="h-7 text-xs">Succ <ChevronRight className="h-3.5 w-3.5 ml-1" /></Button>
                     </div>
                   )}
                 </>
