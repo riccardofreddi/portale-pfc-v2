@@ -255,8 +255,8 @@ export function ClienteArchivio() {
                       <FolderOpen className={cn('h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0', active ? 'text-emerald-600' : 'text-slate-400')} />
                       <span className="font-bold text-slate-900 text-sm sm:text-base">{c.nome}</span>
                       {c.nNuovi > 0 && <span className="bg-red-100 text-red-700 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full">+{c.nNuovi}</span>}
-                    </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100">
+                      <span className="text-[11px] sm:text-xs text-slate-600 font-medium">📄 {c.nFiles} file</span>
                       <span className="text-[10px] sm:text-xs text-slate-500">{c.nFiles} file</span>
                       {active && <span className="text-[10px] sm:text-xs font-semibold text-emerald-700 bg-emerald-100 rounded px-1.5 py-0.5">Aperta</span>}
                     </div>
@@ -270,7 +270,7 @@ export function ClienteArchivio() {
             <>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="bg-gradient-to-r from-emerald-600 to-emerald-800 text-white text-xs sm:text-sm font-bold px-2 py-1 sm:px-3 rounded">{cartellaSelezionata}</span>
+                  <span className="text-xs sm:text-sm text-slate-500 ml-2 pl-3 border-l border-slate-200">{files.length} file · {formatBytes(files.reduce((s, f) => s + f.size, 0))}</span>
                   <span className="text-xs sm:text-sm text-slate-500">{files.length} file · {formatBytes(files.reduce((s, f) => s + f.size, 0))}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -294,14 +294,14 @@ export function ClienteArchivio() {
                 <Card><CardContent className="py-12 text-center text-slate-500"><Folder className="h-10 w-10 mx-auto mb-2 text-slate-300" />Cartella vuota</CardContent></Card>
               ) : (
                 <>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2.5">
                     {pageFiles.map((f) => {
                       const icon = ottieniIconaFile(f.nome)
                       const statoCfg = STATO_CONFIG[f.stato]
                       const canPreview = canPreviewFile(f.nome)
                       return (
                         <div key={f.key} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 transition-all">
-                          <Checkbox checked={selectedFiles.has(f.key)} onCheckedChange={() => toggleSelected(f.key)} className="flex-shrink-0" />
+                        <div key={f.key} className="flex items-center gap-2 sm:gap-3 p-3 sm:p-3.5 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 hover:shadow-sm transition-all">
                           <button onClick={(e) => handleTogglePreferito(f.key, e)} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded">
                             {f.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500" /> : <StarOff className="h-4 w-4 text-slate-300" />}
                           </button>
