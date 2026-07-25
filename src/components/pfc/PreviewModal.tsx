@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { useEffect } from 'react'
 import { usePfcStore } from '@/store/pfc'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -8,11 +9,22 @@ import { toast } from 'sonner'
 
 export function PreviewModal() {
   const { previewFile, setPreviewFile } = usePfcStore()
-  if (!previewFile) return null
 
-  const isPdf = previewFile.nome.toLowerCase().endsWith('.pdf')
-  const isImage = /\.(jpg|jpeg|png|svg|gif|webp)$/i.test(previewFile.nome)
-  const previewUrl = `/api/documenti/preview?key=${encodeURIComponent(previewFile.key)}`
+  const isPdf = previewFile?.nome.toLowerCase().endsWith('.pdf') ?? false
+  const isImage = previewFile ? /\.(jpg|jpeg|png|svg|gif|webp)$/i.test(previewFile.nome) : false
+  const previewUrl = previewFile ? `/api/documenti/preview?key=${encodeURIComponent(previewFile.key)}` : ''
+
+  // Auto-apertura su mobile: se è mobile e PDF, apri in nuova scheda e chiudi modal
+  useEffect(() => {
+    if (!previewFile || !isPdf) return
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 640
+    
+    if (isMobile) {
+      window.open(previewUrl, '_blank')
+      setPreviewFile(null)
+    }
+  }, [previewFile, isPdf, previewUrl, setPreviewFile])
 
   async function handleDownload() {
     if (!previewFile) return
@@ -30,6 +42,8 @@ export function PreviewModal() {
       toast.error('Errore download')
     }
   }
+
+  if (!previewFile) return null
 
   return (
     <Dialog open={!!previewFile} onOpenChange={(o) => !o && setPreviewFile(null)}>
