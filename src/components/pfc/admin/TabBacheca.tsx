@@ -55,15 +55,23 @@ export function TabBacheca() {
     if (!avvisoText.trim()) { toast.error('Testo avviso vuoto'); return }
     setPostingAvviso(true)
     try {
-      await api.avvisi.create(avvisoText.trim())
-      toast.success('Avviso pubblicato'); setAvvisoText(''); await refresh()
+      const res = await fetch('/api/avvisi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: avvisoText.trim() }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Errore')
+      // Aggiornamento ottimistico: aggiungi in cima senza re-fetch
+      setAvvisi((prev) => [{ id: data.id, text: avvisoText.trim(), timestamp: new Date().toISOString() }, ...prev])
+      toast.success('Avviso pubblicato'); setAvvisoText('')
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
     finally { setPostingAvviso(false) }
   }
 
   async function handleEliminaAvviso(id: string) {
-    try { await api.avvisi.delete(id); toast.success('Avviso eliminato'); await refresh() }
-    catch { toast.error('Errore eliminazione') }
+    try {
+      await api.avvisi.delete(id)
+      // Rimuovi localmente senza re-fetch
+      setAvvisi((prev) => prev.filter((a) => a.id !== id))
+      toast.success('Avviso eliminato')
+    } catch { toast.error('Errore eliminazione') }
   }
 
   async function handleInviaMsg() {
@@ -71,15 +79,24 @@ export function TabBacheca() {
     if (!msgText.trim()) { toast.error('Testo vuoto'); return }
     setPostingMsg(true)
     try {
-      await api.messaggi.send({ destinatario: msgDest, testo: msgText.trim(), richiedeUpload: msgReqUpload })
-      toast.success('Messaggio inviato'); setMsgDest(''); setMsgText(''); setMsgReqUpload(false); await refresh()
+      const res = await fetch('/api/messaggi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ destinatario: msgDest, testo: msgText.trim(), richiedeUpload: msgReqUpload }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Errore')
+      const destCliente = clienti.find((c) => c.username === msgDest)
+      // Aggiornamento ottimistico: aggiungi in cima senza re-fetch
+      setMessaggi((prev) => [{ id: data.id, text: msgText.trim(), timestamp: new Date().toISOString(), read: false, requiresUpload: msgReqUpload, uploadReceived: false, destinatarioUsername: msgDest, destinatarioNome: destCliente?.name ?? msgDest }, ...prev])
+      toast.success('Messaggio inviato'); setMsgDest(''); setMsgText(''); setMsgReqUpload(false)
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
     finally { setPostingMsg(false) }
   }
 
   async function handleEliminaMsg(id: string) {
-    try { await api.messaggi.delete(id); toast.success('Messaggio eliminato'); await refresh() }
-    catch { toast.error('Errore eliminazione') }
+    try {
+      await api.messaggi.delete(id)
+      // Rimuovi localmente senza re-fetch
+      setMessaggi((prev) => prev.filter((m) => m.id !== id))
+      toast.success('Messaggio eliminato')
+    } catch { toast.error('Errore eliminazione') }
   }
 
   if (loading) return (<div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>)
