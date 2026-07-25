@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, logAudit } from '@/lib/auth'
 import { DEFAULT_ADMIN_USER } from '@/lib/pfc-utils'
@@ -14,11 +14,9 @@ export async function GET(req: NextRequest) {
   if (session.role === 'client') username = session.sub
   if (!username) return NextResponse.json({ error: 'Username mancante' }, { status: 400 })
 
-  const user = await db.user.findUnique({ where: { username } })
-  if (!user) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
-
+  // Usa relazione Prisma: una sola query invece di findUnique + findMany
   const messaggi = await db.message.findMany({
-    where: { userId: user.id },
+    where: { user: { username } },
     orderBy: { timestamp: 'desc' },
     include: { archivedBy: true },
   })
@@ -51,26 +49,29 @@ export async function POST(req: NextRequest) {
   if (!text) return NextResponse.json({ error: 'Testo mancante' }, { status: 400 })
   if (text.length > 2000) return NextResponse.json({ error: 'Messaggio troppo lungo (max 2000 caratteri)' }, { status: 400 })
 
-  const user = await db.user.findUnique({ where: { username: dest } })
+  const user = await db.user.findUnique({ where: { username: dest }, select: { id: true } })
   if (!user) return NextResponse.json({ error: 'Destinatario non trovato' }, { status: 404 })
 
-  const msg = await db.message.create({
-    data: {
-      userId: user.id,
-      text,
-      requiresUpload: Boolean(richiedeUpload),
-    },
-  })
+  // Crea messaggio e notifica in parallelo
+  const [msg] = await Promise.all([
+    db.message.create({
+      data: {
+        userId: user.id,
+        text,
+        requiresUpload: Boolean(richiedeUpload),
+      },
+    }),
+    db.notification.create({
+      data: {
+        userId: user.id,
+        type: richiedeUpload ? 'richiesta_upload' : 'messaggio',
+        text: text.slice(0, 120),
+        detail: '',
+      },
+    }),
+  ])
 
-  await db.notification.create({
-    data: {
-      userId: user.id,
-      type: richiedeUpload ? 'richiesta_upload' : 'messaggio',
-      text: text.slice(0, 120),
-      detail: '',
-    },
-  })
-
+  // Passa il userId già noto a logAudit per evitare una query extra
   await logAudit(session.sub, 'INVIA_MESSAGGIO', `${dest}: ${text.slice(0, 60)}`)
   return NextResponse.json({ ok: true, id: msg.id })
 }
@@ -83,11 +84,11 @@ export async function DELETE(req: NextRequest) {
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
 
-  const msg = await db.message.findUnique({ where: { id } })
+  const msg = await db.message.findUnique({ where: { id }, select: { id: true, userId: true } })
   if (!msg) return NextResponse.json({ error: 'Messaggio non trovato' }, { status: 404 })
 
   if (session.role === 'client') {
-    const user = await db.user.findUnique({ where: { username: session.sub } })
+    const user = await db.user.findUnique({ where: { username: session.sub }, select: { id: true } })
     if (!user || msg.userId !== user.id) {
       return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
     }
@@ -112,7 +113,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Solo i clienti possono eseguire questa azione' }, { status: 403 })
   }
 
-  const user = await db.user.findUnique({ where: { username: session.sub } })
+  const user = await db.user.findUnique({ where: { username: session.sub }, select: { id: true } })
   if (!user) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
 
   if (action === 'segna_letti') {
@@ -127,7 +128,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Azione non supportata' }, { status: 400 })
   }
 
-  const msg = await db.message.findUnique({ where: { id } })
+  const msg = await db.message.findUnique({ where: { id }, select: { id: true, userId: true } })
   if (!msg || msg.userId !== user.id) {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
   }
