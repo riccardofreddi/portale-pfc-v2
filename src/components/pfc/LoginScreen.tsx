@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, type FormEvent } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,35 +40,41 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-slate-100 p-4">
-      <div className="w-full max-w-md w-full px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background pfc-rule-bg p-4">
+      <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center text-white font-extrabold text-2xl shadow-lg mb-4">P</div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Portale Documenti Clienti</h1>
-          <p className="text-slate-500 text-sm mt-1">Studio PFC - Inserisci le tue credenziali per accedere</p>
+          <div className="pfc-mark w-14 h-14 rounded-lg bg-emerald-800 text-emerald-50 flex items-center justify-center text-base mb-5">PFC</div>
+          <p className="font-mono text-[11px] tracking-widest uppercase text-muted-foreground mb-1.5">Studio PFC &middot; Accesso riservato</p>
+          <h1 className="font-display font-semibold text-[28px] text-foreground tracking-tight text-center leading-snug">
+            Portale Documenti Clienti
+          </h1>
         </div>
-        <Card className="shadow-xl border-slate-200">
-          <CardHeader><CardTitle className="text-center text-lg">Accesso al Portale</CardTitle></CardHeader>
-          <CardContent>
+        <Card className="border-border shadow-sm">
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle className="text-center text-base font-semibold text-foreground">Accesso al portale</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-slate-700">Username</Label>
+                <Label htmlFor="username" className="text-sm font-medium text-secondary-foreground">Username</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input id="username" type="text" autoComplete="username" placeholder="Il tuo username" value={username} onChange={(e) => setUsername(e.target.value)} className="pl-9" disabled={loading} autoFocus />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-slate-700">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium text-secondary-foreground">Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input id="password" type="password" autoComplete="current-password" placeholder="La tua password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9" disabled={loading} />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || !username || !password} className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold">
-                {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Accesso in corso...</> : <><LogIn className="h-4 w-4 mr-2" /> Accedi</>}
+              <Button type="submit" disabled={loading || !username || !password} className="w-full font-semibold">
+                {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Accesso in corso…</> : <><LogIn className="h-4 w-4 mr-2" /> Accedi</>}
               </Button>
-              <p className="text-xs text-center text-slate-500 mt-4">Admin di default: <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">admin</code> / <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">admin</code></p>
+              <p className="text-xs text-center text-muted-foreground mt-4">
+                Admin di default: <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[11px]">admin</code> / <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[11px]">admin</code>
+              </p>
             </form>
           </CardContent>
         </Card>

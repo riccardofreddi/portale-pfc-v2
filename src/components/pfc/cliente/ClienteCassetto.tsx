@@ -43,13 +43,13 @@ interface CassettoFile {
 }
 
 const DOC_COLORS: Record<string, string> = {
-  qr_code: '#059669',
-  certificato: '#b45309',
-  visura: '#0369a1',
-  doc_identita: '#be123c',
-  iban: '#6d28d9',
-  altro: '#475569',
-  default: '#64748b',
+  qr_code: '#245036',
+  certificato: '#6E541B',
+  visura: '#2D5245',
+  doc_identita: '#7A3C29',
+  iban: '#5C3B66',
+  altro: '#565F51',
+  default: '#737F6C',
 }
 
 function getColorForFile(nome: string): string {

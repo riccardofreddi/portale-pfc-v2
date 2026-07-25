@@ -1,13 +1,81 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------ */
+/*  Portale PFC — identità visiva                                      */
+/*  Palette ispirata ai registri e ai timbri di uno studio             */
+/*  professionale: verde inchiostro, carta, ambra per le scadenze.     */
+/* ------------------------------------------------------------------ */
+@theme {
+  --color-slate-50: #F2F4EF;
+  --color-slate-100: #E8EBE2;
+  --color-slate-200: #DBE1D3;
+  --color-slate-300: #C3CBB8;
+  --color-slate-400: #9DA894;
+  --color-slate-500: #737F6C;
+  --color-slate-600: #565F51;
+  --color-slate-700: #3D453A;
+  --color-slate-800: #262C22;
+  --color-slate-900: #131A10;
+  --color-slate-950: #0B0F09;
+
+  --color-emerald-50: #EAF0EA;
+  --color-emerald-100: #D7E3D8;
+  --color-emerald-200: #B4CBB7;
+  --color-emerald-300: #8CAD90;
+  --color-emerald-400: #648F6B;
+  --color-emerald-500: #46754C;
+  --color-emerald-600: #33613D;
+  --color-emerald-700: #245036;
+  --color-emerald-800: #17392A;
+  --color-emerald-900: #0F2A1F;
+  --color-emerald-950: #081A13;
+
+  --color-red-50: #F7EAE6;
+  --color-red-100: #F0D6CD;
+  --color-red-200: #E1B4A5;
+  --color-red-300: #CE8F79;
+  --color-red-400: #BB7359;
+  --color-red-500: #A85B41;
+  --color-red-600: #954A33;
+  --color-red-700: #7A3C29;
+  --color-red-800: #5C2D1F;
+  --color-red-900: #3F1E15;
+
+  --color-amber-50: #F6EFDC;
+  --color-amber-100: #EEE0BC;
+  --color-amber-200: #DFC788;
+  --color-amber-300: #CDAA58;
+  --color-amber-400: #BB9339;
+  --color-amber-500: #A57D2A;
+  --color-amber-600: #8C6A22;
+  --color-amber-700: #6E541B;
+  --color-amber-800: #543F14;
+  --color-amber-900: #382A0D;
+
+  --color-blue-50: #E9EFEC;
+  --color-blue-100: #D6E1DB;
+  --color-blue-200: #ADC3B7;
+  --color-blue-300: #82A093;
+  --color-blue-400: #5E8474;
+  --color-blue-500: #4B6F5F;
+  --color-blue-600: #3C6A5B;
+  --color-blue-700: #2D5245;
+  --color-blue-800: #223F35;
+  --color-blue-900: #172D26;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, 'Times New Roman', serif;
+  --font-mono: var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+}
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-display);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -37,88 +105,132 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: var(--color-slate-50);
+  --foreground: var(--color-slate-900);
+  --card: #FCFDFB;
+  --card-foreground: var(--color-slate-900);
+  --popover: #FFFFFF;
+  --popover-foreground: var(--color-slate-900);
+  --primary: var(--color-emerald-700);
+  --primary-foreground: #F2F7F2;
+  --secondary: var(--color-slate-100);
+  --secondary-foreground: var(--color-slate-800);
+  --muted: var(--color-slate-100);
+  --muted-foreground: var(--color-slate-500);
+  --accent: var(--color-emerald-50);
+  --accent-foreground: var(--color-emerald-800);
+  --destructive: var(--color-red-600);
+  --border: var(--color-slate-200);
+  --input: var(--color-slate-200);
+  --ring: var(--color-emerald-600);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.375rem;
+  --sidebar: var(--color-slate-50);
+  --sidebar-foreground: var(--color-slate-900);
+  --sidebar-primary: var(--color-emerald-700);
+  --sidebar-primary-foreground: #F2F7F2;
+  --sidebar-accent: var(--color-emerald-50);
+  --sidebar-accent-foreground: var(--color-emerald-800);
+  --sidebar-border: var(--color-slate-200);
+  --sidebar-ring: var(--color-emerald-600);
 }
 
-/* ===== OTTIMIZZAZIONI MOBILE ===== */
-@media (max-width: 640px) {
-  main {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
-    padding-top: 1rem !important;
-  }
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
 
-  header {
-    height: 56px !important;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-
-  nav[aria-label="Tabs"] {
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  nav[aria-label="Tabs"]::-webkit-scrollbar {
-    display: none;
-  }
-
-  button {
-    min-height: 36px;
-  }
-
-  [role="dialog"] {
-    margin: 0 !important;
-    max-width: 100% !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    border-radius: 0 !important;
-  }
-
-  table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
-  }
-
   body {
-    font-size: 15px;
+    @apply bg-background text-foreground;
   }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Elementi di firma del "Portale PFC": marchio a timbro e            */
+/*  badge in stile bollo, coerenti col linguaggio dei registri.        */
+/* ------------------------------------------------------------------ */
+@layer components {
+  .pfc-mark {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transform: rotate(-2deg);
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 3px color-mix(in srgb, currentColor 45%, transparent);
+  }
+  .pfc-stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1.3px solid currentColor;
+    border-radius: 3px;
+    transform: rotate(-1deg);
+    background: color-mix(in srgb, currentColor 8%, transparent);
+  }
+  .pfc-rule-bg {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 34px,
+      var(--border) 34px,
+      var(--border) 35px
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
