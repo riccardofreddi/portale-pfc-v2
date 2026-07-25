@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,6 +30,7 @@ export function TabInvioDocumenti() {
   const [uploading, setUploading] = useState(false)
   const [results, setResults] = useState<UploadResult[] | null>(null)
   const [cartelleDisponibili, setCartelleDisponibili] = useState<string[]>([])
+  const [anniDisponibili, setAnniDisponibili] = useState<string[]>([])
 
   useEffect(() => {
     api.clienti.list().then((r) => { setClienti(r.clienti); setLoading(false) }).catch(() => setLoading(false))
@@ -37,6 +38,18 @@ export function TabInvioDocumenti() {
 
   const annoFinale = annoNuovo.trim() || (annoEsistente !== 'none' ? annoEsistente : '')
   useEffect(() => {
+
+  // Quando cambia cliente, carica gli ANNI esistenti per quel cliente
+  useEffect(() => {
+    if (!clienteSelezionato) {
+      setAnniDisponibili([])
+      setCartelleDisponibili([])
+      return
+    }
+    api.documenti.list({ username: clienteSelezionato })
+      .then((r) => setAnniDisponibili(r.anni ?? []))
+      .catch(() => setAnniDisponibili([]))
+  }, [clienteSelezionato])
     if (!clienteSelezionato || !annoFinale) { setCartelleDisponibili([]); return }
     api.documenti.list({ username: clienteSelezionato, anno: annoFinale })
       .then((r) => {
@@ -117,7 +130,11 @@ export function TabInvioDocumenti() {
                 <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">- Nessuno -</SelectItem>
-                  {Array.from({ length: 10 }, (_, i) => String(2026 - i)).map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                  {anniDisponibili.length === 0 ? (
+                      <SelectItem value="_empty" disabled>Nessun anno - crea nuovo</SelectItem>
+                    ) : (
+                      anniDisponibili.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)
+                    )}
                 </SelectContent>
               </Select>
             </div>
