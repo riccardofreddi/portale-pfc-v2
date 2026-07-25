@@ -1,4 +1,4 @@
-﻿/**
+/**
  * /api/resoconto - admin: statistiche archivio per cliente
  */
 import { NextResponse } from 'next/server'
@@ -24,7 +24,7 @@ export async function GET() {
   if (!haConfigurazioneR2()) {
     return NextResponse.json({
       r2NotConfigured: true,
-      stats: clienti.map((c) => ({ username: c.username, name: c.name, nFiles: 0, sizeBytes: 0, sizeStr: '0 B', anni: [] })),
+      stats: clienti.map((c) => ({ username: c.username, name: c.name, exemptMaintenance: c.exemptMaintenance, nFiles: 0, sizeBytes: 0, sizeStr: '0 B', anni: [] })),
     })
   }
 
@@ -59,7 +59,7 @@ export async function GET() {
       })),
     }))
 
-    return { username: c.username, name: c.name, nFiles: archiveObjs.length, sizeBytes, sizeStr: formatBytes(sizeBytes), anni }
+    return { username: c.username, name: c.name, exemptMaintenance: c.exemptMaintenance, nFiles: archiveObjs.length, sizeBytes, sizeStr: formatBytes(sizeBytes), anni }
   }))
 
   return NextResponse.json({ stats })
