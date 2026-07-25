@@ -8,6 +8,7 @@ import { listaOggetti, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
 import { formatBytes } from '@/lib/pfc-utils'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 export async function GET() {
   const session = await getSession()

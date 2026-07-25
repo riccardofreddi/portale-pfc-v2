@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth'
 import { haConfigurazioneR2, listaOggetti, DOCS_PREFIX } from '@/lib/r2'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 export async function GET() {
   const session = await getSession()
@@ -54,3 +55,4 @@ export async function GET() {
     },
   })
 }
+
