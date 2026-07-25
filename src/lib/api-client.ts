@@ -34,6 +34,8 @@ export const api = {
       apiFetch('/api/clienti', { method: 'PUT', body: JSON.stringify(data) }),
     delete: (username: string) =>
       apiFetch('/api/clienti', { method: 'DELETE', body: JSON.stringify({ username }) }),
+    setExempt: (username: string, exempt: boolean) =>
+      apiFetch<{ ok: boolean }>('/api/clienti/exempt', { method: 'POST', body: JSON.stringify({ username, exempt }) }),
   },
   documenti: {
     list: (params: { username: string; anno?: string; cartella?: string }) => {
