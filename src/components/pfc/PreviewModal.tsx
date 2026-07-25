@@ -1,50 +1,29 @@
 ﻿'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense } from 'react'
+import dynamic from 'next/dynamic'
 import { usePfcStore } from '@/store/pfc'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Download, X, ChevronLeft, ChevronRight, Loader2, FileText } from 'lucide-react'
+import { Download, X, Loader2, FileText } from 'lucide-react'
 import { toast } from 'sonner'
+
+const PdfViewer = dynamic(() => import('./PdfViewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center gap-2 text-slate-500 mt-12 justify-center">
+      <Loader2 className="h-5 w-5 animate-spin" /> Caricamento visualizzatore PDF...
+    </div>
+  ),
+})
 
 export function PreviewModal() {
   const { previewFile, setPreviewFile } = usePfcStore()
-  const [numPages, setNumPages] = useState(0)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  if (!previewFile) return null
 
-  const isPdf = previewFile?.nome.toLowerCase().endsWith('.pdf') ?? false
-  const isImage = previewFile ? /\.(jpg|jpeg|png|svg|gif|webp)$/i.test(previewFile.nome) : false
-
-  const pdfPageUrl = previewFile
-    ? `/api/documenti/pdf-page?key=${encodeURIComponent(previewFile.key)}&page=${currentPage}`
-    : ''
-  const previewUrl = previewFile
-    ? `/api/documenti/preview?key=${encodeURIComponent(previewFile.key)}`
-    : ''
-
-  useEffect(() => {
-    if (!previewFile) return
-    setNumPages(0)
-    setCurrentPage(1)
-    setLoading(true)
-    setError(null)
-  }, [previewFile])
-
-  // Per PDF: carica la prima pagina per ottenere il numero totale
-  useEffect(() => {
-    if (!previewFile || !isPdf) return
-    setLoading(true)
-    fetch(`/api/documenti/pdf-page?key=${encodeURIComponent(previewFile.key)}&page=1`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Errore caricamento')
-        const total = parseInt(res.headers.get('X-Total-Pages') ?? '1', 10)
-        setNumPages(total)
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [previewFile, isPdf])
+  const isPdf = previewFile.nome.toLowerCase().endsWith('.pdf')
+  const isImage = /\.(jpg|jpeg|png|svg|gif|webp)$/i.test(previewFile.nome)
+  const previewUrl = `/api/documenti/preview?key=${encodeURIComponent(previewFile.key)}`
 
   async function handleDownload() {
     if (!previewFile) return
@@ -63,12 +42,9 @@ export function PreviewModal() {
     }
   }
 
-  if (!previewFile) return null
-
   return (
     <Dialog open={!!previewFile} onOpenChange={(o) => !o && setPreviewFile(null)}>
       <DialogContent className="!max-w-[100vw] !w-[100vw] !h-[100vh] !max-h-[100vh] sm:!max-w-[95vw] sm:!w-[95vw] sm:!h-[95vh] sm:!max-h-[95vh] flex flex-col p-0 gap-0 [&>button]:hidden rounded-none sm:rounded-lg">
-        {/* Header */}
         <DialogHeader className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-slate-200 flex-row items-center justify-between space-y-0 flex-shrink-0">
           <div className="min-w-0 flex-1 flex items-center gap-2">
             <span className="text-base sm:text-lg flex-shrink-0">📄</span>
@@ -87,48 +63,15 @@ export function PreviewModal() {
           </div>
         </DialogHeader>
 
-        {/* Navigazione pagine SOPRA (come Streamlit) */}
-        {isPdf && numPages > 1 && !loading && !error && (
-          <div className="bg-slate-100 border-b border-slate-200 px-3 py-1.5 flex items-center justify-center gap-3 flex-shrink-0">
-            <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)} className="h-7 text-xs">
-              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prec
-            </Button>
-            <span className="text-xs text-slate-700 font-medium min-w-[100px] text-center">
-              Pagina {currentPage} di {numPages}
-            </span>
-            <Button variant="outline" size="sm" disabled={currentPage >= numPages} onClick={() => setCurrentPage(p => p + 1)} className="h-7 text-xs">
-              Succ <ChevronRight className="h-3.5 w-3.5 ml-1" />
-            </Button>
-          </div>
-        )}
-
-        {/* Contenuto */}
-        <div className="flex-1 min-h-0 overflow-y-auto bg-slate-100 flex items-start justify-center p-2 sm:p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto bg-slate-100 px-2 py-3 sm:px-4 sm:py-4">
           {isPdf ? (
-            loading ? (
-              <div className="flex flex-col items-center gap-3 text-slate-500 mt-12">
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <p className="text-sm">Caricamento pagina...</p>
-              </div>
-            ) : error ? (
-              <div className="text-center text-red-600 mt-12 p-4">
-                <p className="font-medium mb-2">{error}</p>
-                <Button variant="outline" size="sm" onClick={handleDownload}>
-                  <Download className="h-3.5 w-3.5 mr-1.5" /> Scarica il file
-                </Button>
-              </div>
-            ) : (
-              <div className="bg-white shadow-lg rounded">
-                <img
-                  src={pdfPageUrl}
-                  alt={`Pagina ${currentPage}`}
-                  className="w-full h-auto"
-                  onError={() => setError('Errore caricamento pagina')}
-                />
-              </div>
-            )
+            <Suspense fallback={<div className="text-slate-500 mt-12 text-center">Caricamento...</div>}>
+              <PdfViewer url={previewUrl} />
+            </Suspense>
           ) : isImage ? (
-            <img src={previewUrl} alt={previewFile.nome} className="max-w-full max-h-full object-contain shadow-lg rounded bg-white" />
+            <div className="w-full h-full flex items-center justify-center p-2 sm:p-4 overflow-auto">
+              <img src={previewUrl} alt={previewFile.nome} className="max-w-full max-h-full object-contain shadow-lg rounded bg-white" />
+            </div>
           ) : (
             <div className="text-center text-slate-600 mt-12 p-4">
               <FileText className="h-10 w-10 mx-auto mb-2 text-slate-300" />
@@ -139,21 +82,6 @@ export function PreviewModal() {
             </div>
           )}
         </div>
-
-        {/* Navigazione pagine SOTTO (come Streamlit) */}
-        {isPdf && numPages > 1 && !loading && !error && (
-          <div className="bg-slate-100 border-t border-slate-200 px-3 py-1.5 flex items-center justify-center gap-3 flex-shrink-0">
-            <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)} className="h-7 text-xs">
-              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Pagina precedente
-            </Button>
-            <span className="text-xs text-slate-700 font-medium min-w-[100px] text-center">
-              Pagina {currentPage} di {numPages}
-            </span>
-            <Button variant="outline" size="sm" disabled={currentPage >= numPages} onClick={() => setCurrentPage(p => p + 1)} className="h-7 text-xs">
-              Pagina successiva <ChevronRight className="h-3.5 w-3.5 ml-1" />
-            </Button>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   )

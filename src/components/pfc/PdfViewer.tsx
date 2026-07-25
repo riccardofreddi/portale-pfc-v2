@@ -7,7 +7,7 @@ import 'react-pdf/dist/Page/TextLayer.css'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-// Worker PDF.js servito dal nostro dominio (no CDN esterno)
+// Worker locale (no CDN, no CORS)
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf-worker/pdf.worker.min.mjs'
 
 export default function PdfViewer({ url }: { url: string }) {
@@ -19,22 +19,20 @@ export default function PdfViewer({ url }: { url: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   function onDocumentLoadSuccess({ numPages: n }: { numPages: number }) {
-    console.log('[PDF] caricato con successo, pagine:', n)
     setNumPages(n)
     setLoading(false)
     setError(null)
   }
 
   function onDocumentLoadError(err: Error) {
-    console.error('[PDF] errore caricamento:', err)
-    setError(`Impossibile caricare il PDF: ${err.message || 'errore sconosciuto'}`)
+    setError(`Impossibile caricare il PDF: ${err.message}`)
     setLoading(false)
   }
 
   useEffect(() => {
     function measure() {
       if (containerRef.current) {
-        const w = containerRef.current.clientWidth - 32
+        const w = containerRef.current.clientWidth - 16
         if (w > 0) setContainerWidth(w)
       }
     }
@@ -55,7 +53,7 @@ export default function PdfViewer({ url }: { url: string }) {
 
   if (error) {
     return (
-      <div className="text-center text-red-600 mt-12 max-w-md mx-auto">
+      <div className="text-center text-red-600 mt-12 max-w-md mx-auto p-4">
         <p className="font-medium mb-2">{error}</p>
         <Button variant="outline" size="sm" className="mt-3" onClick={() => window.open(url, '_blank')}>
           Apri in nuova scheda
@@ -67,15 +65,15 @@ export default function PdfViewer({ url }: { url: string }) {
   return (
     <div ref={containerRef} className="flex flex-col items-center w-full">
       {numPages > 1 && (
-        <div className="sticky top-0 z-10 w-full bg-slate-100/95 backdrop-blur border-b border-slate-200 px-4 py-2 flex items-center justify-center gap-4 mb-3">
-          <Button variant="outline" size="sm" disabled={pageNumber <= 1} onClick={goToPrevPage} className="h-8">
-            <ChevronLeft className="h-4 w-4 mr-1" /> Precedente
+        <div className="sticky top-0 z-10 w-full bg-slate-100/95 backdrop-blur border-b border-slate-200 px-2 py-1.5 flex items-center justify-center gap-2 sm:gap-4 mb-3">
+          <Button variant="outline" size="sm" disabled={pageNumber <= 1} onClick={goToPrevPage} className="h-7 text-xs px-2">
+            <ChevronLeft className="h-3.5 w-3.5 sm:mr-1" /> <span className="hidden sm:inline">Precedente</span>
           </Button>
-          <span className="text-sm text-slate-700 font-medium min-w-[140px] text-center">
+          <span className="text-xs sm:text-sm text-slate-700 font-medium min-w-[100px] sm:min-w-[140px] text-center">
             Pagina {pageNumber} di {numPages}
           </span>
-          <Button variant="outline" size="sm" disabled={pageNumber >= numPages} onClick={goToNextPage} className="h-8">
-            Successiva <ChevronRight className="h-4 w-4 ml-1" />
+          <Button variant="outline" size="sm" disabled={pageNumber >= numPages} onClick={goToNextPage} className="h-7 text-xs px-2">
+            <span className="hidden sm:inline">Successiva</span> <ChevronRight className="h-3.5 w-3.5 sm:ml-1" />
           </Button>
         </div>
       )}
@@ -107,15 +105,15 @@ export default function PdfViewer({ url }: { url: string }) {
       )}
 
       {!loading && !error && numPages > 1 && (
-        <div className="w-full bg-slate-100/95 border-t border-slate-200 px-4 py-2 flex items-center justify-center gap-4 mt-3">
-          <Button variant="outline" size="sm" disabled={pageNumber <= 1} onClick={goToPrevPage} className="h-8">
-            <ChevronLeft className="h-4 w-4 mr-1" /> Pagina precedente
+        <div className="w-full bg-slate-100/95 border-t border-slate-200 px-2 py-1.5 flex items-center justify-center gap-2 sm:gap-4 mt-3">
+          <Button variant="outline" size="sm" disabled={pageNumber <= 1} onClick={goToPrevPage} className="h-7 text-xs px-2">
+            <ChevronLeft className="h-3.5 w-3.5 sm:mr-1" /> <span className="hidden sm:inline">Pagina precedente</span>
           </Button>
-          <span className="text-sm text-slate-700 font-medium min-w-[140px] text-center">
+          <span className="text-xs sm:text-sm text-slate-700 font-medium min-w-[100px] sm:min-w-[140px] text-center">
             Pagina {pageNumber} di {numPages}
           </span>
-          <Button variant="outline" size="sm" disabled={pageNumber >= numPages} onClick={goToNextPage} className="h-8">
-            Pagina successiva <ChevronRight className="h-4 w-4 ml-1" />
+          <Button variant="outline" size="sm" disabled={pageNumber >= numPages} onClick={goToNextPage} className="h-7 text-xs px-2">
+            <span className="hidden sm:inline">Pagina successiva</span> <ChevronRight className="h-3.5 w-3.5 sm:ml-1" />
           </Button>
         </div>
       )}
