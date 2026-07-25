@@ -271,7 +271,7 @@ export function ClienteArchivio() {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="bg-gradient-to-r from-emerald-600 to-emerald-800 text-white text-xs sm:text-sm font-bold px-2 py-1 sm:px-3 rounded">{cartellaSelezionata}</span>
-<span className="text-xs sm:text-sm text-slate-500 ml-2 pl-3 border-l border-slate-200">{files.length} file · {formatBytes(files.reduce((s, f) => s + f.size, 0))}</span>
+                  <span className="text-xs sm:text-sm text-slate-500">{files.length} file · {formatBytes(files.reduce((s, f) => s + f.size, 0))}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {selectedFiles.size > 0 ? (
@@ -294,7 +294,7 @@ export function ClienteArchivio() {
                 <Card><CardContent className="py-12 text-center text-slate-500"><Folder className="h-10 w-10 mx-auto mb-2 text-slate-300" />Cartella vuota</CardContent></Card>
               ) : (
                 <>
-                  <div className="space-y-2.5">
+                  <div className="space-y-1.5">
                     {pageFiles.map((f) => {
                       const icon = ottieniIconaFile(f.nome)
                       const statoCfg = STATO_CONFIG[f.stato]
