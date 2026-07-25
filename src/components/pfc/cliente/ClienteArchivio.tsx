@@ -294,7 +294,7 @@ export function ClienteArchivio() {
                 <Card><CardContent className="py-12 text-center text-slate-500"><Folder className="h-10 w-10 mx-auto mb-2 text-slate-300" />Cartella vuota</CardContent></Card>
               ) : (
                 <>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2.5">
                     {pageFiles.map((f) => {
                       const icon = ottieniIconaFile(f.nome)
                       const statoCfg = STATO_CONFIG[f.stato]
