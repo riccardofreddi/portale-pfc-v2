@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
@@ -83,128 +82,114 @@ export function TabResoconto() {
         <Card className="border-l-4 border-l-amber-500"><CardContent className="pt-5"><div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Media file/cliente</p><BarChart3 className="h-4 w-4 text-slate-400" /></div><p className="text-2xl font-bold text-slate-900 mt-1">{avgFiles}</p></CardContent></Card>
       </div>
 
-      <Collapsible open={openDiag} onOpenChange={setOpenDiag}>
-        <Card>
-          <CollapsibleTrigger>
-            <CardHeader className="cursor-pointer hover:bg-slate-50 transition-colors">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span className="flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Stato del Sistema</span>
-                {openDiag ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </CardTitle>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2"><HardDrive className="h-4 w-4" /> Cloudflare R2</h4>
-                {diagnostica?.r2.configurato ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-                    <div className="bg-emerald-50 border border-emerald-200 rounded p-3"><p className="text-xs text-slate-500">Stato</p><p className="font-semibold text-emerald-700">Configurato</p></div>
-                    <div className="bg-white border border-slate-200 rounded p-3"><p className="text-xs text-slate-500">File totali</p><p className="font-semibold text-slate-900">{diagnostica.r2.nFiles}</p></div>
-                    <div className="bg-white border border-slate-200 rounded p-3"><p className="text-xs text-slate-500">Spazio</p><p className="font-semibold text-slate-900">{formatBytes(diagnostica.r2.sizeTotale)}</p></div>
-                  </div>
-                ) : <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">R2 non configurato.</div>}
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2"><Database className="h-4 w-4" /> Database</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {diagnostica?.db.tabelle.map((t) => <div key={t.nome} className="bg-white border border-slate-200 rounded p-3 text-sm"><p className="text-xs text-slate-500">{t.nome}</p><p className="font-semibold text-slate-900">{t.righe} righe</p></div>)}
+      {/* Stato del Sistema */}
+      <Card>
+        <CardHeader className="cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setOpenDiag(!openDiag)}>
+          <CardTitle className="text-base flex items-center justify-between">
+            <span className="flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Stato del Sistema</span>
+            {openDiag ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </CardTitle>
+        </CardHeader>
+        {openDiag && (
+          <CardContent className="space-y-4">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2"><HardDrive className="h-4 w-4" /> Cloudflare R2</h4>
+              {diagnostica?.r2.configurato ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded p-3"><p className="text-xs text-slate-500">Stato</p><p className="font-semibold text-emerald-700">Configurato</p></div>
+                  <div className="bg-white border border-slate-200 rounded p-3"><p className="text-xs text-slate-500">File totali</p><p className="font-semibold text-slate-900">{diagnostica.r2.nFiles}</p></div>
+                  <div className="bg-white border border-slate-200 rounded p-3"><p className="text-xs text-slate-500">Spazio</p><p className="font-semibold text-slate-900">{formatBytes(diagnostica.r2.sizeTotale)}</p></div>
                 </div>
+              ) : <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">R2 non configurato.</div>}
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2"><Database className="h-4 w-4" /> Database</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {diagnostica?.db.tabelle.map((t) => <div key={t.nome} className="bg-white border border-slate-200 rounded p-3 text-sm"><p className="text-xs text-slate-500">{t.nome}</p><p className="font-semibold text-slate-900">{t.righe} righe</p></div>)}
               </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
+      {/* Archivio per Cliente */}
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5 text-emerald-600" /> Archivio per Cliente</CardTitle></CardHeader>
         <CardContent>
           {stats.length === 0 ? <p className="text-sm text-slate-500 text-center py-6">Nessun cliente</p> : (
             <div className="space-y-2">
               {stats.map((c) => (
-                <Collapsible key={c.username} open={openCliente === c.username} onOpenChange={(o) => setOpenCliente(o ? c.username : null)}>
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <CollapsibleTrigger>
-                      <button className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {openCliente === c.username ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          <p className="font-semibold text-slate-900 truncate">{c.name}</p>
-                          <span className="text-xs text-slate-500">@{c.username}</span>
-                          {c.exemptMaintenance && <Badge variant="outline" className="text-[10px] border-amber-400 bg-amber-50 text-amber-700">Esente</Badge>}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 flex-shrink-0"><span>{c.nFiles} file</span><span>{c.sizeStr}</span></div>
-                      </button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="border-t border-slate-200 p-3 space-y-3 bg-slate-50/50">
-                        {/* Checkbox esenzione manutenzione */}
-                        <div className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg">
-                          <ShieldCheck className={`h-4 w-4 ${c.exemptMaintenance ? 'text-emerald-600' : 'text-slate-400'}`} />
-                          <span className="text-sm text-slate-700">Esente da manutenzione</span>
-                          <button
-                            onClick={() => handleToggleExempt(c.username, c.exemptMaintenance)}
-                            className={`ml-auto relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${c.exemptMaintenance ? 'bg-emerald-600' : 'bg-slate-300'}`}
-                          >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${c.exemptMaintenance ? 'translate-x-4' : 'translate-x-1'}`} />
-                          </button>
-                        </div>
-
-                        {c.anni.length === 0 ? <p className="text-sm text-slate-500 italic">Archivio vuoto</p> : c.anni.map((a) => (
-                          <div key={a.anno}>
-                            <p className="text-sm font-semibold text-slate-800 mb-2">Anno {a.anno}</p>
-                            <div className="space-y-2 pl-4">
-                              {a.cartelle.map((cart) => {
-                                const cartKey = `${c.username}_${a.anno}_${cart.cartella}`
-                                const isCartOpen = openCartella === cartKey
-                                return (
-                                  <Collapsible key={cartKey} open={isCartOpen} onOpenChange={(o) => setOpenCartella(o ? cartKey : null)}>
-                                    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-                                      <CollapsibleTrigger>
-                                        <button className="w-full flex items-center justify-between p-2 hover:bg-slate-50 text-left text-sm">
-                                          <div className="flex items-center gap-2">
-                                            {isCartOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                            <span className="font-medium">📂 {cart.cartella}</span>
-                                          </div>
-                                          <span className="text-xs text-slate-500">{cart.nFiles} file · {formatBytes(cart.sizeBytes)}</span>
-                                        </button>
-                                      </CollapsibleTrigger>
-                                      <CollapsibleContent>
-                                        <div className="border-t border-slate-200 p-2 space-y-1 bg-slate-50/30">
-                                          {cart.files.map((f) => {
-                                            const icon = ottieniIconaFile(f.nome)
-                                            return (
-                                              <div key={f.key} className="flex items-center gap-3 p-2 bg-white border border-slate-200 rounded-lg">
-                                                <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
-                                                <div className="flex-1 min-w-0">
-                                                  <p className="text-sm font-medium text-slate-900 truncate">{f.nome}</p>
-                                                  <p className="text-xs text-slate-500">{f.sizeStr}</p>
-                                                </div>
-                                                <div className="flex items-center gap-1 flex-shrink-0">
-                                                  <Button variant="outline" size="sm" onClick={() => setPreviewFile({ nome: f.nome, key: f.key, size: f.size, sizeStr: f.sizeStr, lastModified: null, stato: 'nuovo', isPreferito: false })}><Eye className="h-3.5 w-3.5 mr-1" /> Visualizza</Button>
-                                                  <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3.5 w-3.5 mr-1" /> Scarica</Button>
-                                                </div>
-                                              </div>
-                                            )
-                                          })}
-                                        </div>
-                                      </CollapsibleContent>
-                                    </div>
-                                  </Collapsible>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        ))}
+                <div key={c.username} className="border border-slate-200 rounded-lg overflow-hidden">
+                  <button className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left" onClick={() => setOpenCliente(openCliente === c.username ? null : c.username)}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {openCliente === c.username ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      <p className="font-semibold text-slate-900 truncate">{c.name}</p>
+                      <span className="text-xs text-slate-500">@{c.username}</span>
+                      {c.exemptMaintenance && <Badge variant="outline" className="text-[10px] border-amber-400 bg-amber-50 text-amber-700">Esente</Badge>}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 flex-shrink-0"><span>{c.nFiles} file</span><span>{c.sizeStr}</span></div>
+                  </button>
+                  {openCliente === c.username && (
+                    <div className="border-t border-slate-200 p-3 space-y-3 bg-slate-50/50">
+                      <div className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg">
+                        <ShieldCheck className={`h-4 w-4 ${c.exemptMaintenance ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        <span className="text-sm text-slate-700">Esente da manutenzione</span>
+                        <button onClick={() => handleToggleExempt(c.username, c.exemptMaintenance)} className={`ml-auto relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${c.exemptMaintenance ? 'bg-emerald-600' : 'bg-slate-300'}`}>
+                          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${c.exemptMaintenance ? 'translate-x-4' : 'translate-x-1'}`} />
+                        </button>
                       </div>
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
+                      {c.anni.length === 0 ? <p className="text-sm text-slate-500 italic">Archivio vuoto</p> : c.anni.map((a) => (
+                        <div key={a.anno}>
+                          <p className="text-sm font-semibold text-slate-800 mb-2">Anno {a.anno}</p>
+                          <div className="space-y-2 pl-4">
+                            {a.cartelle.map((cart) => {
+                              const cartKey = `${c.username}_${a.anno}_${cart.cartella}`
+                              const isCartOpen = openCartella === cartKey
+                              return (
+                                <div key={cartKey} className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                                  <button className="w-full flex items-center justify-between p-2 hover:bg-slate-50 text-left text-sm" onClick={() => setOpenCartella(isCartOpen ? null : cartKey)}>
+                                    <div className="flex items-center gap-2">
+                                      {isCartOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                      <span className="font-medium">📂 {cart.cartella}</span>
+                                    </div>
+                                    <span className="text-xs text-slate-500">{cart.nFiles} file · {formatBytes(cart.sizeBytes)}</span>
+                                  </button>
+                                  {isCartOpen && (
+                                    <div className="border-t border-slate-200 p-2 space-y-1 bg-slate-50/30">
+                                      {cart.files.map((f) => {
+                                        const icon = ottieniIconaFile(f.nome)
+                                        return (
+                                          <div key={f.key} className="flex items-center gap-3 p-2 bg-white border border-slate-200 rounded-lg">
+                                            <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-sm font-medium text-slate-900 truncate">{f.nome}</p>
+                                              <p className="text-xs text-slate-500">{f.sizeStr}</p>
+                                            </div>
+                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                              <Button variant="outline" size="sm" onClick={() => setPreviewFile({ nome: f.nome, key: f.key, size: f.size, sizeStr: f.sizeStr, lastModified: null, stato: 'nuovo', isPreferito: false })}><Eye className="h-3.5 w-3.5 mr-1" /> Visualizza</Button>
+                                              <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3.5 w-3.5 mr-1" /> Scarica</Button>
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Log attività */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Log Attivita ({logs.length})</CardTitle>
