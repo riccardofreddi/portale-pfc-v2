@@ -41,11 +41,11 @@ export function LoginScreen() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-slate-100 p-4">
-      <div className="w-full max-w-md w-full px-4">
+      <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center text-white font-extrabold text-2xl shadow-lg mb-4">P</div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Portale Documenti Clienti</h1>
-          
+          <p className="text-sm text-slate-500 mt-2">Accedi con le tue credenziali</p>
         </div>
         <Card className="shadow-xl border-slate-200">
           <CardHeader><CardTitle className="text-center text-lg">Accesso al Portale</CardTitle></CardHeader>
@@ -68,7 +68,6 @@ export function LoginScreen() {
               <Button type="submit" disabled={loading || !username || !password} className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold">
                 {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Accesso in corso...</> : <><LogIn className="h-4 w-4 mr-2" /> Accedi</>}
               </Button>
-              
             </form>
           </CardContent>
         </Card>
