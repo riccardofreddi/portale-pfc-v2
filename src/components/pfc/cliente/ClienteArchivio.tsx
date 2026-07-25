@@ -294,7 +294,7 @@ export function ClienteArchivio() {
               </div>
 
               <div className="text-[10px] sm:text-xs text-slate-500 flex items-center gap-2 sm:gap-3">
-                <span>🔴 Nuovo</span><span>🔵 Visto</span><span>🟢 Scaricato</span><span>⭐ Pref.</span>
+                <span>🔴 Nuovo</span><span>🔵 Visto</span><span>🟢 Scaricato</span><span>⭐ Preferiti</span>
               </div>
 
               {files.length === 0 ? (
