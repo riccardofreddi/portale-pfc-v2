@@ -271,7 +271,7 @@ export function ClienteArchivio() {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <span className="bg-gradient-to-r from-emerald-600 to-emerald-800 text-white text-xs sm:text-sm font-bold px-2 py-1 sm:px-3 rounded">{cartellaSelezionata}</span>
-                  <span className="text-xs sm:text-sm text-slate-500">{files.length} file · {formatBytes(files.reduce((s, f) => s + f.size, 0))}</span>
+<span className="text-xs sm:text-sm text-slate-500 ml-2 pl-3 border-l border-slate-200">{files.length} file · {formatBytes(files.reduce((s, f) => s + f.size, 0))}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {selectedFiles.size > 0 ? (
