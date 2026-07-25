@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Portale PFC — Autenticazione custom (PBKDF2-HMAC-SHA256).
  */
 
@@ -165,15 +165,15 @@ export async function ensureDefaultAdmin() {
   console.log(`[AUTH] Admin di default creato: ${DEFAULT_ADMIN_USER} / ${DEFAULT_ADMIN_PASSWORD}`)
 }
 
-export async function logAudit(username: string, action: string, detail: string = '') {
+export async function logAudit(username: string, action: string, detail: string = '', knownUserId?: string | null) {
   try {
-    const user = await db.user.findUnique({ where: { username } })
+    const userId = knownUserId !== undefined ? knownUserId : (await db.user.findUnique({ where: { username }, select: { id: true } }))?.id ?? null
     await db.auditLog.create({
       data: {
         username,
         action,
         detail,
-        userId: user?.id ?? null,
+        userId,
       },
     })
   } catch (err) {
