@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -61,25 +61,41 @@ export function TabGestioneClienti() {
   async function loadArchivioCliente(username: string) {
     setLoadingArchivio(true)
     try {
-      const rCass = await api.cassetto.list(username)
+      // Carica cassetto e anni in parallelo
+      const [rCass, rAnni] = await Promise.all([
+        api.cassetto.list(username),
+        api.documenti.list({ username }),
+      ])
       setCassettoFiles(rCass.files)
-      const rAnni = await api.documenti.list({ username })
-      setArchivioAnni(rAnni.anni ?? [])
+      const anni = rAnni.anni ?? []
+      setArchivioAnni(anni)
+
+      // Carica tutte le cartelle di tutti gli anni in parallelo
+      const cartelleResults = await Promise.all(anni.map((anno) => api.documenti.list({ username, anno })))
       const cartelleMap: Record<string, CartellaMeta[]> = {}
-      const filesMap: Record<string, ArchivioFile[]> = {}
-      for (const anno of (rAnni.anni ?? [])) {
-        const rCart = await api.documenti.list({ username, anno })
-        cartelleMap[anno] = (rCart.cartelle ?? []) as unknown as CartellaMeta[]
-        for (const cart of cartelleMap[anno]) {
-          const rFiles = await api.documenti.list({ username, anno, cartella: cart.nome })
-          filesMap[`${anno}_${cart.nome}`] = (rFiles.files ?? []) as unknown as ArchivioFile[]
-        }
+      for (let i = 0; i < anni.length; i++) {
+        cartelleMap[anni[i]] = (cartelleResults[i].cartelle ?? []) as unknown as CartellaMeta[]
       }
       setArchivioCartelle(cartelleMap)
+
+      // Carica tutti i file di tutte le cartelle in parallelo
+      const filesMap: Record<string, ArchivioFile[]> = {}
+      const filesRequests: Array<{ anno: string; cartella: string; promise: ReturnType<typeof api.documenti.list> }> = []
+      for (let i = 0; i < anni.length; i++) {
+        for (const cart of cartelleMap[anni[i]]) {
+          filesRequests.push({ anno: anni[i], cartella: cart.nome, promise: api.documenti.list({ username, anno: anni[i], cartella: cart.nome }) })
+        }
+      }
+      const filesResults = await Promise.all(filesRequests.map((r) => r.promise))
+      for (let i = 0; i < filesRequests.length; i++) {
+        const { anno, cartella } = filesRequests[i]
+        filesMap[`${anno}_${cartella}`] = (filesResults[i].files ?? []) as unknown as ArchivioFile[]
+      }
       setArchivioFiles(filesMap)
     } catch { toast.error('Errore caricamento archivio') }
     finally { setLoadingArchivio(false) }
   }
+
 
   useEffect(() => {
     if (selectedCliente) { loadArchivioCliente(selectedCliente) }
