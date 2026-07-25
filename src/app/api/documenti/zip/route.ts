@@ -40,11 +40,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Import dinamico di archiver (compatibile ESM)
-    const archiverModule = await import('archiver')
-    const archiver = archiverModule.default
+    // Import robusto: archiver e' CommonJS, in ESM puo' essere esportato in modo diverso
+    const archiverLib: any = await import('archiver')
+    const archiverFn: any = typeof archiverLib === 'function'
+      ? archiverLib
+      : (archiverLib.default ?? archiverLib)
 
-    const archive = archiver('zip', { zlib: { level: 5 } })
+    if (typeof archiverFn !== 'function') {
+      throw new Error('archiver non caricato correttamente: ' + JSON.stringify(Object.keys(archiverLib)))
+    }
+
+    const archive = archiverFn('zip', { zlib: { level: 5 } })
     const chunks: Buffer[] = []
 
     archive.on('data', (c: Buffer) => chunks.push(c))
