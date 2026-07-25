@@ -31,7 +31,6 @@ export function LoginScreen() {
         const me = await api.auth.me()
         setUser(me.user)
       } else {
-        // Se l'errore contiene "manutenzione", mostra la schermata di manutenzione
         if (res.error?.toLowerCase().includes('manutenzione')) {
           setMaintenance(true)
         } else {
@@ -50,7 +49,6 @@ export function LoginScreen() {
     }
   }
 
-  // Schermata manutenzione a tutto schermo
   if (maintenance) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -64,9 +62,10 @@ export function LoginScreen() {
           <div className="border-t border-amber-300 pt-6 mt-6">
             <p className="text-amber-700 text-sm">
               Per urgenze, contatta lo studio.<br/>
-              Grazie per la pazienza. 🙏
+              Grazie per la pazienza.
             </p>
           </div>
+          <Button variant="outline" onClick={() => { setMaintenance(false); setUsername(''); setPassword('') }} className="mt-6">Esci</Button>
         </div>
       </div>
     )
