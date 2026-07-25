@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    pdfjs.GlobalWorkerOptions.workerSrc = ''
-    pdfjs.GlobalWorkerOptions.disableWorker = true
+    (pdfjs.GlobalWorkerOptions as any).workerSrc = ''
+    (pdfjs.GlobalWorkerOptions as any).disableWorker = true
     const { createCanvas } = await import('@napi-rs/canvas')
 
     const loadingTask = pdfjs.getDocument({ data: new Uint8Array(data) })
