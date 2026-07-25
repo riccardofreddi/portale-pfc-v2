@@ -10,14 +10,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
   }
 
-  const { username, exempt } = await req.json()
+  const body = await req.json().catch(() => ({}))
+  const { username, exemptMaintenance } = body as { username: string; exemptMaintenance: boolean }
+
   if (!username) return NextResponse.json({ error: 'Username mancante' }, { status: 400 })
 
+  const nuovoValore = Boolean(exemptMaintenance)
   await db.user.update({
     where: { username },
-    data: { exemptMaintenance: Boolean(exempt) },
+    data: { exemptMaintenance: nuovoValore },
   })
 
-  await logAudit(session.sub, 'ESENTE_MANUTENZIONE', `${username}: ${exempt ? 'ATTIVATA' : 'DISATTIVATA'}`)
-  return NextResponse.json({ ok: true })
+  await logAudit(session.sub, 'ESENTE_MANUTENZIONE', `${username}: ${nuovoValore ? 'ATTIVATA' : 'DISATTIVATA'}`)
+  return NextResponse.json({ ok: true, exemptMaintenance: nuovoValore })
 }
