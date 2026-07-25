@@ -62,7 +62,7 @@ export function PreviewModal() {
       cancelled = true
       controller.abort()
       clearTimeout(timeoutId)
-      if (objectUrl) URL.createObjectURL(objectUrl)
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewFile?.key])
