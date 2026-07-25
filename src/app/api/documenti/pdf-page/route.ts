@@ -32,7 +32,6 @@ export async function GET(req: NextRequest) {
   if (!data) return NextResponse.json({ error: 'File non trovato' }, { status: 404 })
 
   try {
-    // Render PDF page as PNG using pdfjs-dist + @napi-rs/canvas
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
     const { createCanvas } = await import('@napi-rs/canvas')
 
@@ -45,18 +44,19 @@ export async function GET(req: NextRequest) {
     }
 
     const pdfPage = await pdf.getPage(page)
-    // Scale 2x come Streamlit (matrix=fitz.Matrix(2, 2))
     const viewport = pdfPage.getViewport({ scale: 2 })
     const canvas = createCanvas(viewport.width, viewport.height)
     const context = canvas.getContext('2d')
 
+    // Aggiungi il canvas al context come richiesto da pdfjs-dist 5.x
+    (context as any).canvas = canvas
+
     await pdfPage.render({
-      canvasContext: context as unknown as CanvasRenderingContext2D,
+      canvasContext: context as any,
       viewport,
-    }).promise
+    } as any).promise
 
     const pngBuffer = canvas.toBuffer('image/png')
-
     await pdf.destroy()
 
     return new NextResponse(pngBuffer, {
