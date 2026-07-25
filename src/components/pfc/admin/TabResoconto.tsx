@@ -78,13 +78,11 @@ export function TabResoconto() {
 
       <Collapsible open={openDiag} onOpenChange={setOpenDiag}>
         <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-slate-50 transition-colors">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span className="flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Stato del Sistema</span>
-                {openDiag ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </CardTitle>
-            </CardHeader>
+          <CollapsibleTrigger className="block w-full text-left p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+            <CardTitle className="text-base flex items-center justify-between">
+              <span className="flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Stato del Sistema</span>
+              {openDiag ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </CardTitle>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent className="space-y-4">
@@ -134,14 +132,12 @@ export function TabResoconto() {
               {stats.map((c) => (
                 <Collapsible key={c.username} open={openCliente === c.username} onOpenChange={(o) => setOpenCliente(o ? c.username : null)}>
                   <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <CollapsibleTrigger asChild>
-                      <button className="w-full flex items-center justify-between p-4 hover:bg-slate-50 text-left">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {openCliente === c.username ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          <p className="font-semibold text-slate-900 truncate">{c.name}</p>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 flex-shrink-0"><span>{c.nFiles} file</span><span>{c.sizeStr}</span></div>
-                      </button>
+                    <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-slate-50 text-left">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {openCliente === c.username ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        <p className="font-semibold text-slate-900 truncate">{c.name}</p>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-shrink-0"><span>{c.nFiles} file</span><span>{c.sizeStr}</span></div>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="border-t border-slate-200 p-4 space-y-5 bg-slate-50/50">
@@ -162,14 +158,12 @@ export function TabResoconto() {
                                   return (
                                     <Collapsible key={cartKey} open={isCartOpen} onOpenChange={(o) => setOpenCartella(o ? cartKey : null)}>
                                       <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-                                        <CollapsibleTrigger asChild>
-                                          <button className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left text-sm">
-                                            <div className="flex items-center gap-2">
-                                              {isCartOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                              <span className="font-medium">{cart.cartella}</span>
-                                            </div>
-                                            <span className="text-xs text-slate-500">{cart.nFiles} file - {formatBytes(cart.sizeBytes)}</span>
-                                          </button>
+                                        <CollapsibleTrigger className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left text-sm">
+                                          <div className="flex items-center gap-2">
+                                            {isCartOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                            <span className="font-medium">{cart.cartella}</span>
+                                          </div>
+                                          <span className="text-xs text-slate-500">{cart.nFiles} file - {formatBytes(cart.sizeBytes)}</span>
                                         </CollapsibleTrigger>
                                         <CollapsibleContent>
                                           <div className="border-t border-slate-200 p-3 space-y-2 bg-slate-50/30">
