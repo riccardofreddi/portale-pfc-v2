@@ -6,6 +6,9 @@ const globalForPrisma = globalThis as unknown as {
 
 export const db =
   globalForPrisma.prisma ??
-  new PrismaClient()
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+  })
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+// Mantieni il singleton sia in dev che in prod (importante per Vercel serverless)
+globalForPrisma.prisma = db
