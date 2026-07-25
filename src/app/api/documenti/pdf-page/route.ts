@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     const context = canvas.getContext('2d')
 
     await pdfPage.render({
-      canvasContext: context,
+      canvasContext: context as unknown as CanvasRenderingContext2D,
       viewport,
     }).promise
 
