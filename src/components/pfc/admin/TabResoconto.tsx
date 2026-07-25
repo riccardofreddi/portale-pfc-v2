@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 interface Diagnostica { db: { tabelle: Array<{ nome: string; righe: number }> }; r2: { configurato: boolean; nFiles: number; sizeTotale: number; errore: string | null } }
 interface ResocontoFile { nome: string; key: string; size: number; sizeStr: string }
 interface StatsCliente {
-  username: string; name: string; nFiles: number; sizeBytes: number; sizeStr: string;
+  username: string; name: string; exemptMaintenance: boolean; nFiles: number; sizeBytes: number; sizeStr: string;
   anni: { anno: string; cartelle: { cartella: string; nFiles: number; sizeBytes: number; files: ResocontoFile[] }[] }[]
 }
 interface AuditLog { id: string; ts: string; username: string; action: string; detail: string }
@@ -40,6 +40,33 @@ export function TabResoconto() {
   }
 
   useEffect(() => { refresh() }, [])
+
+  async function toggleExempt(username: string, currentExempt: boolean) {
+    const newExempt = !currentExempt
+    // Aggiornamento ottimistico UI
+    setStats(prev => prev.map(c =>
+      c.username === username ? { ...c, exemptMaintenance: newExempt } : c
+    ))
+    try {
+      const res = await fetch('/api/clienti/exempt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, exemptMaintenance: newExempt }),
+      })
+      if (!res.ok) throw new Error('Errore')
+      const data = await res.json()
+      setStats(prev => prev.map(c =>
+        c.username === username ? { ...c, exemptMaintenance: data.exemptMaintenance } : c
+      ))
+      toast.success(`Esente da manutenzione ${data.exemptMaintenance ? 'attivato' : 'disattivato'}`)
+    } catch {
+      // Rollback in caso di errore
+      setStats(prev => prev.map(c =>
+        c.username === username ? { ...c, exemptMaintenance: currentExempt } : c
+      ))
+      toast.error('Errore aggiornamento esente')
+    }
+  }
 
   async function handleResetLog() {
     try { await api.audit.reset(); toast.success('Log azzerato'); await refresh() }
@@ -119,7 +146,24 @@ export function TabResoconto() {
                         {openCliente === c.username ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         <p className="font-semibold text-slate-900 truncate">{c.name}</p>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-shrink-0"><span>{c.nFiles} file</span><span>{c.sizeStr}</span></div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 flex-shrink-0">
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleExempt(c.username, c.exemptMaintenance) }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); toggleExempt(c.username, c.exemptMaintenance) } }}
+                          className={`px-2 py-1 rounded text-xs font-medium border cursor-pointer transition-colors ${
+                            c.exemptMaintenance
+                              ? 'bg-amber-100 border-amber-400 text-amber-700 hover:bg-amber-200'
+                              : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-100'
+                          }`}
+                          title={c.exemptMaintenance ? 'Esente da manutenzione - clicca per disattivare' : 'Non esente - clicca per attivare'}
+                        >
+                          {c.exemptMaintenance ? 'Esente' : 'Esente'}
+                        </span>
+                        <span>{c.nFiles} file</span>
+                        <span>{c.sizeStr}</span>
+                      </div>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="border-t border-slate-200 p-3 space-y-3 bg-slate-50/50">
@@ -138,7 +182,7 @@ export function TabResoconto() {
                                           {isCartOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                                           <span className="font-medium">{cart.cartella}</span>
                                         </div>
-                                        <span className="text-xs text-slate-500">{cart.nFiles} file · {formatBytes(cart.sizeBytes)}</span>
+                                        <span className="text-xs text-slate-500">{cart.nFiles} file - {formatBytes(cart.sizeBytes)}</span>
                                       </CollapsibleTrigger>
                                       <CollapsibleContent>
                                         <div className="border-t border-slate-200 p-2 space-y-1 bg-slate-50/30">
