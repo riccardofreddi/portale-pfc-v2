@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect } from 'react'
 import { usePfcStore } from '@/store/pfc'
@@ -13,9 +13,13 @@ export default function Home() {
 
   useEffect(() => {
     (async () => {
-      try { await api.setup() } catch {}
       try {
-        const { user } = await api.auth.me()
+        // Esegue setup e auth.me in parallelo invece di in serie
+        const [, meResult] = await Promise.allSettled([
+          api.setup(),
+          api.auth.me(),
+        ])
+        const user = meResult.status === 'fulfilled' ? meResult.value.user : null
         setUser(user)
       } catch {
         setUser(null)
