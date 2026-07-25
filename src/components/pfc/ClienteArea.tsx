@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { usePfcStore } from '@/store/pfc'
@@ -49,23 +49,21 @@ export function ClienteArea() {
 
   useEffect(() => {
     if (!user) return
-    // Carica subito lo stato manutenzione PRIMA di tutto
-    api.sistema.manutenzione.get().then((r) => {
-      setMaintenance(r.attivo)
-      // Poi carica il resto
-      return Promise.all([
-        api.notifiche.list(),
-        api.messaggi.list(user.username).catch(() => ({ messaggi: [] })),
-        api.avvisi.list().catch(() => ({ avvisi: [] })),
-      ])
-    }).then(([n, m, a]) => {
+    // Carica tutto in parallelo — manutenzione, notifiche, messaggi e avvisi insieme
+    Promise.all([
+      api.sistema.manutenzione.get().catch(() => ({ attivo: false })),
+      api.notifiche.list().catch(() => ({ notifiche: [] })),
+      api.messaggi.list(user.username).catch(() => ({ messaggi: [] })),
+      api.avvisi.list().catch(() => ({ avvisi: [] })),
+    ]).then(([man, n, m, a]) => {
+      setMaintenance(man.attivo)
       const notifs = (n.notifiche as unknown as Notifica[])
       setNotifiche(notifs)
       setNNotifiche(notifs.filter((x) => !x.read).length)
       setNMsgNonLetti((m.messaggi as unknown as Array<{ read: boolean }>).filter((x) => !x.read).length)
       setAvvisi(a.avvisi)
     }).catch(() => {})
-  }, [user, clienteTab])
+  }, [user])
 
   useEffect(() => { setPageNotif(1) }, [filtroNotif])
 
