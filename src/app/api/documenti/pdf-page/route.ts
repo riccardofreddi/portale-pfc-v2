@@ -32,9 +32,12 @@ export async function GET(req: NextRequest) {
   if (!data) return NextResponse.json({ error: 'File non trovato' }, { status: 404 })
 
   try {
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    (pdfjs.GlobalWorkerOptions as any).workerSrc = ''
-    (pdfjs.GlobalWorkerOptions as any).disableWorker = true
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    
+    // Disabilita il worker per compatibilità serverless
+    (pdfjs.GlobalWorkerOptions as any).workerSrc = '';
+    (pdfjs.GlobalWorkerOptions as any).disableWorker = true;
+
     const { createCanvas } = await import('@napi-rs/canvas')
 
     const loadingTask = pdfjs.getDocument({ data: new Uint8Array(data) })
@@ -57,7 +60,6 @@ export async function GET(req: NextRequest) {
     } as any).promise
 
     const pngBuffer = canvas.toBuffer('image/png')
-
 
     return new NextResponse(pngBuffer, {
       status: 200,
