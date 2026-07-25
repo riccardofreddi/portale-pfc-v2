@@ -43,6 +43,13 @@ export function ClienteArchivio() {
 
   const username = user?.username ?? ''
 
+  // Cache lato client per non rifare le stesse chiamate
+  const cacheRef = useRef<{
+    anni: string[] | null
+    cartelle: Record<string, CartellaMeta[]>
+    files: Record<string, FileItem[]>
+  }>({ anni: null, cartelle: {}, files: {} })
+
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current)
     if (searchQuery.trim().length < 2) { setSearchResults([]); setSearching(false); return }
@@ -68,7 +75,7 @@ export function ClienteArchivio() {
       })
       .catch(() => toast.error('Errore caricamento anni'))
       .finally(() => setLoading(false))
-  }, [username, annoSelezionato, setAnno])
+  }, [username, setAnno])
 
   useEffect(() => {
     if (!username || !annoSelezionato) { setCartelle([]); return }
