@@ -26,14 +26,14 @@ const NOTIF_ICONS: Record<string, string> = {
 }
 
 const NOTIF_STYLES: Record<string, { bg: string; border: string; iconBg: string; text: string; label: string }> = {
-  documento_nuovo: { bg: '#E9EFEC', border: '#2D5245', iconBg: '#2D5245', text: '#223F35', label: 'DOCUMENTO' },
-  messaggio: { bg: '#EAF0EA', border: '#245036', iconBg: '#245036', text: '#17392A', label: 'MESSAGGIO' },
-  avviso: { bg: '#F6EFDC', border: '#8C6A22', iconBg: '#8C6A22', text: '#6E541B', label: 'AVVISO' },
-  richiesta_upload: { bg: '#F0E6EA', border: '#6B4058', iconBg: '#6B4058', text: '#4A2B3D', label: 'RICHIESTA' },
-  upload_confermato: { bg: '#D7E3D8', border: '#33613D', iconBg: '#33613D', text: '#17392A', label: 'RICEVUTO' },
+  documento_nuovo: { bg: '#dbeafe', border: '#3b82f6', iconBg: '#3b82f6', text: '#1e40af', label: 'DOCUMENTO' },
+  messaggio: { bg: '#dcfce7', border: '#16a34a', iconBg: '#16a34a', text: '#15803d', label: 'MESSAGGIO' },
+  avviso: { bg: '#fef3c7', border: '#f59e0b', iconBg: '#f59e0b', text: '#92400e', label: 'AVVISO' },
+  richiesta_upload: { bg: '#fce7f3', border: '#ec4899', iconBg: '#ec4899', text: '#9f1239', label: 'RICHIESTA' },
+  upload_confermato: { bg: '#ede9fe', border: '#8b5cf6', iconBg: '#8b5cf6', text: '#6d28d9', label: 'RICEVUTO' },
 }
 
-const DEFAULT_NOTIF_STYLE = { bg: '#E8EBE2', border: '#737F6C', iconBg: '#737F6C', text: '#3D453A', label: 'NOTIFICA' }
+const DEFAULT_NOTIF_STYLE = { bg: '#f8fafc', border: '#94a3b8', iconBg: '#94a3b8', text: '#475569', label: 'NOTIFICA' }
 
 const FILTRI = [
   { id: 'tutte', label: 'Tutte' },
@@ -145,20 +145,19 @@ export function ClienteArea() {
   const pageNotifiche = notificheFiltrate.slice(startNotif, startNotif + PAGE_SIZE)
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <TopBar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Welcome banner */}
-        <div className="bg-emerald-800 rounded-lg p-6 mb-6 text-emerald-50 relative overflow-hidden">
-          <p className="font-mono text-[10.5px] tracking-widest uppercase text-emerald-300 mb-1">Studio PFC</p>
-          <h2 className="font-display font-semibold text-2xl tracking-tight">Benvenuto, {user.name}</h2>
-          <p className="text-emerald-100/80 mt-1 text-sm">I tuoi documenti fiscali sempre con te.</p>
-          <div className="mt-4 flex items-center gap-3 flex-wrap">
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6 text-white shadow-lg">
+          <h2 className="text-lg sm:text-2xl font-bold tracking-tight">Benvenuto, {user.name}!</h2>
+          <p className="text-emerald-100 mt-1 text-sm">I tuoi documenti fiscali sempre con te.</p>
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
             {nNotifiche > 0 && (
               <button
                 onClick={() => setShowNotifPanel(!showNotifPanel)}
-                className="bg-emerald-50 text-emerald-900 text-sm font-bold px-3 py-1.5 rounded-md flex items-center gap-1.5 hover:bg-white transition-colors"
+                className="bg-white text-red-600 text-sm font-bold px-3 py-1.5 rounded-full shadow flex items-center gap-1.5 hover:bg-red-50 transition-colors"
               >
                 <Bell className="h-3.5 w-3.5" />
                 {nNotifiche} notifich{nNotifiche > 1 ? 'e' : 'a'} non lett{nNotifiche > 1 ? 'e' : 'a'}
@@ -174,12 +173,12 @@ export function ClienteArea() {
 
         {/* Pannello notifiche espandibile */}
         {showNotifPanel && (
-          <div className="mb-6 bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+          <div className="mb-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             {/* Header + Filtri */}
-            <div className="px-4 py-3 border-b border-border">
+            <div className="px-4 py-3 border-b border-slate-200">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <Bell className="h-4 w-4 text-primary" /> Notifiche
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-emerald-600" /> Notifiche
                 </h3>
                 <div className="flex items-center gap-2">
                   {notifiche.some(n => n.read) && (
@@ -203,8 +202,8 @@ export function ClienteArea() {
                     className={cn(
                       'px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap',
                       filtroNotif === f.id
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-slate-200'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     )}
                   >
                     {f.label}
@@ -218,7 +217,7 @@ export function ClienteArea() {
               {pageNotifiche.length === 0 ? (
                 <div className="text-center py-8">
                   <BellOff className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                  <p className="text-muted-foreground font-medium text-sm">Nessuna notifica</p>
+                  <p className="text-slate-500 font-medium text-sm">Nessuna notifica</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -281,11 +280,11 @@ export function ClienteArea() {
 
             {/* Paginazione */}
             {totalPagesNotif > 1 && (
-              <div className="px-4 py-2 border-t border-border flex items-center justify-between">
+              <div className="px-4 py-2 border-t border-slate-200 flex items-center justify-between">
                 <Button variant="outline" size="sm" disabled={pageNotif === 1} onClick={() => setPageNotif(p => p - 1)}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-xs text-muted-foreground font-mono">Pagina {pageNotif} di {totalPagesNotif}</span>
+                <span className="text-xs text-slate-500">Pagina {pageNotif} di {totalPagesNotif}</span>
                 <Button variant="outline" size="sm" disabled={pageNotif === totalPagesNotif} onClick={() => setPageNotif(p => p + 1)}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -309,7 +308,7 @@ export function ClienteArea() {
         )}
 
         {/* Tab navigation */}
-        <div className="border-b border-border mb-6">
+        <div className="border-b border-slate-200 mb-6">
           <nav className="-mb-px flex gap-1 overflow-x-auto" aria-label="Tabs">
             {TABS.map((t) => {
               const Icon = t.icon
@@ -320,8 +319,8 @@ export function ClienteArea() {
                   key={t.id}
                   onClick={() => setClienteTab(t.id)}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative',
-                    active ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-slate-300'
+                    'flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative',
+                    active ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   )}
                 >
                   <Icon className="h-4 w-4" />

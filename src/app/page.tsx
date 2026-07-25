@@ -27,10 +27,10 @@ export default function Home() {
 
   if (loadingUser) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="flex flex-col items-center gap-3">
-          <div className="pfc-mark w-11 h-11 rounded-md bg-emerald-800 text-emerald-50 flex items-center justify-center text-sm">PFC</div>
-          <p className="text-muted-foreground text-sm font-mono">Caricamento portale…</p>
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center text-white font-extrabold text-xl shadow-lg">P</div>
+          <p className="text-slate-500 text-sm">Caricamento portale...</p>
         </div>
       </div>
     )
