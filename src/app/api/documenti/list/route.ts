@@ -1,4 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+/**
+ * /api/documenti/list
+ * GET ?username=...&anno=...&cartella=...
+ */
+import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { listAnniForCliente, listCartelleForAnno, listFilesInCartella, haConfigurazioneR2 } from '@/lib/r2'
@@ -26,7 +30,7 @@ export async function GET(req: NextRequest) {
 
   if (!haConfigurazioneR2()) {
     return NextResponse.json({
-      error: 'R2 non configurato.',
+      error: 'R2 non configurato. Imposta le variabili d\'ambiente R2_*.',
       r2NotConfigured: true,
     })
   }
@@ -39,37 +43,45 @@ export async function GET(req: NextRequest) {
     if (!cartella) {
       const cartelle = await listCartelleForAnno(username, anno)
 
-      let cartelleWithMeta: Array<{ nome: string; nFiles: number; nNuovi: number }> = []
+      // Cliente: prendi userId UNA VOLTA SOLA, poi query parallele
       if (session.role === 'client') {
         const user = await db.user.findUnique({ where: { username: session.sub } })
-        if (user) {
-          const [dls, views] = await Promise.all([
-            db.fileDownload.findMany({ where: { userId: user.id } }),
-            db.fileView.findMany({ where: { userId: user.id } }),
-          ])
-          const scaricati = new Set(dls.map((d) => d.filePath))
-          const visti = new Set(views.map((v) => v.filePath))
+        if (!user) return NextResponse.json({ cartelle: [] })
 
-          for (const c of cartelle) {
-            const filesInCartella = await listFilesInCartella(username, anno, c)
-            const nNuovi = filesInCartella.filter((f) => !scaricati.has(f.key) && !visti.has(f.key)).length
-            cartelleWithMeta.push({ nome: c, nFiles: filesInCartella.length, nNuovi })
-          }
-        }
-      } else {
-        for (const c of cartelle) {
-          const filesInCartella = await listFilesInCartella(username, anno, c)
-          cartelleWithMeta.push({ nome: c, nFiles: filesInCartella.length, nNuovi: 0 })
-        }
+        // Query DB parallele per tutti i file della cartella dell'anno
+        const [dls, views] = await Promise.all([
+          db.fileDownload.findMany({ where: { userId: user.id } }),
+          db.fileView.findMany({ where: { userId: user.id } }),
+        ])
+        const scaricati = new Set(dls.map((d) => d.filePath))
+        const visti = new Set(views.map((v) => v.filePath))
+
+        // Carica i file di TUTTE le cartelle in parallelo (non sequenziale)
+        const cartelleWithData = await Promise.all(
+          cartelle.map(c => listFilesInCartella(username, anno, c).then(files => ({ c, files })))
+        )
+
+        const cartelleWithMeta = cartelleWithData.map(({ c, files }) => {
+          const nNuovi = files.filter((f) => !scaricati.has(f.key) && !visti.has(f.key)).length
+          return { nome: c, nFiles: files.length, nNuovi }
+        })
+
+        return NextResponse.json({ cartelle: cartelleWithMeta })
       }
 
+      // Admin: stessa cosa, carica tutte le cartelle in parallelo
+      const cartelleWithData = await Promise.all(
+        cartelle.map(c => listFilesInCartella(username, anno, c).then(files => ({ c, files })))
+      )
+      const cartelleWithMeta = cartelleWithData.map(({ c, files }) => ({
+        nome: c, nFiles: files.length, nNuovi: 0
+      }))
       return NextResponse.json({ cartelle: cartelleWithMeta })
     }
 
     const files = await listFilesInCartella(username, anno, cartella)
-    let preferiti = new Set<string>()
-    let scaricati = new Set<string>()
-    let visti = new Set<string>()
+
+    // Cliente: prendi userId UNA VOLTA SOLA, poi 3 query parallele
     if (session.role === 'client') {
       const user = await db.user.findUnique({ where: { username: session.sub } })
       if (user) {
@@ -78,31 +90,33 @@ export async function GET(req: NextRequest) {
           db.fileDownload.findMany({ where: { userId: user.id } }),
           db.fileView.findMany({ where: { userId: user.id } }),
         ])
-        preferiti = new Set(prefs.map((p) => p.filePath))
-        scaricati = new Set(dls.map((d) => d.filePath))
-        visti = new Set(views.map((v) => v.filePath))
+        const preferiti = new Set(prefs.map((p) => p.filePath))
+        const scaricati = new Set(dls.map((d) => d.filePath))
+        const visti = new Set(views.map((v) => v.filePath))
+
+        const enriched = files.map((f) => {
+          const stato = preferiti.has(f.key)
+            ? 'preferito'
+            : scaricati.has(f.key)
+              ? 'scaricato'
+              : visti.has(f.key)
+                ? 'visto'
+                : 'nuovo'
+          return { ...f, stato, isPreferito: preferiti.has(f.key) }
+        })
+        enriched.sort((a, b) => {
+          const order = ['preferito', 'nuovo', 'visto', 'scaricato']
+          const oa = order.indexOf(a.stato)
+          const ob = order.indexOf(b.stato)
+          if (oa !== ob) return oa - ob
+          return a.nome.localeCompare(b.nome)
+        })
+        return NextResponse.json({ files: enriched })
       }
     }
 
-    const enriched = files.map((f) => {
-      const stato = preferiti.has(f.key)
-        ? 'preferito'
-        : scaricati.has(f.key)
-          ? 'scaricato'
-          : visti.has(f.key)
-            ? 'visto'
-            : 'nuovo'
-      return { ...f, stato, isPreferito: preferiti.has(f.key) }
-    })
-    enriched.sort((a, b) => {
-      const order = ['preferito', 'nuovo', 'visto', 'scaricato']
-      const oa = order.indexOf(a.stato)
-      const ob = order.indexOf(b.stato)
-      if (oa !== ob) return oa - ob
-      return a.nome.localeCompare(b.nome)
-    })
-
-    return NextResponse.json({ files: enriched })
+    // Admin o cliente senza user: ritorna file semplici
+    return NextResponse.json({ files })
   } catch (err) {
     console.error('[documenti/list] errore:', err)
     return NextResponse.json({ error: 'Errore recupero documenti' }, { status: 500 })
