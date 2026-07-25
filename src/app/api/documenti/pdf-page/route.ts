@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     const pdfPage = await pdf.getPage(page)
     const viewport = pdfPage.getViewport({ scale: 2 })
     const canvas = createCanvas(viewport.width, viewport.height)
-    const context: any = canvas.getContext('2d')
+    const context: any = (canvas as any).getContext('2d')
 
     // Aggiungi il canvas al context come richiesto da pdfjs-dist 5.x
     (context as any).canvas = canvas
