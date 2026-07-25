@@ -2,10 +2,14 @@
  * /api/documenti/zip
  * POST { keys: string[], zipName: string }
  * Ritorna uno ZIP contenente i file specificati.
+ *
+ * archiver 8.x e' ESM puro: esporta { Archiver, ZipArchive, TarArchive, JsonArchive }
+ * Per creare uno ZIP usiamo: new ZipArchive(options)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
 import { caricaBytes, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
+import { ZipArchive } from 'archiver'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -40,17 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Import robusto: archiver e' CommonJS, in ESM puo' essere esportato in modo diverso
-    const archiverLib: any = await import('archiver')
-    const archiverFn: any = typeof archiverLib === 'function'
-      ? archiverLib
-      : (archiverLib.default ?? archiverLib)
-
-    if (typeof archiverFn !== 'function') {
-      throw new Error('archiver non caricato correttamente: ' + JSON.stringify(Object.keys(archiverLib)))
-    }
-
-    const archive = archiverFn('zip', { zlib: { level: 5 } })
+    const archive = new ZipArchive({ zlib: { level: 5 } })
     const chunks: Buffer[] = []
 
     archive.on('data', (c: Buffer) => chunks.push(c))
