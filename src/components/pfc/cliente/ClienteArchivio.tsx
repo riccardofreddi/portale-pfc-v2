@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useRef } from 'react'
 import { usePfcStore, type FileItem } from '@/store/pfc'
@@ -124,17 +124,30 @@ export function ClienteArchivio() {
   }
 
   async function handleDownloadZip(keys: string[], zipName: string) {
+    if (keys.length === 0) {
+      toast.error('Nessun file da scaricare')
+      return
+    }
+    setZipping(true)
+    const toastId = toast.loading(`Creazione ZIP di ${keys.length} file in corso...`)
     try {
       const res = await fetch('/api/documenti/zip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keys, zipName }) })
-      if (!res.ok) throw new Error('Errore ZIP')
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        throw new Error(errBody.error || `Errore ${res.status}`)
+      }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url; a.download = zipName
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      toast.success(`ZIP scaricato: ${zipName}`)
-    } catch { toast.error('Errore creazione ZIP') }
+      toast.success(`ZIP scaricato: ${zipName} (${keys.length} file, ${formatBytes(blob.size)})`, { id: toastId })
+    } catch (err) {
+      toast.error(`Errore ZIP: ${err instanceof Error ? err.message : 'errore sconosciuto'}`, { id: toastId })
+    } finally {
+      setZipping(false)
+    }
   }
 
   if (r2Error) return (
