@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     } as any).promise
 
     const pngBuffer = canvas.toBuffer('image/png')
-    await pdf.destroy()
+
 
     return new NextResponse(pngBuffer, {
       status: 200,
