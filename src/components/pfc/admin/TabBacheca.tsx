@@ -34,16 +34,17 @@ export function TabBacheca() {
   async function refresh() {
     setLoading(true)
     try {
-      const [rAvv, rCli] = await Promise.all([api.avvisi.list(), api.clienti.list()])
+      // Una sola chiamata per tutto (avvisi + clienti + messaggi)
+      const [rAvv, rCli, rAllMsgs] = await Promise.all([
+        api.avvisi.list(),
+        api.clienti.list(),
+        fetch('/api/messaggi/all').then(r => r.json()).catch(() => ({ messaggi: [] })),
+      ])
       setAvvisi(rAvv.avvisi)
       setClienti(rCli.clienti)
-      const allMsgs: (Messaggio & { destinatarioNome: string; destinatarioUsername: string })[] = []
-      for (const c of rCli.clienti) {
-        const r = await api.messaggi.list(c.username)
-        for (const m of r.messaggi as unknown as Messaggio[]) allMsgs.push({ ...m, destinatarioNome: c.name, destinatarioUsername: c.username })
-      }
-      allMsgs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      setMessaggi(allMsgs)
+      const allMsgsData = (rAllMsgs.messaggi || []) as Array<Messaggio & { destinatarioNome: string; destinatarioUsername: string }>
+      allMsgsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      setMessaggi(allMsgsData)
     } catch { toast.error('Errore caricamento') }
     finally { setLoading(false) }
   }
