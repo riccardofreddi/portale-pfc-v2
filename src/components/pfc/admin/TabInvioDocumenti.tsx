@@ -36,9 +36,6 @@ export function TabInvioDocumenti() {
     api.clienti.list().then((r) => { setClienti(r.clienti); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  const annoFinale = annoNuovo.trim() || (annoEsistente !== 'none' ? annoEsistente : '')
-  useEffect(() => {
-
   // Quando cambia cliente, carica gli ANNI esistenti per quel cliente
   useEffect(() => {
     if (!clienteSelezionato) {
@@ -50,10 +47,12 @@ export function TabInvioDocumenti() {
       .then((r) => setAnniDisponibili(r.anni ?? []))
       .catch(() => setAnniDisponibili([]))
   }, [clienteSelezionato])
+
+  const annoFinale = annoNuovo.trim() || (annoEsistente !== 'none' ? annoEsistente : '')
+  useEffect(() => {
     if (!clienteSelezionato || !annoFinale) { setCartelleDisponibili([]); return }
     api.documenti.list({ username: clienteSelezionato, anno: annoFinale })
       .then((r) => {
-        // FIX: gestisci sia vecchio formato (string[]) che nuovo (oggetti)
         const carts = (r.cartelle ?? []) as unknown as Array<CartellaMeta | string>
         const nomi = carts.map((c) => typeof c === 'string' ? c : c.nome)
         setCartelleDisponibili(nomi)
