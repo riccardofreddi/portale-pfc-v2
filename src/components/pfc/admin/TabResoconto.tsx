@@ -153,7 +153,7 @@ export function TabResoconto() {
                             tabIndex={0}
                             onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleExempt(c.username, c.exemptMaintenance) }}
                             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); toggleExempt(c.username, c.exemptMaintenance) } }}
-                            className="px-2 py-1 rounded text-xs font-semibold bg-amber-100 border border-amber-500 text-amber-800 cursor-pointer hover:bg-amber-200 transition-colors"
+                            className="px-2.5 py-1 rounded-md text-sm font-semibold bg-amber-100 border border-amber-500 text-amber-800 cursor-pointer hover:bg-amber-200 transition-colors"
                             title="Esente da manutenzione attivo - clicca per disattivare"
                           >
                             Esente
@@ -164,10 +164,10 @@ export function TabResoconto() {
                             tabIndex={0}
                             onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleExempt(c.username, c.exemptMaintenance) }}
                             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); toggleExempt(c.username, c.exemptMaintenance) } }}
-                            className="text-xs text-slate-300 cursor-pointer hover:text-amber-700 hover:underline transition-colors px-1"
+                            className="px-2.5 py-1 rounded-md text-sm font-medium text-slate-300 cursor-pointer hover:text-amber-700 hover:bg-amber-50 transition-colors"
                             title="Non esente - clicca per attivare"
                           >
-                            + esente
+                            Esente
                           </span>
                         )}
                         <span>{c.nFiles} file</span>
