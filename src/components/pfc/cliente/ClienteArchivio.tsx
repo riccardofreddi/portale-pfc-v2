@@ -43,7 +43,7 @@ export function ClienteArchivio() {
 
   const username = user?.username ?? ''
 
-  // Cache lato client per non rifare le stesse chiamate
+  // Cache lato client: non rifare le stesse chiamate
   const cacheRef = useRef<{
     anni: string[] | null
     cartelle: Record<string, CartellaMeta[]>
@@ -70,7 +70,7 @@ export function ClienteArchivio() {
     api.documenti.list({ username })
       .then((r) => {
         if (r.r2NotConfigured) { setR2Error(true); setAnni([]); return }
-        setR2Error(false); setAnni(r.anni ?? [])
+        setR2Error(false); const anniData = r.anni ?? []; cacheRef.current.anni = anniData; setAnni(anniData)
         if ((r.anni ?? []).length > 0 && !annoSelezionato) setAnno(r.anni![0])
       })
       .catch(() => toast.error('Errore caricamento anni'))
