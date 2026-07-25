@@ -34,6 +34,7 @@ export function ClienteArchivio() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [r2Error, setR2Error] = useState(false)
+  const [zipping, setZipping] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
