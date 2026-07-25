@@ -87,7 +87,7 @@ export function ClienteArchivio() {
         else if (carts.length === 0) setCartella(null)
       })
       .catch(() => toast.error('Errore caricamento cartelle'))
-  }, [username, annoSelezionato, cartellaSelezionata, setCartella])
+  }, [username, annoSelezionato, setCartella])
 
   useEffect(() => {
     if (!username || !annoSelezionato || !cartellaSelezionata) { setFiles([]); return }
