@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
 
@@ -8,12 +8,9 @@ export async function GET() {
   const session = await getSession()
   if (!session) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
 
-  const user = await db.user.findUnique({ where: { username: session.sub } })
-  if (!user) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
-
-  // Recupera tutte le notifiche (nessuna cancellazione automatica, storico persistente)
+  // Usa relazione Prisma: una sola query invece di findUnique + findMany
   const notifiche = await db.notification.findMany({
-    where: { userId: user.id },
+    where: { user: { username: session.sub } },
     orderBy: { ts: 'desc' },
   })
 
@@ -38,15 +35,15 @@ export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const action = searchParams.get('action')
   const id = searchParams.get('id') // ID singola notifica per segna letta
-  const user = await db.user.findUnique({ where: { username: session.sub } })
+
+  // Una sola lookup utente riusata per tutte le azioni
+  const user = await db.user.findUnique({ where: { username: session.sub }, select: { id: true } })
   if (!user) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
 
   if (action === 'segna_lette') {
     if (id) {
-      // Segna singola notifica come letta
       await db.notification.updateMany({ where: { id, userId: user.id }, data: { read: true } })
     } else {
-      // Segna tutte come lette
       await db.notification.updateMany({ where: { userId: user.id, read: false }, data: { read: true } })
     }
     return NextResponse.json({ ok: true })
