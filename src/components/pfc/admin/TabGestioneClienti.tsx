@@ -178,7 +178,7 @@ export function TabGestioneClienti() {
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><FolderOpen className="h-5 w-5 text-emerald-600" /> Archivio Cliente</CardTitle></CardHeader>
         <CardContent>
-          <Select value={selectedCliente} onValueChange={handleSelectCliente}>
+          <Select value={selectedCliente || undefined} onValueChange={(v) => handleSelectCliente(v ?? '')}>
             <SelectTrigger><SelectValue placeholder="Seleziona cliente" /></SelectTrigger>
             <SelectContent>
               {clienti.map((c) => <SelectItem key={c.username} value={c.username}>{c.name}</SelectItem>)}
@@ -223,7 +223,7 @@ export function TabGestioneClienti() {
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="text-red-600"><Trash2 className="h-3 w-3" /></Button></AlertDialogTrigger>
                                     <AlertDialogContent>
-                                      <AlertDialogHeader><AlertDialogTitle>Eliminare {f.nome}?</AlertDialogTitle><AlertDialogDescription>Il file verra spostato nel cestino.</AlertDialogDescription></AlertDialogHeader>
+                                      <AlertDialogHeader><AlertDialogTitle>Eliminare {f.nome}?</AlertDialogTitle><AlertDialogDescription>Operazione irreversibile.</AlertDialogDescription></AlertDialogHeader>
                                       <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCassettoFile(f.key)} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
                                     </AlertDialogContent>
                                   </AlertDialog>
@@ -253,7 +253,7 @@ export function TabGestioneClienti() {
                         </CardHeader>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <CardContent className="space-y-2">
+                        <CardContent className="space-y-3">
                           {(archivioCartelle[anno] ?? []).map((cart) => {
                             const cartKey = `${anno}_${cart.nome}`
                             const filesInCart = archivioFiles[cartKey] ?? []
@@ -261,16 +261,16 @@ export function TabGestioneClienti() {
                               <Collapsible key={cartKey} open={openCartella === cartKey} onOpenChange={(o) => setOpenCartella(o ? cartKey : null)}>
                                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                                   <CollapsibleTrigger>
-                                    <button className="w-full flex items-center justify-between p-2 hover:bg-slate-50 text-left text-sm">
+                                    <button className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left text-sm">
                                       <div className="flex items-center gap-2">
                                         {openCartella === cartKey ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                        <span className="font-medium">{cart.nome}</span>
+                                        <span className="font-medium">📂 {cart.nome}</span>
                                       </div>
                                       <span className="text-xs text-slate-500">{cart.nFiles} file</span>
                                     </button>
                                   </CollapsibleTrigger>
                                   <CollapsibleContent>
-                                    <div className="border-t border-slate-200 p-2 space-y-1 bg-slate-50/30">
+                                    <div className="border-t border-slate-200 p-3 space-y-2 bg-slate-50/30">
                                       {filesInCart.map((f) => {
                                         const icon = ottieniIconaFile(f.nome)
                                         return (
@@ -315,15 +315,11 @@ export function TabGestioneClienti() {
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5 text-emerald-600" /> Clienti registrati ({clienti.length})</CardTitle></CardHeader>
         <CardContent>
           {clienti.length === 0 ? <p className="text-sm text-slate-500 text-center py-8">Nessun cliente registrato</p> : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {clienti.map((c) => (
                 <div key={c.username} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-slate-900 truncate">{c.name}</p>
-                      {c.exemptMaintenance && <Badge variant="outline" className="text-xs border-amber-400 text-amber-700">Esente</Badge>}
-                    </div>
-                    <p className="text-xs text-slate-500">@{c.username}</p>
+                    <p className="font-semibold text-slate-900 truncate">{c.name}</p>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Edit className="h-4 w-4" /></Button>
@@ -359,7 +355,7 @@ export function TabGestioneClienti() {
           <DialogHeader><DialogTitle>Carica nel cassetto di {clienti.find(c => c.username === selectedCliente)?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2"><Label>Tipo documento</Label>
-              <Select value={uploadTipo} onValueChange={(v) => setUploadTipo(v ?? '')}>
+              <Select value={uploadTipo || undefined} onValueChange={(v) => setUploadTipo(v ?? '')}>
                 <SelectTrigger><SelectValue placeholder="Seleziona tipo..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="QR Code P.IVA">QR Code P.IVA</SelectItem>
