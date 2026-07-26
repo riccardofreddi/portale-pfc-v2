@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
 import { caricaBytes, salvaBytes, eliminaOggetto, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
 
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Key non valida' }, { status: 400 })
     }
 
-    const originalKey = key.replace(`/${DOCS_PREFIX}/_cestino/`, `/${DOCS_PREFIX}/`)
+    const originalKey = key.replace(`${DOCS_PREFIX}/_cestino/`, `${DOCS_PREFIX}/`)
     const data = await caricaBytes(key)
     if (!data) return NextResponse.json({ error: 'File non trovato nel cestino' }, { status: 404 })
 
