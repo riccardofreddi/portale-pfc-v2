@@ -1,4 +1,4 @@
-﻿/**
+/**
  * /api/risposte/list
  * GET - admin: elenca tutti i file ricevuti dai clienti (in _risposte/)
  *
@@ -7,7 +7,8 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
-import { listaOggetti, haConfigurazioneR2, DOCS_PREFIX, formatBytes } from '@/lib/r2'
+import { listaOggetti, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
+import { formatBytes } from '@/lib/pfc-utils'
 
 export const dynamic = 'force-dynamic'
 
