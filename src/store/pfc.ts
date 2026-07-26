@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand'
+import { create } from 'zustand'
 
 export interface User {
   username: string
@@ -17,7 +17,7 @@ export interface FileItem {
   isPreferito: boolean
 }
 
-export type AdminTab = 'invio' | 'clienti' | 'bacheca' | 'cestino' | 'resoconto'
+export type AdminTab = 'invio' | 'clienti' | 'bacheca' | 'cestino' | 'risposte' | 'resoconto'
 export type ClienteTab = 'archivio' | 'messaggi' | 'avvisi' | 'cassetto' | 'attivita'
 
 interface PfcState {
