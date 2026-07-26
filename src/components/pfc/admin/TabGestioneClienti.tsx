@@ -42,6 +42,7 @@ export function TabGestioneClienti() {
   const [loadingArchivio, setLoadingArchivio] = useState(false)
   const [openAnno, setOpenAnno] = useState<string | null>(null)
   const [openCartella, setOpenCartella] = useState<string | null>(null)
+  const [deleteBulkTarget, setDeleteBulkTarget] = useState<{ anno: string; cartella?: string } | null>(null)
   const [openCassetto, setOpenCassetto] = useState(false)
 
   const [uploadTipo, setUploadTipo] = useState('')
