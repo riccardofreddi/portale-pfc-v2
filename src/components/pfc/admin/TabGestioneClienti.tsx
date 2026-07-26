@@ -420,7 +420,7 @@ export function TabGestioneClienti() {
       <AlertDialog open={!!deleteBulkTarget} onOpenChange={(o) => !o && setDeleteBulkTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare {deleteBulkTarget?.cartella ? 'la cartella ' + deleteBulkTarget.cartella : &apos;l&apos;anno ' + deleteBulkTarget?.anno}?</AlertDialogTitle>
+            <AlertDialogTitle>Eliminare {deleteBulkTarget?.cartella ? 'la cartella ' + deleteBulkTarget.cartella : 'l\u2019anno ' + deleteBulkTarget?.anno}?</AlertDialogTitle>
             <AlertDialogDescription>
               Tutti i file verranno spostati nel cestino. Potrai recuperarli dalla scheda Cestino.
             </AlertDialogDescription>
