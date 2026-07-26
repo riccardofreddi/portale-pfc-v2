@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
-import { eliminaOggetto, listaOggetti, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
+import { eliminaOggetto, listaOggetti, purificaRiferimentiDB, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,11 +18,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const keys: string[] = body.keys ?? (body.key ? [body.key] : [])
 
-    // Se non ci sono keys specificate e deleteAll=true, elimina tutto il cestino
+    // Eliminazione bulk (deleteAll) - delega a /api/cestino/empty che gia' pulisce DB
     if (keys.length === 0 && body.deleteAll === true) {
       const prefix = `${DOCS_PREFIX}/_cestino/`
       const allObjs = await listaOggetti(prefix)
-      // Filtra file di sistema (.registro_cestino.json, .metadata)
       const toDelete = allObjs.filter((o) => {
         const name = o.key.split('/').pop() ?? ''
         if (name.startsWith('.')) return false
@@ -31,7 +30,13 @@ export async function POST(req: NextRequest) {
       })
       let deleted = 0
       for (const o of toDelete) {
-        try { await eliminaOggetto(o.key); deleted++ } catch {}
+        try {
+          await eliminaOggetto(o.key)
+          // Pulisci riferimenti DB per il path ORIGINALE (non cestino)
+          const originalKey = o.key.replace(`${DOCS_PREFIX}/_cestino/`, `${DOCS_PREFIX}/`)
+          await purificaRiferimentiDB(originalKey)
+          deleted++
+        } catch {}
       }
       await logAudit(session.sub, 'SVUOTA_CESTINO', `${deleted} file eliminati definitivamente`)
       return NextResponse.json({ ok: true, deleted })
@@ -45,7 +50,13 @@ export async function POST(req: NextRequest) {
     let deleted = 0
     for (const key of keys) {
       if (!key.startsWith(`${DOCS_PREFIX}/_cestino/`)) continue
-      try { await eliminaOggetto(key); deleted++ } catch {}
+      try {
+        await eliminaOggetto(key)
+        // Pulisci riferimenti DB per il path ORIGINALE (rimuovi _cestino/)
+        const originalKey = key.replace(`${DOCS_PREFIX}/_cestino/`, `${DOCS_PREFIX}/`)
+        await purificaRiferimentiDB(originalKey)
+        deleted++
+      } catch {}
     }
 
     await logAudit(session.sub, 'ELIMINA_DEFINITIVO_CESTINO', `${deleted} file eliminati`)

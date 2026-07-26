@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
-import { eliminaOggetto, haConfigurazioneR2, DOCS_PREFIX, ANAGRAFICA_DIR } from '@/lib/r2'
+import { eliminaOggetto, purificaRiferimentiDB, haConfigurazioneR2, DOCS_PREFIX, ANAGRAFICA_DIR } from '@/lib/r2'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
 
     // Elimina definitivamente (NON sposta nel cestino)
     await eliminaOggetto(key)
+    // Pulisci riferimenti DB orfani per questo file
+    await purificaRiferimentiDB(key)
 
     await logAudit(session.sub, 'ELIMINA_FILE_CASSETTO', key)
     return NextResponse.json({ ok: true })

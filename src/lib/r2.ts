@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Portale PFC — Cloudflare R2 client (S3-compatible).
  */
 
@@ -225,4 +225,23 @@ export async function listCassettoFiles(username: string): Promise<FileMeta[]> {
       lastModified: o.lastModified,
     }
   })
+}
+
+/**
+ * Pulisce i record DB orfani quando un file viene eliminato definitivamente.
+ * Rimuove: file_views, file_downloads, favorites, notifications che puntano al filePath.
+ * Da chiamare SEMPRE dopo eliminazione definitiva (cestino delete-permanent, cassetto delete).
+ */
+export async function purificaRiferimentiDB(filePath: string): Promise<void> {
+  try {
+    const { db } = await import('@/lib/db')
+    await Promise.all([
+      db.fileView.deleteMany({ where: { filePath } }).catch(() => {}),
+      db.fileDownload.deleteMany({ where: { filePath } }).catch(() => {}),
+      db.favorite.deleteMany({ where: { filePath } }).catch(() => {}),
+      db.notification.deleteMany({ where: { detail: { contains: filePath } } }).catch(() => {}),
+    ])
+  } catch (err) {
+    console.error('[purificaRiferimentiDB] errore:', err)
+  }
 }
