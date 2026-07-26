@@ -58,6 +58,28 @@ export function TabGestioneClienti() {
 
   useEffect(() => { refresh() }, [])
 
+  async function handleDeleteBulk(anno: string, cartella?: string) {
+    if (!selectedCliente) return
+    const target = cartella ? 'cartella ' + cartella : 'anno ' + anno
+    if (!confirm('Eliminare tutta la ' + target + ' di ' + selectedCliente + '? I file verranno spostati nel cestino.')) return
+    try {
+      const res = await fetch('/api/documenti/delete-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: selectedCliente, anno, cartella }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore ' + res.status)
+      }
+      const data = await res.json()
+      toast.success(data.deleted + ' file spostati nel cestino (' + target + ')')
+      await loadArchivioCliente(selectedCliente)
+    } catch (err) {
+      toast.error('Errore eliminazione: ' + (err instanceof Error ? err.message : 'errore'))
+    }
+  }
+
   async function loadArchivioCliente(username: string) {
     setLoadingArchivio(true)
     try {
