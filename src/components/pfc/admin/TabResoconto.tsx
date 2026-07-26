@@ -88,6 +88,27 @@ export function TabResoconto() {
     } catch { toast.error('Errore download') }
   }
 
+  async function handleDeleteBulk(username: string, anno: string, cartella?: string) {
+    const target = cartella ? 'cartella ' + cartella : 'anno ' + anno
+    if (!confirm('Eliminare tutta la ' + target + ' di ' + username + '? I file verranno spostati nel cestino.')) return
+    try {
+      const res = await fetch('/api/documenti/delete-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, anno, cartella }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore ' + res.status)
+      }
+      const data = await res.json()
+      toast.success(data.deleted + ' file spostati nel cestino (' + target + ')')
+      await refresh()
+    } catch (err) {
+      toast.error('Errore eliminazione: ' + (err instanceof Error ? err.message : 'errore'))
+    }
+  }
+
   async function handleBackupAll() {
     setZippingAll(true)
     const toastId = toast.loading('Creazione backup completo di tutti i documenti...')
