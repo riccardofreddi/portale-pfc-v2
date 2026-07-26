@@ -234,7 +234,7 @@ export function TabResoconto() {
                       <div className="border-t border-slate-200 p-3 space-y-3 bg-slate-50/50">
                         {c.anni.length === 0 ? <p className="text-sm text-slate-500 italic">Archivio vuoto</p> : c.anni.map((a) => (
                           <div key={a.anno}>
-                            <p className="text-sm font-semibold text-slate-800 mb-2">Anno {a.anno}</p>
+<div className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2"><span>Anno {a.anno}</span><Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50 h-6 px-2 text-xs" onClick={() => handleDeleteBulk(c.username, a.anno)}><Trash2 className="h-3 w-3 mr-1" />Elimina anno</Button></div>
                             <div className="space-y-2 pl-4">
                               {a.cartelle.map((cart) => {
                                 const cartKey = `${c.username}_${a.anno}_${cart.cartella}`
@@ -245,7 +245,7 @@ export function TabResoconto() {
                                       <CollapsibleTrigger className="w-full flex items-center justify-between p-2 hover:bg-slate-50 text-left text-sm">
                                         <div className="flex items-center gap-2">
                                           {isCartOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                          <span className="font-medium">{cart.cartella}</span>
+                                          <span className="font-medium">{cart.cartella}</span><Button variant="ghost" size="sm" className="ml-2 text-red-600 hover:bg-red-50 h-5 px-1.5 text-[10px]" onClick={() => handleDeleteBulk(c.username, a.anno, cart.cartella)}><Trash2 className="h-2.5 w-2.5 mr-0.5" />Elimina</Button>
                                         </div>
                                         <span className="text-xs text-slate-500">{cart.nFiles} file - {formatBytes(cart.sizeBytes)}</span>
                                       </CollapsibleTrigger>
