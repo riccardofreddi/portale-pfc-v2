@@ -106,9 +106,9 @@ export function TabResoconto() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      toast.success(Backup scaricato:  + a.download +  ( + formatBytes(blob.size) + ), { id: toastId })
+      toast.success('Backup scaricato: ' + a.download + ' (' + formatBytes(blob.size) + ')', { id: toastId })
     } catch (err) {
-      toast.error(Errore backup:  + (err instanceof Error ? err.message : 'errore'), { id: toastId })
+      toast.error('Errore backup: ' + (err instanceof Error ? err.message : 'errore'), { id: toastId })
     } finally {
       setZippingAll(false)
     }
