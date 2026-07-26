@@ -114,6 +114,25 @@ export function TabResoconto() {
     }
   }
 
+  async function handleExportCsv() {
+    try {
+      const res = await fetch('/api/audit/csv')
+      if (!res.ok) throw new Error('Errore export')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'audit_log_' + new Date().toISOString().slice(0, 10) + '.csv'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Log esportato in CSV')
+    } catch {
+      toast.error('Errore export CSV')
+    }
+  }
+
   if (loading) return (<div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>)
 
   const totalFiles = stats.reduce((s, c) => s + c.nFiles, 0)
@@ -124,6 +143,9 @@ export function TabResoconto() {
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-semibold text-slate-700">Statistiche generali</p>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} className="border-blue-300 text-blue-700 hover:bg-blue-50">
+              <FileText className="h-3.5 w-3.5 mr-1.5" /> Esporta CSV
+            </Button>
             <Button variant="outline" size="sm" onClick={handleBackupAll} disabled={zippingAll} className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
               {zippingAll ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Package className="h-3.5 w-3.5 mr-1.5" />}
               {zippingAll ? 'Creazione backup...' : 'Backup completo (ZIP)'}
