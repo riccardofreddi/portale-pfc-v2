@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +29,7 @@ export function TabResoconto() {
   const [openDiag, setOpenDiag] = useState(false)
   const [openCliente, setOpenCliente] = useState<string | null>(null)
   const [openCartella, setOpenCartella] = useState<string | null>(null)
+  const [zippingAll, setZippingAll] = useState(false)
 
   async function refresh() {
     setLoading(true)
@@ -87,6 +88,32 @@ export function TabResoconto() {
     } catch { toast.error('Errore download') }
   }
 
+  async function handleBackupAll() {
+    setZippingAll(true)
+    const toastId = toast.loading('Creazione backup completo di tutti i documenti...')
+    try {
+      const res = await fetch('/api/documenti/zip-all')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore ' + res.status)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = ackup_completo_ + new Date().toISOString().slice(0, 10) + .zip
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success(Backup scaricato:  + a.download +  ( + formatBytes(blob.size) + ), { id: toastId })
+    } catch (err) {
+      toast.error(Errore backup:  + (err instanceof Error ? err.message : 'errore'), { id: toastId })
+    } finally {
+      setZippingAll(false)
+    }
+  }
+
   if (loading) return (<div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>)
 
   const totalFiles = stats.reduce((s, c) => s + c.nFiles, 0)
@@ -95,7 +122,14 @@ export function TabResoconto() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-slate-700">Statistiche generali</p>
+            <Button variant="outline" size="sm" onClick={handleBackupAll} disabled={zippingAll} className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+              {zippingAll ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Package className="h-3.5 w-3.5 mr-1.5" />}
+              {zippingAll ? 'Creazione backup...' : 'Backup completo (ZIP)'}
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-emerald-500"><CardContent className="pt-5"><div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Clienti</p><Users className="h-4 w-4 text-slate-400" /></div><p className="text-2xl font-bold text-slate-900 mt-1">{stats.length}</p></CardContent></Card>
         <Card className="border-l-4 border-l-blue-500"><CardContent className="pt-5"><div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Totale file</p><FileText className="h-4 w-4 text-slate-400" /></div><p className="text-2xl font-bold text-slate-900 mt-1">{totalFiles}</p></CardContent></Card>
         <Card className="border-l-4 border-l-purple-500"><CardContent className="pt-5"><div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Spazio</p><HardDrive className="h-4 w-4 text-slate-400" /></div><p className="text-2xl font-bold text-slate-900 mt-1">{formatBytes(totalSize)}</p></CardContent></Card>
