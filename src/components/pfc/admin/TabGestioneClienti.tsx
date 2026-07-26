@@ -285,7 +285,7 @@ export function TabGestioneClienti() {
                       <CollapsibleTrigger>
                         <CardHeader className="cursor-pointer hover:bg-slate-50">
                           <CardTitle className="text-sm flex items-center justify-between">
-                            <span className="flex items-center gap-2"><FolderOpen className="h-4 w-4 text-blue-600" /> Anno {anno}</span><Button variant="ghost" size="sm" className="ml-auto text-red-600 hover:bg-red-50 h-6 px-2 text-xs" onClick={() => handleDeleteBulk(anno)}><Trash2 className="h-3 w-3 mr-1" />Elimina anno</Button>
+                            <span className="flex items-center gap-2"><FolderOpen className="h-4 w-4 text-blue-600" /> Anno {anno}</span><Button variant="ghost" size="sm" className="ml-auto text-red-600 hover:bg-red-50 h-6 px-2 text-xs" onClick={() => setDeleteBulkTarget({ anno })}><Trash2 className="h-3 w-3 mr-1" />Elimina anno</Button>
                             {openAnno === anno ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                           </CardTitle>
                         </CardHeader>
@@ -302,7 +302,7 @@ export function TabGestioneClienti() {
                                     <button className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left text-sm">
                                       <div className="flex items-center gap-2">
                                         {openCartella === cartKey ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                        <span className="font-medium">📂 {cart.nome}</span><Button variant="ghost" size="sm" className="ml-2 text-red-600 hover:bg-red-50 h-5 px-1.5 text-[10px]" onClick={() => handleDeleteBulk(anno, cart.nome)}><Trash2 className="h-2.5 w-2.5 mr-0.5" />Elimina</Button>
+                                        <span className="font-medium">📂 {cart.nome}</span><Button variant="ghost" size="sm" className="ml-2 text-red-600 hover:bg-red-50 h-5 px-1.5 text-[10px]" onClick={() => setDeleteBulkTarget({ anno, cartella: cart.nome })}><Trash2 className="h-2.5 w-2.5 mr-0.5" />Elimina</Button>
                                       </div>
                                       <span className="text-xs text-slate-500">{cart.nFiles} file</span>
                                     </button>
@@ -415,6 +415,32 @@ export function TabGestioneClienti() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog conferma eliminazione anno/cartella bulk */}
+      <AlertDialog open={!!deleteBulkTarget} onOpenChange={(o) => !o && setDeleteBulkTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare {deleteBulkTarget?.cartella ? 'la cartella ' + deleteBulkTarget.cartella : 'l''anno ' + deleteBulkTarget?.anno}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tutti i file verranno spostati nel cestino. Potrai recuperarli dalla scheda Cestino.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (deleteBulkTarget) {
+                  handleDeleteBulk(deleteBulkTarget.anno, deleteBulkTarget.cartella)
+                  setDeleteBulkTarget(null)
+                }
+              }}
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
