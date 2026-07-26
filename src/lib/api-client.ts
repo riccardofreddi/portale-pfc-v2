@@ -1,4 +1,4 @@
-﻿/** API client minimale per il frontend. */
+/** API client minimale per il frontend. */
 
 async function apiFetch<T = unknown>(url: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -139,6 +139,6 @@ export const api = {
     deleteMultiple: (keys: string[]) =>
       apiFetch<{ ok: boolean; deleted: number }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ keys }) }),
     deleteAll: () =>
-      apiFetch<{ ok: boolean; deleted: number }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ deleteAll: true }) }),
+      apiFetch<{ ok: boolean; deleted: number }>('/api/cestino/empty', { method: 'POST' }),
   },
 }
