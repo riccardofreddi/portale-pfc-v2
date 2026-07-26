@@ -5,7 +5,6 @@ import { usePfcStore } from '@/store/pfc'
 import { TopBar } from './TopBar'
 import { ClienteArchivio } from './cliente/ClienteArchivio'
 import { ClienteMessaggi } from './cliente/ClienteMessaggi'
-import { ClienteAvvisi } from './cliente/ClienteAvvisi'
 import { ClienteCassetto } from './cliente/ClienteCassetto'
 import { ClienteAttivita } from './cliente/ClienteAttivita'
 import { FolderOpen, MessageSquare, Megaphone, Bell, Briefcase, ClipboardList, Check, Trash2, BellOff, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
@@ -31,7 +30,6 @@ const TABS = [
   { id: 'archivio', label: 'Archivio Documenti', icon: FolderOpen },
   { id: 'cassetto', label: 'Cassetto Digitale', icon: Briefcase },
   { id: 'messaggi', label: 'Messaggi', icon: MessageSquare },
-  { id: 'avvisi', label: 'Avvisi', icon: Megaphone },
   { id: 'attivita', label: 'Le mie attività', icon: ClipboardList },
 ] as const
 const PAGE_SIZE = 10
@@ -217,7 +215,6 @@ export function ClienteArea() {
         {clienteTab === 'archivio' && <ClienteArchivio />}
         {clienteTab === 'cassetto' && <ClienteCassetto />}
         {clienteTab === 'messaggi' && <ClienteMessaggi />}
-        {clienteTab === 'avvisi' && <ClienteAvvisi />}
         {clienteTab === 'attivita' && <ClienteAttivita />}
       </main>
     </div>
