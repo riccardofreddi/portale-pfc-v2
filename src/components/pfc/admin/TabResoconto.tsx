@@ -101,7 +101,7 @@ export function TabResoconto() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = ackup_completo_ + new Date().toISOString().slice(0, 10) + .zip
+      a.download = 'backup_completo_' + new Date().toISOString().slice(0, 10) + '.zip'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
