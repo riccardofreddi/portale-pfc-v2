@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const messaggi = await db.message.findMany({
     where: { user: { username } },
     orderBy: { timestamp: 'desc' },
-    include: { archivedBy: true },
+    include: { archivedBy: { include: { user: { select: { username: true } } } } },
   })
 
   return NextResponse.json({
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       read: m.read,
       requiresUpload: m.requiresUpload,
       uploadReceived: m.uploadReceived,
-      archivedByClient: m.archivedBy.map((a) => a.userId),
+      archivedByClient: m.archivedBy.map((a) => a.user.username),
     })),
   })
 }
