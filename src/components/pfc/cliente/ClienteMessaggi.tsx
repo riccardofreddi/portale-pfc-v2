@@ -80,9 +80,9 @@ export function ClienteMessaggi() {
   }
 
   if (loading) return (<div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>)
-
+  const username = user?.username ?? ''
   const visibili = messaggi.filter((m) => {
-    const archived = false
+    const archived = m.archivedByClient?.includes(username) ?? false
     return showArchived ? archived : !archived
   })
 
@@ -109,7 +109,7 @@ export function ClienteMessaggi() {
       <div className="space-y-3">
         {visibili.map((m) => {
           const isNew = !m.read
-          const isArchived = false
+          const isArchived = m.archivedByClient?.includes(user?.username ?? '') ?? false
           return (
             <div key={m.id} className={`rounded-lg p-4 border transition-all ${isArchived ? 'border-slate-200 bg-slate-50 opacity-70' : isNew ? 'border-emerald-300 bg-gradient-to-br from-emerald-50/50 to-white border-l-4 border-l-emerald-500' : 'border-slate-200 bg-white'}`}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
