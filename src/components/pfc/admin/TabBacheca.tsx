@@ -220,7 +220,7 @@ export function TabBacheca() {
                       </div>
                     </div>
                     <p className="text-xs text-slate-500 mb-1">{formatDateAudit(m.timestamp)}</p>
-                    <p className="whitespace-pre-wrap text-slate-800">{m.text}</p>
+                    <p className="whitespace-pre-wrap text-slate-800">{m.text.split(/(https?:\/\/[^\s]+)/g).map((part, i) => part.match(/^https?:\/\//) ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">{part}</a> : part)}</p>
                   </div>
                 ))}
               </div>
