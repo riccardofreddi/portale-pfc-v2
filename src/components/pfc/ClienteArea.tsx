@@ -25,7 +25,6 @@ const NOTIF_STYLES: Record<string, { bg: string; border: string; iconBg: string;
   upload_confermato: { bg: 'linear-gradient(135deg,#ede9fe,#f5f3ff)', border: '#8b5cf6', iconBg: '#8b5cf6', text: '#6d28d9', label: 'RICEVUTO' },
 }
 const DEFAULT_NOTIF_STYLE = { bg: '#f8fafc', border: '#94a3b8', iconBg: '#94a3b8', text: '#475569', label: 'NOTIFICA' }
-const FILTRI = [{ id: 'tutte', label: 'Tutte' }, { id: 'non_lette', label: 'Non lette' }, { id: 'documento_nuovo', label: 'Documenti' }, { id: 'messaggio', label: 'Messaggi' }, { id: 'avviso', label: 'Avvisi' }] as const
 const TABS = [
   { id: 'archivio', label: 'Archivio Documenti', icon: FolderOpen },
   { id: 'cassetto', label: 'Cassetto Digitale', icon: Briefcase },
@@ -39,8 +38,6 @@ export function ClienteArea() {
   const [nNotifiche, setNNotifiche] = useState(0)
   const [notifiche, setNotifiche] = useState<Notifica[]>([])
   const [showNotifPanel, setShowNotifPanel] = useState(false)
-  const [filtroNotif, setFiltroNotif] = useState<string>('tutte')
-  const [pageNotif, setPageNotif] = useState(1)
   const [nMsgNonLetti, setNMsgNonLetti] = useState(0)
   const [avvisi, setAvvisi] = useState<Array<{ id: string; text: string; timestamp: string }>>([])
   const [maintenance, setMaintenance] = useState<boolean | null>(null)
@@ -63,7 +60,6 @@ export function ClienteArea() {
     }).catch(() => {})
   }, [user])
 
-  useEffect(() => { setPageNotif(1) }, [filtroNotif])
 
   async function handleSegnaLette(id?: string) {
     try {
@@ -141,13 +137,7 @@ export function ClienteArea() {
 
   const nLette = notifiche.filter((n) => n.read).length
   const notificheFiltrate = notifiche.filter((n) => {
-    if (filtroNotif === 'tutte') return true
-    if (filtroNotif === 'non_lette') return !n.read
-    return n.type === filtroNotif
   })
-  const totalPagesNotif = Math.ceil(notificheFiltrate.length / PAGE_SIZE)
-  const startNotif = (pageNotif - 1) * PAGE_SIZE
-  const pageNotifiche = notificheFiltrate.slice(startNotif, startNotif + PAGE_SIZE)
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -164,32 +154,27 @@ export function ClienteArea() {
               <Button variant="secondary" size="sm" onClick={() => handleSegnaLette()}><Check className="h-3.5 w-3.5 mr-1" /> Segna tutte come lette</Button>
             </div>
           )}
-        </div>
-
-        {showNotifPanel && (
+        </div>        {showNotifPanel && (
           <div className="mb-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200">
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><Bell className="h-4 w-4 text-emerald-600" /> Notifiche{nNotifiche > 0 && <span className="text-xs text-red-600 font-semibold">· {nNotifiche} non lette 🔴</span>}</h3>
-                <div className="flex items-center gap-2">
-                  {nLette > 0 && <Button variant="outline" size="sm" onClick={handlePulisciLette}><Trash2 className="h-3 w-3 mr-1" /> Pulisci lette</Button>}
-                  {notifiche.length > 0 && <Button variant="outline" size="sm" onClick={handlePulisciTutte} className="text-red-600 hover:bg-red-50"><Trash2 className="h-3 w-3 mr-1" /> Cancella tutte</Button>}
-                </div>
-              </div>
-              <div className="flex gap-1 overflow-x-auto">
-                {FILTRI.map((f) => (<button key={f.id} onClick={() => setFiltroNotif(f.id)} className={cn('px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap', filtroNotif === f.id ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}>{f.label}</button>))}
-              </div>
+            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><Bell className="h-4 w-4 text-emerald-600" /> Notifiche</h3>
+              {nNotifiche > 0 && <Button variant="ghost" size="sm" onClick={() => handleSegnaLette()} className="text-emerald-700 hover:bg-emerald-50"><Check className="h-3.5 w-3.5 mr-1" /> Segna tutte come lette</Button>}
             </div>
             <div className="p-3 max-h-[400px] overflow-y-auto">
-              {pageNotifiche.length === 0 ? (<div className="text-center py-8"><BellOff className="h-10 w-10 text-slate-300 mx-auto mb-2" /><p className="text-slate-500 font-medium text-sm">Nessuna notifica</p></div>) : (
+              {notifiche.length === 0 ? (<div className="text-center py-8"><BellOff className="h-10 w-10 text-slate-300 mx-auto mb-2" /><p className="text-slate-500 font-medium text-sm">Nessuna notifica</p></div>) : (
                 <div className="space-y-2">
-                  {pageNotifiche.map((n) => {
-                    const icon = NOTIF_ICONS[n.type] ?? '🔔'; const style = NOTIF_STYLES[n.type] ?? DEFAULT_NOTIF_STYLE
-                    const opacity = n.read ? 'opacity-50' : 'opacity-100'; const cardBg = n.read ? '#f8fafc' : style.bg; const cardBorder = n.read ? '#e2e8f0' : style.border; const iconBg = n.read ? '#cbd5e1' : style.iconBg; const textColor = n.read ? '#94a3b8' : style.text; const labelColor = n.read ? '#cbd5e1' : style.iconBg
+                  {notifiche.slice(0, 50).map((n) => {
+                    const icon = NOTIF_ICONS[n.type] ?? '🔔'
+                    const style = NOTIF_STYLES[n.type] ?? DEFAULT_NOTIF_STYLE
+                    const opacity = n.read ? 'opacity-50' : 'opacity-100'
+                    const cardBg = n.read ? '#f8fafc' : style.bg
+                    const cardBorder = n.read ? '#e2e8f0' : style.border
+                    const iconBg = n.read ? '#cbd5e1' : style.iconBg
+                    const textColor = n.read ? '#94a3b8' : style.text
+                    const labelColor = n.read ? '#cbd5e1' : style.iconBg
                     return (
-                      <div key={n.id} className={cn('relative rounded-xl border border-l-4 p-3 transition-all', opacity)} style={{ background: cardBg, borderLeftColor: cardBorder }}>
-                        {!n.read && <button onClick={(e) => { e.stopPropagation(); handleSegnaLette(n.id) }} className="absolute top-2 right-2 p-1 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600"><X className="h-3.5 w-3.5" /></button>}
-                        <div className="flex items-center gap-3 cursor-pointer pr-6" onClick={() => handleNotificaClick(n)}>
+                      <div key={n.id} className={cn('rounded-xl border border-l-4 p-3 transition-all cursor-pointer', opacity)} style={{ background: cardBg, borderLeftColor: cardBorder }} onClick={() => handleNotificaClick(n)}>
+                        <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 shadow" style={{ background: iconBg }}>{icon}</div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5"><span className="text-[10px] font-extrabold tracking-wider" style={{ color: labelColor }}>{style.label}</span></div>
@@ -203,7 +188,9 @@ export function ClienteArea() {
                 </div>
               )}
             </div>
-            {totalPagesNotif > 1 && (<div className="px-4 py-2 border-t border-slate-200 flex items-center justify-between"><Button variant="outline" size="sm" disabled={pageNotif === 1} onClick={() => setPageNotif(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button><span className="text-xs text-slate-500">Pagina {pageNotif} di {totalPagesNotif}</span><Button variant="outline" size="sm" disabled={pageNotif === totalPagesNotif} onClick={() => setPageNotif(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button></div>)}
+          </div>
+        )}
+            </div>
           </div>
         )}
 
