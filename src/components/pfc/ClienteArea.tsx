@@ -86,14 +86,20 @@ export function ClienteArea() {
   }
 
   function handleNotificaClick(n: Notifica) {
-    if (!n.read) handleSegnaLette(n.id)
-    // Se e' una notifica di messaggio, azzera il contatore messaggi non letti
+    if (!n.read) {
+      handleSegnaLette(n.id)
+      setNNotifiche((curr) => Math.max(0, curr - 1))
+    }
     if (n.type === 'messaggio' || n.type === 'richiesta_upload') {
       setNMsgNonLetti(0)
+      setClienteTab('messaggi')
+    } else if (n.type === 'documento_nuovo' && n.year && n.folder) {
+      setAnno(n.year)
+      setCartella(n.folder)
+      setClienteTab('archivio')
+    } else if (n.type === 'avviso') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
-    if (n.type === 'documento_nuovo' && n.year && n.folder) { setAnno(n.year); setCartella(n.folder); setClienteTab('archivio') }
-    else if (n.type === 'messaggio' || n.type === 'richiesta_upload') { setClienteTab('messaggi') }
-    else if (n.type === 'avviso') { setClienteTab('avvisi') }
     setShowNotifPanel(false)
   }
 
