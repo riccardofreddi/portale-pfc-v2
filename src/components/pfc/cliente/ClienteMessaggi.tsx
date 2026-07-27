@@ -87,13 +87,29 @@ export function ClienteMessaggi() {
     return showArchived ? archived : !archived
   })
 
-  if (visibili.length === 0 && !showArchived) return (
-    <Card><CardContent className="py-12 text-center">
-      <Inbox className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-      <p className="text-slate-700 font-medium mb-1">Nessun messaggio</p>
-      <p className="text-sm text-slate-500">Lo studio non ha ancora inviato comunicazioni.</p>
-    </CardContent></Card>
-  )
+  if (visibili.length === 0 && !showArchived) {
+    const nArchiviati = messaggi.filter((m) => m.archivedByClient?.includes(username) ?? false).length
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-emerald-600" />
+            Messaggi dallo Studio (0)
+          </h3>
+          {nArchiviati > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setShowArchived(true)}>
+              Mostra archiviati ({nArchiviati})
+            </Button>
+          )}
+        </div>
+        <Card><CardContent className="py-12 text-center">
+          <Inbox className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-700 font-medium mb-1">Nessun messaggio</p>
+          <p className="text-sm text-slate-500">{nArchiviati > 0 ? 'Hai ' + nArchiviati + ' messaggi archiviati. Clicca Mostra archiviati per vederli.' : 'Lo studio non ha ancora inviato comunicazioni.'}</p>
+        </CardContent></Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
