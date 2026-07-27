@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
       data: {
         userId: user.id,
         type: richiedeUpload ? 'richiesta_upload' : 'messaggio',
-        text: text.slice(0, 120),
-        detail: '',
+        text: richiedeUpload ? 'Lo studio ha richiesto un documento' : text.slice(0, 120),
+        detail: richiedeUpload ? text.slice(0, 80) : '',
       },
     }),
   ])

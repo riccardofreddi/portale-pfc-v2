@@ -145,7 +145,7 @@ export function ClienteMessaggi() {
                 )}
                 {isNew && <Badge variant="default" className="bg-emerald-600 text-xs">Nuovo</Badge>}
               </div>
-              <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{m.text}</p>
+              <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{m.text.split(/(https?:\/\/[^\s]+)/g).map((part, i) => part.match(/^https?:\/\//) ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">{part}</a> : part)}</p>
 
               {m.requiresUpload && !m.uploadReceived && (
                 <div className="mt-3 bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-3">
