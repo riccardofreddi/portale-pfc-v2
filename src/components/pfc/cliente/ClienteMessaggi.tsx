@@ -18,6 +18,7 @@ interface Messaggio {
   read: boolean
   requiresUpload: boolean
   uploadReceived: boolean
+  archivedByClient: string[]
 }
 
 export function ClienteMessaggi() {
