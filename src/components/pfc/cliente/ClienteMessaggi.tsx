@@ -87,31 +87,31 @@ export function ClienteMessaggi() {
     return showArchived ? archived : !archived
   })
 
-  const nArchiviati = messaggi.filter((m) => m.archivedByClient?.includes(user?.username ?? '') ?? false).length
-
   if (visibili.length === 0 && !showArchived) return (
+    <Card><CardContent className="py-12 text-center">
+      <Inbox className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+      <p className="text-slate-700 font-medium mb-1">Nessun messaggio</p>
+      <p className="text-sm text-slate-500">Lo studio non ha ancora inviato comunicazioni.</p>
+    </CardContent></Card>
+  )
+
+  return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-emerald-600" />
-          Messaggi dallo Studio (0)
+          Messaggi dallo Studio ({visibili.length})
         </h3>
-        {nArchiviati > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setShowArchived(true)}>
-            Mostra archiviati ({nArchiviati})
-          </Button>
-        )}
+        <Button variant="ghost" size="sm" onClick={() => setShowArchived(!showArchived)}>
+          {showArchived ? 'Nascondi archiviati' : 'Mostra archiviati'}
+        </Button>
       </div>
-      <Card><CardContent className="py-12 text-center">
-        <Inbox className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-        <p className="text-slate-700 font-medium mb-1">Nessun messaggio</p>
-        <p className="text-sm text-slate-500">
-          {nArchiviati > 0 ? 'Hai ' + nArchiviati + ' messaggi archiviati. Clicca Mostra archiviati per vederli.' : 'Lo studio non ha ancora inviato comunicazioni.'}
-        </p>
-      </CardContent></Card>
-    </div>
-  )
 
+      <div className="space-y-3">
+        {visibili.map((m) => {
+          const isNew = !m.read
+          const isArchived = m.archivedByClient?.includes(user?.username ?? '') ?? false
+          return (
             <div key={m.id} className={`rounded-lg p-4 border transition-all ${isArchived ? 'border-slate-200 bg-slate-50 opacity-70' : isNew ? 'border-emerald-300 bg-gradient-to-br from-emerald-50/50 to-white border-l-4 border-l-emerald-500' : 'border-slate-200 bg-white'}`}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="font-semibold text-sm text-slate-900">Studio PFC</span>
