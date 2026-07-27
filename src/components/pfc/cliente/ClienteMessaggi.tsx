@@ -48,7 +48,7 @@ export function ClienteMessaggi() {
   useEffect(() => { refresh() }, [user])
 
   async function handleArchivia(id: string) {
-    try { await api.messaggi.archivia(id); toast.success('Messaggio archiviato'); await refresh() }
+    try { await api.messaggi.archivia(id); setMessaggi((curr) => curr.map((m) => m.id === id ? { ...m, archivedByClient: [...(m.archivedByClient ?? []), user?.username ?? ''] } : m)); toast.success('Messaggio archiviato') }
     catch { toast.error('Errore archiviazione') }
   }
 
