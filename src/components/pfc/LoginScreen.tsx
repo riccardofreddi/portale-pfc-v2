@@ -1,14 +1,10 @@
-'use client'
+﻿'use client'
 
 import { useState, type FormEvent } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api-client'
 import { usePfcStore } from '@/store/pfc'
 import { toast } from 'sonner'
-import { Loader2, LogIn, User, Lock, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 
 export function LoginScreen() {
   const { setUser } = usePfcStore()
@@ -16,7 +12,6 @@ export function LoginScreen() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [maintenance, setMaintenance] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -32,81 +27,107 @@ export function LoginScreen() {
         const me = await api.auth.me()
         setUser(me.user)
       } else {
-        if (res.error?.toLowerCase().includes('manutenzione')) {
-          setMaintenance(true)
-        } else {
-          toast.error(res.error ?? 'Credenziali non valide')
-        }
+        toast.error(res.error ?? 'Credenziali non valide')
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Errore di login'
-      if (errorMsg.toLowerCase().includes('manutenzione')) {
-        setMaintenance(true)
-      } else {
-        toast.error(errorMsg)
-      }
+      toast.error(err instanceof Error ? err.message : 'Errore di login')
     } finally {
       setLoading(false)
     }
   }
 
-  if (maintenance) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="text-center bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-400 rounded-3xl p-8 sm:p-12 max-w-2xl shadow-xl">
-          <div className="text-6xl mb-6">🚧</div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-amber-900 mb-4">App in aggiornamento</h2>
-          <p className="text-amber-800 text-base sm:text-lg leading-relaxed mb-6">
-            Stiamo svolgendo operazioni di manutenzione per migliorare il servizio.<br/>
-            Tornerai a poter accedere ai tuoi documenti a breve.
-          </p>
-          <div className="border-t border-amber-300 pt-6 mt-6">
-            <p className="text-amber-700 text-sm">
-              Per urgenze, contatta lo studio.<br/>
-              Grazie per la pazienza.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => { setMaintenance(false); setUsername(''); setPassword('') }} className="mt-6">Esci</Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-slate-100 p-4">
-      <div className="w-full max-w-md">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center text-white font-extrabold text-2xl shadow-lg mb-4">P</div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Portale Documenti Clienti</h1>
-          <p className="text-sm text-slate-500 mt-2">Accedi con le tue credenziali</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 relative overflow-hidden">
+      {/* Particelle di sfondo */}
+      <div className="absolute top-[-80px] left-[-80px] w-[250px] h-[250px] rounded-full bg-emerald-500/15 blur-[60px] animate-pulse"></div>
+      <div className="absolute bottom-[-100px] right-[-100px] w-[300px] h-[300px] rounded-full bg-emerald-500/15 blur-[60px] animate-pulse" style={{ animationDelay: '3s' }}></div>
+      <div className="absolute top-[40%] left-1/2 w-[150px] h-[150px] rounded-full bg-blue-500/10 blur-[60px] animate-pulse" style={{ animationDelay: '6s' }}></div>
+
+      {/* Card Login */}
+      <div className="relative z-10 w-full max-w-[380px] bg-white/97 backdrop-blur-xl rounded-[28px] shadow-[0_20px_50px_rgba(0,0,0,0.25)] p-9 sm:p-10 animate-[cardEnter_0.6s_cubic-bezier(0.16,1,0.3,1)]">
+        <style>{`
+          @keyframes cardEnter {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+
+        {/* Logo */}
+        <div className="text-center mb-7">
+          <div className="w-16 h-16 mx-auto mb-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white font-extrabold text-[26px] tracking-tight shadow-[0_6px_20px_rgba(16,185,129,0.35)]">
+            PF
+          </div>
+          <h1 className="text-xl font-bold text-slate-800 tracking-tight">Portale Documenti</h1>
+          <p className="text-[13px] text-slate-500 mt-0.5">Accesso riservato ai clienti</p>
         </div>
-        <Card className="shadow-xl border-slate-200">
-          <CardHeader><CardTitle className="text-center text-lg">Accesso al Portale</CardTitle></CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-slate-700">Username</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input id="username" type="text" autoComplete="username" placeholder="Il tuo username" value={username} onChange={(e) => setUsername(e.target.value)} className="pl-9" disabled={loading} autoFocus />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-slate-700">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="La tua password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9 pr-10" disabled={loading} />
-                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors" tabIndex={-1} aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}>
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <Button type="submit" disabled={loading || !username || !password} className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold">
-                {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Accesso in corso...</> : <><LogIn className="h-4 w-4 mr-2" /> Accedi</>}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+
+        {/* Badge informativo */}
+        <div className="text-center mb-6">
+          <p className="text-[13px] font-semibold text-emerald-700">I tuoi documenti fiscali, sempre con te.</p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-[18px]">
+          {/* Username */}
+          <div className="space-y-[7px]">
+            <label className="block text-[13px] font-semibold text-slate-600">Username</label>
+            <input
+              type="text"
+              autoComplete="username"
+              placeholder="Inserisci il tuo username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
+              autoFocus
+              className="w-full px-4 py-[15px] text-base border-2 border-slate-200 rounded-[14px] bg-slate-50 text-slate-800 outline-none transition-all duration-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 placeholder:text-slate-300"
+            />
+          </div>
+
+          {/* Password con toggle occhio */}
+          <div className="space-y-[7px]">
+            <label className="block text-[13px] font-semibold text-slate-600">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="Inserisci la tua password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-[15px] pr-12 text-base border-2 border-slate-200 rounded-[14px] bg-slate-50 text-slate-800 outline-none transition-all duration-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 placeholder:text-slate-300"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1"
+                tabIndex={-1}
+                aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Pulsante Accedi */}
+          <button
+            type="submit"
+            disabled={loading || !username || !password}
+            className="w-full py-4 text-base font-bold text-white bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-[14px] shadow-[0_4px_12px_rgba(16,185,129,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(16,185,129,0.4)] active:scale-95 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_rgba(16,185,129,0.3)] mt-1.5"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" /> Accesso in corso...
+              </span>
+            ) : (
+              'Accedi al Portale'
+            )}
+          </button>
+        </form>
+
+        {/* Footer */}
+        <div className="text-center mt-7 pt-5 border-t border-slate-200">
+          <p className="text-xs text-slate-400">Portale sicuro e riservato · Tutti i diritti riservati</p>
+        </div>
       </div>
     </div>
   )
