@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
-import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight } from 'lucide-react'
+import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight, Edit2 } from 'lucide-react'
 import { formatBytes, ottieniIconaFile, canPreviewFile, formatDateShort, MAX_FILE_SIZE_MB } from '@/lib/pfc-utils'
 
 interface Cliente { username: string; name: string; exemptMaintenance: boolean; createdAt: string }
