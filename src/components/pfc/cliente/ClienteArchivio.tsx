@@ -52,6 +52,13 @@ export function ClienteArchivio() {
 
   const username = user?.username ?? ''
 
+  // Cache lato client: non rifare le stesse chiamate
+  const cacheRef = useRef<{
+    anni: string[] | null
+    cartelle: Record<string, CartellaMeta[]>
+    files: Record<string, FileItem[]>
+  }>({ anni: null, cartelle: {}, files: {} })
+
   // ─── RICERCA ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current)
