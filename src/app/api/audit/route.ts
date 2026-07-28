@@ -1,7 +1,9 @@
 ﻿/**
  * /api/audit
  * GET — admin: lista log audit (solo clienti, non admin)
- * DELETE — admin: reset log
+ *   ?username=... filtra per username
+ *   ?action=... filtra per azione
+ * DELETE — admin: reset log (tutto o per singolo cliente con ?username=...)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -11,22 +13,11 @@ export const dynamic = 'force-dynamic'
 
 // Azioni tipiche admin da ESCLUDERE dalla vista attività clienti
 const ADMIN_ACTIONS = [
-  'CREA_CLIENTE',
-  'ELIMINA_CLIENTE',
-  'MODIFICA_CLIENTE',
-  'PUBBLICA_AVVISO',
-  'ELIMINA_AVVISO',
-  'INVIA_MESSAGGIO',
-  'ELIMINA_MESSAGGIO',
-  'DELETE_DOC',
-  'RECUPERA_FILE_CESTINO',
-  'ELIMINA_DEFINITIVO_CESTINO',
-  'SVUOTA_CESTINO',
-  'MANUTENZIONE',
-  'RESET_AUDIT',
-  'ADMIN_ZIP',
-  'BACKUP_COMPLETO',
-  'ESENTE_MANUTENZIONE',
+  'CREA_CLIENTE', 'ELIMINA_CLIENTE', 'MODIFICA_CLIENTE', 'PUBBLICA_AVVISO',
+  'ELIMINA_AVVISO', 'INVIA_MESSAGGIO', 'ELIMINA_MESSAGGIO', 'DELETE_DOC',
+  'RECUPERA_FILE_CESTINO', 'ELIMINA_DEFINITIVO_CESTINO', 'SVUOTA_CESTINO',
+  'MANUTENZIONE', 'RESET_AUDIT', 'ADMIN_ZIP', 'BACKUP_COMPLETO',
+  'ESENTE_MANUTENZIONE', 'DELETE_BULK',
 ]
 
 export async function GET(req: NextRequest) {
@@ -38,15 +29,17 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '500', 10), 1000)
   const usernameFilter = searchParams.get('username')
+  const actionFilter = searchParams.get('action')
 
-  // Escludi admin user + escludi azioni tipiche admin
-  const where: { username?: { not: string }; action?: { notIn: string[] } } = {
+  const where: { username?: any; action?: any } = {
     username: { not: 'admin' },
     action: { notIn: ADMIN_ACTIONS },
   }
   if (usernameFilter) {
-    delete where.username
-    where.username = usernameFilter === 'admin' ? { not: 'admin' } : usernameFilter as any
+    where.username = usernameFilter === 'admin' ? { not: 'admin' } : usernameFilter
+  }
+  if (actionFilter) {
+    where.action = actionFilter
   }
 
   const logs = await db.auditLog.findMany({
@@ -66,11 +59,23 @@ export async function GET(req: NextRequest) {
   })
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const session = await getSession()
   if (!session || session.role !== 'admin') {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
   }
+
+  const { searchParams } = new URL(req.url)
+  const usernameFilter = searchParams.get('username')
+
+  if (usernameFilter) {
+    // Cancella cronologia di un singolo cliente
+    await db.auditLog.deleteMany({ where: { username: usernameFilter } })
+    await logAudit(session.sub, 'RESET_AUDIT', `Cronologia azzerata per: ${usernameFilter}`)
+    return NextResponse.json({ ok: true, message: `Cronologia di ${usernameFilter} azzerata` })
+  }
+
+  // Cancella tutto
   await db.auditLog.deleteMany({})
   await logAudit(session.sub, 'RESET_AUDIT', 'Log azzerato')
   return NextResponse.json({ ok: true })
