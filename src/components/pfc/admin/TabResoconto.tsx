@@ -29,13 +29,14 @@ export function TabResoconto() {
   const [openDiag, setOpenDiag] = useState(false)
   const [openCliente, setOpenCliente] = useState<string | null>(null)
   const [openCartella, setOpenCartella] = useState<string | null>(null)
+  const [advancedStats, setAdvancedStats] = useState<{ topDocs: Array<{nome:string;count:number;username:string}>; topClienti: Array<{username:string;name:string;count:number}>; statsByAction: Array<{action:string;count:number}> } | null>(null)
   const [zippingAll, setZippingAll] = useState(false)
 
   async function refresh() {
     setLoading(true)
     try {
-      const [d, r, l] = await Promise.all([api.sistema.diagnostica(), api.resoconto(), api.audit.list(200)])
-      setDiagnostica(d); setStats((r.stats ?? []) as unknown as StatsCliente[]); setLogs(l.logs)
+      const [d, r, l, s] = await Promise.all([api.sistema.diagnostica(), api.resoconto(), api.audit.list(200), fetch('/api/resoconto/stats').then(res => res.json()).catch(() => null)])
+      setDiagnostica(d); setStats((r.stats ?? []) as unknown as StatsCliente[]); setLogs(l.logs); if (s) setAdvancedStats(s)
     } catch { toast.error('Errore caricamento resoconto') }
     finally { setLoading(false) }
   }
