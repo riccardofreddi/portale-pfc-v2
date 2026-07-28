@@ -111,12 +111,20 @@ export async function GET(req: NextRequest) {
           if (oa !== ob) return oa - ob
           return a.nome.localeCompare(b.nome)
         })
-        return NextResponse.json({ files: enriched })
+        // Arricchisci con data caricamento effettiva (UploadDate)
+    const uploadDates = await db.uploadDate.findMany({ where: { filePath: { in: files.map(f => f.key) } } })
+    const uploadDateMap = new Map(uploadDates.map(u => [u.filePath, u.ts]))
+    const enrichedWithDate = enriched.map(f => ({ ...f, uploadDate: uploadDateMap.get(f.key) || null }))
+    return NextResponse.json({ files: enrichedWithDate })
       }
     }
 
     // Admin o cliente senza user: ritorna file semplici
-    return NextResponse.json({ files })
+    // Arricchisci con data caricamento effettiva (UploadDate) - admin
+    const uploadDatesAdmin = await db.uploadDate.findMany({ where: { filePath: { in: files.map(f => f.key) } } })
+    const uploadDateMapAdmin = new Map(uploadDatesAdmin.map(u => [u.filePath, u.ts]))
+    const filesWithDate = files.map(f => ({ ...f, uploadDate: uploadDateMapAdmin.get(f.key) || null }))
+    return NextResponse.json({ files: filesWithDate })
   } catch (err) {
     console.error('[documenti/list] errore:', err)
     return NextResponse.json({ error: 'Errore recupero documenti' }, { status: 500 })

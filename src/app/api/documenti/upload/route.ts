@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { salvaBytes, listaOggetti, eliminaOggetto, caricaBytes, buildKey, DOCS_PREFIX, haConfigurazioneR2 } from '@/lib/r2'
@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
           const buf = Buffer.from(await file.arrayBuffer())
           await salvaBytes(newKey, buf)
           existingNames.add(newName)
+          await db.uploadDate.upsert({ where: { filePath: newKey }, create: { filePath: newKey }, update: { ts: new Date() } })
           results.push({ nome: newName, key: newKey, size: file.size, status: 'rinominato' })
           continue
         }
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
           await eliminaOggetto(targetKey)
           const buf = Buffer.from(await file.arrayBuffer())
           await salvaBytes(targetKey, buf)
+          await db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } })
           results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'sostituito' })
           continue
         }
@@ -98,6 +100,7 @@ export async function POST(req: NextRequest) {
       const buf = Buffer.from(await file.arrayBuffer())
       await salvaBytes(targetKey, buf)
       existingNames.add(nomePulito)
+      await db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } })
       results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'caricato' })
     }
 
