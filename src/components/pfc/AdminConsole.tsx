@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { usePfcStore } from '@/store/pfc'
 import { TopBar } from './TopBar'
@@ -25,24 +25,39 @@ export function AdminConsole() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <TopBar />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
-          <h2 className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight">Console di Amministrazione</h2>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+        {/* Header */}
+        <div className="mb-5 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Console di Amministrazione</h2>
           <p className="text-sm text-slate-500 mt-1">Gestisci clienti, documenti, comunicazioni e monitora lo stato del sistema.</p>
         </div>
-        <div className="border-b border-slate-200 mb-6">
-          <nav className="-mb-px flex gap-1 overflow-x-auto" aria-label="Tabs">
+
+        {/* Tabs - scrollable su mobile */}
+        <div className="border-b-2 border-slate-200 mb-5 sm:mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
+          <nav className="flex gap-1 min-w-max" aria-label="Tabs">
             {TABS.map((t) => {
               const Icon = t.icon
               const active = adminTab === t.id
               return (
-                <button key={t.id} onClick={() => setAdminTab(t.id)} className={cn('flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap', active ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300')}>
-                  <Icon className="h-4 w-4" />{t.label}
+                <button
+                  key={t.id}
+                  onClick={() => setAdminTab(t.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-3 sm:px-4 sm:py-3.5 text-xs sm:text-sm font-semibold border-b-[3px] transition-all whitespace-nowrap flex-shrink-0',
+                    active
+                      ? 'border-emerald-500 text-emerald-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  )}
+                >
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <span>{t.label}</span>
                 </button>
               )
             })}
           </nav>
         </div>
+
+        {/* Content */}
         {adminTab === 'invio' && <TabInvioDocumenti />}
         {adminTab === 'clienti' && <TabGestioneClienti />}
         {adminTab === 'bacheca' && <TabBacheca />}
