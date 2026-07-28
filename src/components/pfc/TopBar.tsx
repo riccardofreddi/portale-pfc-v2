@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
@@ -85,8 +85,7 @@ export function TopBar() {
 
         {/* User Dropdown */}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 px-1.5 sm:px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition-all border-1.5 border-transparent hover:border-slate-200 flex-shrink-0">
+          <DropdownMenuTrigger className="flex items-center gap-2 px-1.5 sm:px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition-all border-1.5 border-transparent hover:border-slate-200 flex-shrink-0">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-blue-400 flex items-center justify-center text-[11px] sm:text-xs font-bold text-blue-700 flex-shrink-0">
                 {initials}
               </div>
@@ -98,7 +97,6 @@ export function TopBar() {
                 </div>
               </div>
               <ChevronDown className="h-4 w-4 text-slate-400 hidden sm:block flex-shrink-0" />
-            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <div className="px-2 py-1.5 sm:hidden">
