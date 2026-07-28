@@ -12,6 +12,7 @@ import { formatDateAudit, formatBytes, ottieniIconaFile } from '@/lib/pfc-utils'
 import { Loader2, Database, HardDrive, Activity, RefreshCw, Trash2, ChevronDown, ChevronRight, Users, FileText, BarChart3, Eye, Download, Package } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 interface Diagnostica { db: { tabelle: Array<{ nome: string; righe: number }> }; r2: { configurato: boolean; nFiles: number; sizeTotale: number; errore: string | null } }
 interface ResocontoFile { nome: string; key: string; size: number; sizeStr: string }
@@ -34,6 +35,8 @@ export function TabResoconto() {
   const [zippingAll, setZippingAll] = useState(false)
   const [filtroAzione, setFiltroAzione] = useState<string>('tutte')
   const [filtroClienteLog, setFiltroClienteLog] = useState<string>('tutti')
+  const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
+  const [renameNewName, setRenameNewName] = useState('')
 
   async function refresh() {
     setLoading(true)
@@ -84,6 +87,27 @@ export function TabResoconto() {
       toast.success('Cronologia di ' + username + ' azzerata')
       await refresh()
     } catch { toast.error('Errore reset cronologia cliente') }
+  }
+
+  async function handleRename() {
+    if (!renameTarget) return
+    try {
+      const res = await fetch('/api/documenti/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: renameTarget.key, newName: renameNewName }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore ' + res.status)
+      }
+      toast.success('File rinominato in: ' + renameNewName)
+      setRenameTarget(null)
+      setRenameNewName('')
+      await refresh()
+    } catch (err) {
+      toast.error('Errore rinomina: ' + (err instanceof Error ? err.message : 'errore'))
+    }
   }
 
   async function handleDownload(key: string, nome: string) {
@@ -410,6 +434,22 @@ export function TabResoconto() {
           )}
         </CardContent>
       </Card>
+      {/* Dialog rinomina file */}
+      <Dialog open={!!renameTarget} onOpenChange={(o) => !o && setRenameTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rinomina file</DialogTitle>
+          </DialogHeader>
+          <div className='space-y-3 py-2'>
+            <p className='text-sm text-slate-500'>File originale: <span className='font-mono'>{renameTarget?.nome}</span></p>
+            <Input value={renameNewName} onChange={(e) => setRenameNewName(e.target.value)} placeholder='Nuovo nome file' />
+          </div>
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setRenameTarget(null)}>Annulla</Button>
+            <Button onClick={handleRename} disabled={!renameNewName.trim() || renameNewName === renameTarget?.nome} className='bg-emerald-700 hover:bg-emerald-800 text-white'>Salva</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
