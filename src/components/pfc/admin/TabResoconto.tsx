@@ -38,7 +38,7 @@ export function TabResoconto() {
   async function refresh() {
     setLoading(true)
     try {
-      const [d, r, l, s] = await Promise.all([api.sistema.diagnostica(), api.resoconto(), api.audit.list(200, filtroClienteLog !== 'tutti' ? filtroClienteLog : undefined, filtroAzione !== 'tutte' ? filtroAzione : undefined), fetch('/api/resoconto/stats').then(res => res.json()).catch(() => null)])
+      const [d, r, l, s] = await Promise.all([api.sistema.diagnostica(), api.resoconto(), api.audit.list(500), fetch('/api/resoconto/stats').then(res => res.json()).catch(() => null)])
       setDiagnostica(d); setStats((r.stats ?? []) as unknown as StatsCliente[]); setLogs(l.logs); if (s) setAdvancedStats(s)
     } catch { toast.error('Errore caricamento resoconto') }
     finally { setLoading(false) }
@@ -146,6 +146,15 @@ export function TabResoconto() {
   }
 
   if (loading) return (<div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>)
+
+  // Filtra i log client-side (istantaneo, no refresh)
+  const logsFiltrate = logs.filter((l) => {
+    if (filtroClienteLog !== 'tutti' && l.username !== filtroClienteLog) return false
+    if (filtroAzione !== 'tutte' && l.action !== filtroAzione) return false
+    return true
+  })
+  // Estrai clienti unici dai log (per il dropdown)
+  const clientiConLog = Array.from(new Set(logsFiltrate.map((l) => l.username)))
 
   const totalFiles = stats.reduce((s, c) => s + c.nFiles, 0)
   const totalSize = stats.reduce((s, c) => s + c.sizeBytes, 0)
@@ -355,15 +364,15 @@ export function TabResoconto() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Log Attivita ({logs.length})</CardTitle>
-            <Select value={filtroClienteLog} onValueChange={(v) => { setFiltroClienteLog(v || 'tutti'); setTimeout(refresh, 0) }}>
+          <CardTitle className="text-base flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Log Attivita ({logsFiltrate.length})</CardTitle>
+            <Select value={filtroClienteLog} onValueChange={(v) => setFiltroClienteLog(v || 'tutti')}>
               <SelectTrigger className="w-40 h-7 text-xs"><SelectValue placeholder="Cliente" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="tutti">Tutti i clienti</SelectItem>
-                {stats.map((c) => (<SelectItem key={c.username} value={c.username}>{c.name}</SelectItem>))}
+                {clientiConLog.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
               </SelectContent>
             </Select>
-            <Select value={filtroAzione} onValueChange={(v) => { setFiltroAzione(v || 'tutte'); setTimeout(refresh, 0) }}>
+            <Select value={filtroAzione} onValueChange={(v) => setFiltroAzione(v || 'tutte')}>
               <SelectTrigger className="w-40 h-7 text-xs"><SelectValue placeholder="Azione" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="tutte">Tutte le azioni</SelectItem>
@@ -391,11 +400,11 @@ export function TabResoconto() {
           </div>
         </CardHeader>
         <CardContent>
-          {logs.length === 0 ? <p className="text-sm text-slate-500 text-center py-6">Nessuna attivita</p> : (
+          {logsFiltrate.length === 0 ? <p className="text-sm text-slate-500 text-center py-6">Nessuna attivita</p> : (
             <div className="max-h-96 overflow-y-auto border border-slate-200 rounded">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 sticky top-0"><tr><th className="text-left p-2 font-medium text-slate-600">Data</th><th className="text-left p-2 font-medium text-slate-600">Utente</th><th className="text-left p-2 font-medium text-slate-600">Azione</th><th className="text-left p-2 font-medium text-slate-600 hidden md:table-cell">Dettaglio</th></tr></thead>
-                <tbody>{logs.map((l) => (<tr key={l.id} className="border-t border-slate-100 hover:bg-slate-50"><td className="p-2 text-xs text-slate-500 whitespace-nowrap">{formatDateAudit(l.ts)}</td><td className="p-2 font-mono text-xs">{l.username}</td><td className="p-2"><Badge variant="outline" className="text-xs">{l.action}</Badge></td><td className="p-2 text-xs text-slate-600 hidden md:table-cell max-w-xs truncate">{l.detail}</td></tr>))}</tbody>
+                <tbody>{logsFiltrate.map((l) => (<tr key={l.id} className="border-t border-slate-100 hover:bg-slate-50"><td className="p-2 text-xs text-slate-500 whitespace-nowrap">{formatDateAudit(l.ts)}</td><td className="p-2 font-mono text-xs">{l.username}</td><td className="p-2"><Badge variant="outline" className="text-xs">{l.action}</Badge></td><td className="p-2 text-xs text-slate-600 hidden md:table-cell max-w-xs truncate">{l.detail}</td></tr>))}</tbody>
               </table>
             </div>
           )}
