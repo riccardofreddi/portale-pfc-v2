@@ -189,6 +189,55 @@ export function TabResoconto() {
           </CollapsibleContent>
         </Card>
       </Collapsible>
+{/* Statistiche avanzate (ultimi 30gg) */}
+        {advancedStats && (advancedStats.topDocs.length > 0 || advancedStats.topClienti.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-blue-600" /> Top 5 Documenti Scaricati (30gg)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {advancedStats.topDocs.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-4">Nessun download negli ultimi 30 giorni</p>
+                ) : (
+                  <div className="space-y-2">
+                    {advancedStats.topDocs.map((d, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                        <span className="flex-1 truncate text-slate-700">{d.nome}</span>
+                        <span className="text-xs font-semibold text-slate-500 flex-shrink-0">{d.count}x</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-emerald-600" /> Top 5 Clienti Attivi (30gg)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {advancedStats.topClienti.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-4">Nessuna attività negli ultimi 30 giorni</p>
+                ) : (
+                  <div className="space-y-2">
+                    {advancedStats.topClienti.map((c, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                        <span className="flex-1 truncate text-slate-700">{c.name}</span>
+                        <span className="text-xs font-semibold text-slate-500 flex-shrink-0">{c.count} azioni</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5 text-emerald-600" /> Archivio per Cliente</CardTitle></CardHeader>
