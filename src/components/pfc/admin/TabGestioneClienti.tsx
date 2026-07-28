@@ -43,6 +43,8 @@ export function TabGestioneClienti() {
   const [openAnno, setOpenAnno] = useState<string | null>(null)
   const [openCartella, setOpenCartella] = useState<string | null>(null)
   const [deleteBulkTarget, setDeleteBulkTarget] = useState<{ anno: string; cartella?: string } | null>(null)
+  const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
+  const [renameNewName, setRenameNewName] = useState('')
   const [openCassetto, setOpenCassetto] = useState(false)
 
   const [uploadTipo, setUploadTipo] = useState('')
