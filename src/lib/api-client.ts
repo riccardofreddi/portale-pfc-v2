@@ -80,10 +80,11 @@ export const api = {
     toggle: (filePath: string) => apiFetch<{ ok: boolean; isPreferito: boolean }>('/api/preferiti', { method: 'POST', body: JSON.stringify({ filePath }) }),
   },
   audit: {
-    list: (limit?: number, username?: string) => {
+    list: (limit?: number, username?: string, action?: string) => {
       const q = new URLSearchParams()
       if (limit) q.set('limit', String(limit))
       if (username) q.set('username', username)
+      if (action) q.set('action', action)
       return apiFetch<{ logs: Array<{ id: string; ts: string; username: string; action: string; detail: string }> }>(`/api/audit?${q}`)
     },
     meList: (limit?: number) => {

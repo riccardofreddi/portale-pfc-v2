@@ -10,6 +10,7 @@ import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { formatDateAudit, formatBytes, ottieniIconaFile } from '@/lib/pfc-utils'
 import { Loader2, Database, HardDrive, Activity, RefreshCw, Trash2, ChevronDown, ChevronRight, Users, FileText, BarChart3, Eye, Download, Package } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 
 interface Diagnostica { db: { tabelle: Array<{ nome: string; righe: number }> }; r2: { configurato: boolean; nFiles: number; sizeTotale: number; errore: string | null } }
@@ -31,11 +32,13 @@ export function TabResoconto() {
   const [openCartella, setOpenCartella] = useState<string | null>(null)
   const [advancedStats, setAdvancedStats] = useState<{ topDocs: Array<{nome:string;count:number;username:string}>; topClienti: Array<{username:string;name:string;count:number}>; statsByAction: Array<{action:string;count:number}> } | null>(null)
   const [zippingAll, setZippingAll] = useState(false)
+  const [filtroAzione, setFiltroAzione] = useState<string>('tutte')
+  const [filtroClienteLog, setFiltroClienteLog] = useState<string>('tutti')
 
   async function refresh() {
     setLoading(true)
     try {
-      const [d, r, l, s] = await Promise.all([api.sistema.diagnostica(), api.resoconto(), api.audit.list(200), fetch('/api/resoconto/stats').then(res => res.json()).catch(() => null)])
+      const [d, r, l, s] = await Promise.all([api.sistema.diagnostica(), api.resoconto(), api.audit.list(200, filtroClienteLog !== 'tutti' ? filtroClienteLog : undefined, filtroAzione !== 'tutte' ? filtroAzione : undefined), fetch('/api/resoconto/stats').then(res => res.json()).catch(() => null)])
       setDiagnostica(d); setStats((r.stats ?? []) as unknown as StatsCliente[]); setLogs(l.logs); if (s) setAdvancedStats(s)
     } catch { toast.error('Errore caricamento resoconto') }
     finally { setLoading(false) }
@@ -73,6 +76,14 @@ export function TabResoconto() {
   async function handleResetLog() {
     try { await api.audit.reset(); toast.success('Log azzerato'); await refresh() }
     catch { toast.error('Errore reset log') }
+  }
+
+  async function handleResetLogCliente(username: string) {
+    try {
+      await fetch('/api/audit?username=' + username, { method: 'DELETE' })
+      toast.success('Cronologia di ' + username + ' azzerata')
+      await refresh()
+    } catch { toast.error('Errore reset cronologia cliente') }
   }
 
   async function handleDownload(key: string, nome: string) {
@@ -345,6 +356,29 @@ export function TabResoconto() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-600" /> Log Attivita ({logs.length})</CardTitle>
+            <Select value={filtroClienteLog} onValueChange={(v) => { setFiltroClienteLog(v || 'tutti'); setTimeout(refresh, 0) }}>
+              <SelectTrigger className="w-40 h-7 text-xs"><SelectValue placeholder="Cliente" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tutti">Tutti i clienti</SelectItem>
+                {stats.map((c) => (<SelectItem key={c.username} value={c.username}>{c.name}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Select value={filtroAzione} onValueChange={(v) => { setFiltroAzione(v || 'tutte'); setTimeout(refresh, 0) }}>
+              <SelectTrigger className="w-40 h-7 text-xs"><SelectValue placeholder="Azione" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tutte">Tutte le azioni</SelectItem>
+                <SelectItem value="LOGIN_SUCCESS">Login</SelectItem>
+                <SelectItem value="DOWNLOAD_DOC">Download doc</SelectItem>
+                <SelectItem value="UPLOAD_CASSETTO">Upload cassetto</SelectItem>
+                <SelectItem value="UPLOAD_RISPOSTA">Upload risposta</SelectItem>
+                <SelectItem value="SCARICA_ARCHIVIO">Scarica archivio</SelectItem>
+              </SelectContent>
+            </Select>
+            {filtroClienteLog !== 'tutti' && (
+              <Button variant="outline" size="sm" className="h-7 text-xs text-red-600 hover:bg-red-50 border-red-200" onClick={() => handleResetLogCliente(filtroClienteLog)}>
+                <Trash2 className="h-3 w-3 mr-1" /> Cancella cliente
+              </Button>
+            )}
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={refresh}><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Aggiorna</Button>
             <AlertDialog>
