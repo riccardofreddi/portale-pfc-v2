@@ -74,8 +74,8 @@ export function TabResoconto() {
 
   async function handleResetLogCliente(username: string) {
     try {
-      await fetch(/api/audit?username=, { method: 'DELETE' })
-      toast.success(Cronologia di  azzerata)
+      await fetch('/api/audit?username=' + username, { method: 'DELETE' })
+      toast.success('Cronologia di ' + username + ' azzerata')
       await refresh()
     } catch { toast.error('Errore reset cronologia cliente') }
   }
