@@ -184,6 +184,27 @@ export function TabGestioneClienti() {
     catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
   }
 
+  async function handleRename() {
+    if (!renameTarget) return
+    try {
+      const res = await fetch('/api/documenti/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: renameTarget.key, newName: renameNewName }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore ' + res.status)
+      }
+      toast.success('File rinominato in: ' + renameNewName)
+      setRenameTarget(null)
+      setRenameNewName('')
+      if (selectedCliente) await loadArchivioCliente(selectedCliente)
+    } catch (err) {
+      toast.error('Errore rinomina: ' + (err instanceof Error ? err.message : 'errore'))
+    }
+  }
+
   async function handleDownload(key: string, nome: string) {
     try {
       const res = await fetch(`/api/documenti/download?key=${encodeURIComponent(key)}`)
@@ -259,6 +280,7 @@ export function TabGestioneClienti() {
                                 <div className="flex gap-1">
                                   {canPreviewFile(f.nome) && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'nuovo', isPreferito: false })}><Eye className="h-3 w-3" /></Button>}
                                   <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3 w-3" /></Button>
+<Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="text-red-600"><Trash2 className="h-3 w-3" /></Button></AlertDialogTrigger>
                                     <AlertDialogContent>
@@ -322,6 +344,7 @@ export function TabGestioneClienti() {
                                             <div className="flex gap-1">
                                               {canPreviewFile(f.nome) && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'nuovo', isPreferito: false })}><Eye className="h-3 w-3" /></Button>}
                                               <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3 w-3" /></Button>
+<Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
                                               <AlertDialog>
                                                 <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="text-red-600"><Trash2 className="h-3 w-3" /></Button></AlertDialogTrigger>
                                                 <AlertDialogContent>
@@ -442,6 +465,22 @@ export function TabGestioneClienti() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Dialog rinomina file */}
+      <Dialog open={!!renameTarget} onOpenChange={(o) => !o && setRenameTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rinomina file</DialogTitle>
+          </DialogHeader>
+          <div className='space-y-3 py-2'>
+            <p className='text-sm text-slate-500'>File originale: <span className='font-mono'>{renameTarget?.nome}</span></p>
+            <Input value={renameNewName} onChange={(e) => setRenameNewName(e.target.value)} placeholder='Nuovo nome file' />
+          </div>
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setRenameTarget(null)}>Annulla</Button>
+            <Button onClick={handleRename} disabled={!renameNewName.trim() || renameNewName === renameTarget?.nome} className='bg-emerald-700 hover:bg-emerald-800 text-white'>Salva</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
