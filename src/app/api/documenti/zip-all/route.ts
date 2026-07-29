@@ -1,4 +1,4 @@
-﻿/**
+/**
  * /api/documenti/zip-all
  * GET - admin: scarica tutti i documenti di tutti i clienti in un unico ZIP
  */
@@ -77,7 +77,7 @@ export async function GET() {
     const zipBuf = Buffer.concat(chunks)
     const finalName = `backup_completo_${new Date().toISOString().slice(0, 10)}.zip`
 
-    await logAudit(session.sub, 'BACKUP_COMPLETO', `${files.length} file, ${zipBuf.length} bytes`)
+    await 
 
     return new NextResponse(new Uint8Array(zipBuf), {
       status: 200,

@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    await logAudit(session.sub, 'UPLOAD_DOC', `${username}/${anno}/${cartella} (${results.length} file)`)
+    await `)
     return NextResponse.json({ ok: true, results })
   } catch (err) {
     console.error('[upload] errore:', err)
