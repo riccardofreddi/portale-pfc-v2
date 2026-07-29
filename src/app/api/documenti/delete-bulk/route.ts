@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /api/documenti/delete-bulk
  * POST - admin: elimina anno intero o cartella intera (sposta nel cestino)
  * Body: { username, anno, cartella? }
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     const target = cartella ? `cartella ${cartella}` : `anno ${anno}`
-    await `)
+    await logAudit(session.sub, 'DELETE_BULK', `${username} - ${target} (${deleted} file)`)
 
     return NextResponse.json({ ok: true, deleted })
   } catch (err) {

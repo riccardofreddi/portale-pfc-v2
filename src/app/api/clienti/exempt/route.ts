@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, logAudit } from '@/lib/auth'
 
@@ -21,6 +21,6 @@ export async function POST(req: NextRequest) {
     data: { exemptMaintenance: nuovoValore },
   })
 
-  await 
+  await logAudit(session.sub, 'ESENTE_MANUTENZIONE', `${username}: ${nuovoValore ? 'ATTIVATA' : 'DISATTIVATA'}`)
   return NextResponse.json({ ok: true, exemptMaintenance: nuovoValore })
 }

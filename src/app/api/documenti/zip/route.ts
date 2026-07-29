@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /api/documenti/zip
  * POST { keys: string[], zipName: string }
  * Ritorna uno ZIP contenente i file specificati.
@@ -70,9 +70,9 @@ export async function POST(req: NextRequest) {
     const finalName = zipName ?? 'archivio.zip'
 
     if (session.role === 'client') {
-      await `)
+      await logAudit(session.sub, 'SCARICA_ARCHIVIO', `${finalName} (${keys.length} file)`)
     } else {
-      await `)
+      await logAudit(session.sub, 'ADMIN_ZIP', `${finalName} (${keys.length} file)`)
     }
 
     return new NextResponse(new Uint8Array(zipBuf), {

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import {
   hashPassword, verifyPassword, validaUsername,
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const user = await db.user.findUnique({ where: { username } })
     if (!user || !verifyPassword(password, user.passwordHash)) {
       const waitAfter = await registraTentativoFallito(username)
-      if (username !== DEFAULT_ADMIN_USER) await 
+      if (username !== DEFAULT_ADMIN_USER) await logAudit(username, 'LOGIN_FAILED', 'Password sbagliata')
       const msg = waitAfter > 0 ? `Troppi tentativi falliti. Riprova tra ${waitAfter} secondi.` : 'Username o password non corretti. Riprova.'
       return NextResponse.json({ ok: false, error: msg }, { status: 401 })
     }
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (username !== DEFAULT_ADMIN_USER) {
       const maintSetting = await db.systemSetting.findUnique({ where: { key: 'maintenance_mode' } })
       if (maintSetting?.value === '1' && !user.exemptMaintenance) {
-        await 
+        await logAudit(username, 'LOGIN_BLOCCATO', 'Manutenzione attiva')
         return NextResponse.json({ ok: false, error: 'Il portale è in manutenzione. Riprova più tardi.' }, { status: 503 })
       }
     }
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const jwt = await creaSessione({ username, name: user.name, role })
     await setSessionCookie(jwt)
 
-    if (username !== DEFAULT_ADMIN_USER) await 
+    if (username !== DEFAULT_ADMIN_USER) await logAudit(username, 'LOGIN_SUCCESS', 'Accesso eseguito')
 
     return NextResponse.json({
       ok: true,

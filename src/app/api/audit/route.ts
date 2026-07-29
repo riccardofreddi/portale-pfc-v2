@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /api/audit
  * GET — admin: lista log audit (solo clienti, non admin)
  *   ?username=... filtra per username
@@ -77,5 +77,6 @@ export async function DELETE(req: NextRequest) {
 
   // Cancella tutto
   await db.auditLog.deleteMany({})
+  await logAudit(session.sub, 'RESET_AUDIT', 'Log azzerato')
   return NextResponse.json({ ok: true })
 }

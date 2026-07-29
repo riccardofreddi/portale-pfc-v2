@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     await salvaBytes(originalKey, data)
     await eliminaOggetto(key)
 
-    await 
+    await logAudit(session.sub, 'RECUPERA_FILE_CESTINO', `${key} -> ${originalKey}`)
     return NextResponse.json({ ok: true, originalKey })
   } catch (err) {
     console.error('[cestino/recover] errore:', err)

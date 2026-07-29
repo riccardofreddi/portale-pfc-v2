@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, hashPassword, validaUsername, validaPassword, logAudit } from '@/lib/auth'
 import { DEFAULT_ADMIN_USER } from '@/lib/pfc-utils'
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  await `)
+  await logAudit(session.sub, 'CREA_CLIENTE', `${ragioneSociale} (${username})`)
   return NextResponse.json({ ok: true, username })
 }
 
@@ -84,7 +84,7 @@ export async function DELETE(req: NextRequest) {
     console.error('[delete cliente] R2 cleanup fallito:', err)
   }
 
-  await `)
+  await logAudit(session.sub, 'ELIMINA_CLIENTE', `${target.name} (${username})`)
   return NextResponse.json({ ok: true })
 }
 
@@ -136,6 +136,6 @@ export async function PUT(req: NextRequest) {
     },
   })
 
-  await `)
+  await logAudit(session.sub, 'MODIFICA_CLIENTE', `${oldUsername} -> ${nuovoUsername} (${newName})`)
   return NextResponse.json({ ok: true })
 }

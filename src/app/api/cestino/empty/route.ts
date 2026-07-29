@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /api/cestino/empty
  * POST - admin: svuota completamente il cestino (eliminazione parallela)
  */
@@ -48,7 +48,7 @@ export async function POST() {
     await db.fileDownload.deleteMany({ where: { filePath: { startsWith: prefix } } }).catch(() => {})
     await db.favorite.deleteMany({ where: { filePath: { startsWith: prefix } } }).catch(() => {})
 
-    await 
+    await logAudit(session.sub, 'SVUOTA_CESTINO', `${deleted} file eliminati definitivamente`)
 
     return NextResponse.json({ ok: true, deleted })
   } catch (err) {

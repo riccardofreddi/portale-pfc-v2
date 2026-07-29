@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
 import { caricaBytes, salvaBytes, eliminaOggetto, haConfigurazioneR2 } from '@/lib/r2'
 
@@ -41,6 +41,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await `)
+  await logAudit(session.sub, 'DELETE_DOC', `${keys.length} file (moveToTrash=${moveToTrash})`)
   return NextResponse.json({ ok: true, results })
 }

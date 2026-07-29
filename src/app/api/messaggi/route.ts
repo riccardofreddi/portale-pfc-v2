@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   ])
 
   // Passa il userId già noto a logAudit per evitare una query extra
-  await }`)
+  await logAudit(session.sub, 'INVIA_MESSAGGIO', `${dest}: ${text.slice(0, 60)}`)
   return NextResponse.json({ ok: true, id: msg.id })
 }
 
@@ -96,7 +96,7 @@ export async function DELETE(req: NextRequest) {
 
   await db.message.delete({ where: { id } })
   if (session.role === 'admin') {
-    await 
+    await logAudit(session.sub, 'ELIMINA_MESSAGGIO', id)
   }
   return NextResponse.json({ ok: true })
 }

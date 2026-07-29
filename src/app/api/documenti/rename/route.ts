@@ -1,4 +1,4 @@
-/**
+﻿/**
  * /api/documenti/rename
  * POST - admin: rinomina un file su R2 (copia + elimina)
  * Body: { key: string, newName: string }
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     // Pulisci riferimenti DB orfani per il vecchio path
     await purificaRiferimentiDB(key)
 
-    await 
+    await logAudit(session.sub, 'RINOMINA_FILE', `${oldName} -> ${sanitized}`)
 
     return NextResponse.json({ ok: true, newKey, newName: sanitized })
   } catch (err) {

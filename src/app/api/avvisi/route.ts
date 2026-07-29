@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, logAudit } from '@/lib/auth'
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  await )
+  await logAudit(session.sub, 'PUBBLICA_AVVISO', testo.slice(0, 100))
   return NextResponse.json({ ok: true, id: avviso.id })
 }
 
@@ -56,6 +56,6 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
 
   await db.notice.delete({ where: { id } })
-  await 
+  await logAudit(session.sub, 'ELIMINA_AVVISO', id)
   return NextResponse.json({ ok: true })
 }
