@@ -1,4 +1,4 @@
-/** API client minimale per il frontend. */
+﻿/** API client minimale per il frontend. */
 
 async function apiFetch<T = unknown>(url: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -49,7 +49,7 @@ export const api = {
       }),
     delete: (keys: string[], moveToTrash = true) =>
       apiFetch('/api/documenti/delete', { method: 'POST', body: JSON.stringify({ keys, moveToTrash }) }),
-    zipUrl: () => '/api/documenti/zip', // POST endpoint
+    zipUrl: () => '/api/documenti/zip',
   },
   avvisi: {
     list: () => apiFetch<{ avvisi: Array<{ id: string; text: string; timestamp: string }> }>('/api/avvisi'),
@@ -76,10 +76,11 @@ export const api = {
     toggle: (filePath: string) => apiFetch<{ ok: boolean; isPreferito: boolean }>('/api/preferiti', { method: 'POST', body: JSON.stringify({ filePath }) }),
   },
   audit: {
-    list: (limit?: number, username?: string) => {
+    list: (limit?: number, username?: string, action?: string) => {
       const q = new URLSearchParams()
       if (limit) q.set('limit', String(limit))
       if (username) q.set('username', username)
+      if (action) q.set('action', action)
       return apiFetch<{ logs: Array<{ id: string; ts: string; username: string; action: string; detail: string }> }>(`/api/audit?${q}`)
     },
     meList: (limit?: number) => {
@@ -131,7 +132,11 @@ export const api = {
     recover: (key: string) =>
       apiFetch<{ ok: boolean; originalKey: string }>('/api/cestino/recover', { method: 'POST', body: JSON.stringify({ key }) }),
     deletePermanent: (key: string) =>
-      apiFetch<{ ok: boolean }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ key }) }),
+      apiFetch<{ ok: boolean; deleted?: number }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ key }) }),
+    deleteMultiple: (keys: string[]) =>
+      apiFetch<{ ok: boolean; deleted: number }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ keys }) }),
+    deleteAll: () =>
+      apiFetch<{ ok: boolean; deleted: number }>('/api/cestino/empty', { method: 'POST' }),
   },
   push: {
     vapidKey: () => apiFetch<{ publicKey: string }>('/api/push/vapid-key'),
