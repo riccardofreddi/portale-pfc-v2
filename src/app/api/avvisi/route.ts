@@ -1,6 +1,13 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+﻿/**
+ * /api/avvisi
+ * GET: lista avvisi (tutti)
+ * POST: crea avviso (admin)
+ * DELETE: elimina avviso (admin) ?id=...
+ */
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, logAudit } from '@/lib/auth'
+import { sendPushToAll } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +37,7 @@ export async function POST(req: NextRequest) {
 
   const avviso = await db.notice.create({ data: { text: testo } })
 
+  // Crea notifica per tutti i clienti
   const clienti = await db.user.findMany({ where: { role: 'client' } })
   if (clienti.length > 0) {
     await db.notification.createMany({
@@ -41,6 +49,14 @@ export async function POST(req: NextRequest) {
       })),
     })
   }
+
+  // Invia notifica push a tutti i clienti (non bloccante)
+  sendPushToAll({
+    title: '📢 Nuovo avviso dallo studio',
+    body: testo.slice(0, 100),
+    url: '/',
+    tag: 'pfc-avviso',
+  }).catch((e) => console.error('[PUSH] avvisi errore:', e))
 
   await logAudit(session.sub, 'PUBBLICA_AVVISO', testo.slice(0, 100))
   return NextResponse.json({ ok: true, id: avviso.id })
