@@ -1,8 +1,5 @@
-/**
+﻿/**
  * Portale PFC — Web Push Notifications helper.
- *
- * Usa web-push (VAPID). Le sottoscrizioni sono salvate nella tabella
- * `push_subscriptions`. Helper pubblici: sendPushToUser / sendPushToAll.
  */
 
 import webpush from 'web-push'
@@ -24,7 +21,7 @@ function ensureConfigured() {
   const subject = process.env.VAPID_SUBJECT ?? 'mailto:admin@portalepfc.it'
 
   if (!publicKey || !privateKey) {
-    throw new Error('VAPID keys non configurate. Aggiungi VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY su Vercel.')
+    throw new Error('VAPID keys non configurate.')
   }
 
   webpush.setVapidDetails(subject, publicKey, privateKey)
@@ -47,10 +44,6 @@ export interface PushPayload {
   badge?: string
 }
 
-/**
- * Invia una notifica push a tutte le sottoscrizioni di un utente.
- * Ritorna il numero di invii riusciti.
- */
 export async function sendPushToUser(
   username: string,
   payload: PushPayload
@@ -78,10 +71,12 @@ export async function sendPushToUser(
       badge: payload.badge ?? '/icon.png',
     })
 
+    console.log('[PUSH] Tentativo di invio a', subs.length, 'subs per', username)
+
     const results = await Promise.allSettled(
       subs.map((s) =>
         webpush.sendNotification(toSubscription(s), body, {
-          TTL: 60 * 60 * 24, // 24 ore
+          TTL: 60 * 60 * 24,
           urgency: 'normal',
         })
       )
@@ -93,22 +88,23 @@ export async function sendPushToUser(
     results.forEach((r, i) => {
       if (r.status === 'fulfilled') {
         success++
+        console.log('[PUSH] Invio OK per endpoint', i, '-', subs[i].endpoint.substring(0, 60) + '...')
       } else {
-        const err = r.reason as { statusCode?: number }
-        // 404 = sottoscrizione non più valida, 410 = gone
+        const err = r.reason as { statusCode?: number; message?: string; body?: unknown }
+        console.error('[PUSH] Invio FALLITO per endpoint', i, '- status:', err?.statusCode, '- message:', err?.message, '- body:', JSON.stringify(err?.body).substring(0, 200))
         if (err?.statusCode === 404 || err?.statusCode === 410) {
           staleEndpoints.push(subs[i].endpoint)
         }
       }
     })
 
-    // Pulisci endpoint morti
     if (staleEndpoints.length > 0) {
       await db.pushSubscription.deleteMany({
         where: { endpoint: { in: staleEndpoints } },
       }).catch(() => {})
     }
 
+    console.log('[PUSH] Totale successi:', success, '/', subs.length)
     return success
   } catch (err) {
     console.error('[PUSH] sendPushToUser errore:', err)
@@ -116,10 +112,6 @@ export async function sendPushToUser(
   }
 }
 
-/**
- * Invia una notifica push a TUTTI gli utenti (broadcast).
- * Utile per avvisi globali. Ritorna il numero di invii riusciti.
- */
 export async function sendPushToAll(payload: PushPayload): Promise<number> {
   try {
     ensureConfigured()
@@ -172,9 +164,6 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
   }
 }
 
-/**
- * Conta quante sottoscrizioni push ha un utente.
- */
 export async function countPushSubscriptions(username: string): Promise<number> {
   try {
     const user = await db.user.findUnique({
