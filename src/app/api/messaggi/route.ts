@@ -2,9 +2,9 @@
  * /api/messaggi
  *
  * GET ?username=... (admin: tutti i messaggi di un cliente; client: propri messaggi)
- * POST (admin): { destinatario, testo, richiedeUpload } — invia messaggio
- * DELETE ?id=... — elimina messaggio (admin o destinatario)
- * PATCH ?id=...&action=archivia — cliente archivia
+ * POST (admin): { destinatario, testo, richiedeUpload } - invia messaggio
+ * DELETE ?id=... - elimina messaggio (admin o destinatario)
+ * PATCH ?id=...&action=archivia - cliente archivia
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   const messaggi = await db.message.findMany({
     where: { userId: user.id },
     orderBy: { timestamp: 'desc' },
-    include: { archivedBy: true },
+    include: { archivedBy: { include: { user: { select: { username: true } } } } },
   })
 
   return NextResponse.json({
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       read: m.read,
       requiresUpload: m.requiresUpload,
       uploadReceived: m.uploadReceived,
-      archivedByClient: m.archivedBy.map((a) => (a as any).user?.username ?? ""),
+      archivedByClient: m.archivedBy.map((a) => a.user.username),
     })),
   })
 }
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   const dest = String(destinatario ?? '').trim().toLowerCase()
 
   if (!dest) return NextResponse.json({ error: 'Destinatario mancante' }, { status: 400 })
-  if (dest === DEFAULT_ADMIN_USER) return NextResponse.json({ error: 'Non puoi inviare messaggi all\'admin' }, { status: 400 })
+  if (dest === DEFAULT_ADMIN_USER) return NextResponse.json({ error: 'Non puoi inviare messaggi all admin' }, { status: 400 })
   if (!text) return NextResponse.json({ error: 'Testo mancante' }, { status: 400 })
   if (text.length > 2000) return NextResponse.json({ error: 'Messaggio troppo lungo (max 2000 caratteri)' }, { status: 400 })
 
@@ -80,9 +80,8 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  // Invia notifica push al cliente (non bloccante, errore silenzioso)
   sendPushToUser(dest, {
-    title: richiedeUpload ? '?? Richiesta documento' : '?? Nuovo messaggio',
+    title: richiedeUpload ? 'Richiesta documento' : 'Nuovo messaggio',
     body: text.slice(0, 100),
     url: '/',
     tag: 'pfc-messaggio',
