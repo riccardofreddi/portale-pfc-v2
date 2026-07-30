@@ -34,15 +34,13 @@ export const api = {
       apiFetch('/api/clienti', { method: 'PUT', body: JSON.stringify(data) }),
     delete: (username: string) =>
       apiFetch('/api/clienti', { method: 'DELETE', body: JSON.stringify({ username }) }),
-    setExempt: (username: string, exempt: boolean) =>
-      apiFetch<{ ok: boolean }>('/api/clienti/exempt', { method: 'POST', body: JSON.stringify({ username, exempt }) }),
   },
   documenti: {
     list: (params: { username: string; anno?: string; cartella?: string }) => {
       const q = new URLSearchParams({ username: params.username })
       if (params.anno) q.set('anno', params.anno)
       if (params.cartella) q.set('cartella', params.cartella)
-      return apiFetch<{ anni?: string[]; cartelle?: Array<Record<string, unknown>>; files?: Array<Record<string, unknown>>; r2NotConfigured?: boolean; error?: string }>(`/api/documenti/list?${q}`)
+      return apiFetch<{ anni?: string[]; cartelle?: string[]; files?: Array<Record<string, unknown>>; r2NotConfigured?: boolean; error?: string }>(`/api/documenti/list?${q}`)
     },
     upload: (formData: FormData) =>
       apiFetch<{ ok: boolean; results?: Array<Record<string, unknown>> }>('/api/documenti/upload', {
@@ -51,6 +49,7 @@ export const api = {
       }),
     delete: (keys: string[], moveToTrash = true) =>
       apiFetch('/api/documenti/delete', { method: 'POST', body: JSON.stringify({ keys, moveToTrash }) }),
+    zipUrl: () => '/api/documenti/zip', // POST endpoint
   },
   avvisi: {
     list: () => apiFetch<{ avvisi: Array<{ id: string; text: string; timestamp: string }> }>('/api/avvisi'),
@@ -68,10 +67,7 @@ export const api = {
   },
   notifiche: {
     list: () => apiFetch<{ notifiche: Array<Record<string, unknown>> }>('/api/notifiche'),
-    segnaLette: (id?: string) => {
-      const q = id ? `?action=segna_lette&id=${id}` : '?action=segna_lette'
-      return apiFetch('/api/notifiche' + q, { method: 'POST' })
-    },
+    segnaLette: () => apiFetch('/api/notifiche?action=segna_lette', { method: 'POST' }),
     pulisciLette: () => apiFetch('/api/notifiche?action=pulisci_lette', { method: 'POST' }),
     pulisciTutte: () => apiFetch('/api/notifiche?action=pulisci_tutte', { method: 'POST' }),
   },
@@ -80,11 +76,10 @@ export const api = {
     toggle: (filePath: string) => apiFetch<{ ok: boolean; isPreferito: boolean }>('/api/preferiti', { method: 'POST', body: JSON.stringify({ filePath }) }),
   },
   audit: {
-    list: (limit?: number, username?: string, action?: string) => {
+    list: (limit?: number, username?: string) => {
       const q = new URLSearchParams()
       if (limit) q.set('limit', String(limit))
       if (username) q.set('username', username)
-      if (action) q.set('action', action)
       return apiFetch<{ logs: Array<{ id: string; ts: string; username: string; action: string; detail: string }> }>(`/api/audit?${q}`)
     },
     meList: (limit?: number) => {
@@ -136,10 +131,20 @@ export const api = {
     recover: (key: string) =>
       apiFetch<{ ok: boolean; originalKey: string }>('/api/cestino/recover', { method: 'POST', body: JSON.stringify({ key }) }),
     deletePermanent: (key: string) =>
-      apiFetch<{ ok: boolean; deleted?: number }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ key }) }),
-    deleteMultiple: (keys: string[]) =>
-      apiFetch<{ ok: boolean; deleted: number }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ keys }) }),
-    deleteAll: () =>
-      apiFetch<{ ok: boolean; deleted: number }>('/api/cestino/empty', { method: 'POST' }),
+      apiFetch<{ ok: boolean }>('/api/cestino/delete-permanent', { method: 'POST', body: JSON.stringify({ key }) }),
+  },
+  push: {
+    vapidKey: () => apiFetch<{ publicKey: string }>('/api/push/vapid-key'),
+    subscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+      apiFetch<{ ok: boolean }>('/api/push/subscribe', {
+        method: 'POST',
+        body: JSON.stringify(sub),
+      }),
+    unsubscribe: (endpoint: string) =>
+      apiFetch<{ ok: boolean }>('/api/push/subscribe', {
+        method: 'DELETE',
+        body: JSON.stringify({ endpoint }),
+      }),
+    test: () => apiFetch<{ ok: boolean; sent?: number; msg?: string }>('/api/push/test', { method: 'POST' }),
   },
 }

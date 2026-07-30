@@ -1,0 +1,45 @@
+============================================================
+PORTALE PFC — FEATURE WEB PUSH NOTIFICATIONS
+============================================================
+
+Questo ZIP contiene tutti i file per attivare le notifiche push.
+
+FILE NUOVI (da copiare nel progetto):
+- prisma/migrations/push_subscriptions.sql       (script SQL, già eseguito su Supabase)
+- public/sw.js                                   (Service Worker)
+- src/app/api/push/subscribe/route.ts            (API iscrizione)
+- src/app/api/push/vapid-key/route.ts            (API chiave pubblica)
+- src/app/api/push/test/route.ts                 (API test push)
+- src/hooks/usePushNotifications.ts              (hook React)
+- src/lib/push.ts                                (helper server-side)
+
+FILE MODIFICATI (sovrascrivono quelli esistenti):
+- prisma/schema.prisma                           (aggiunto modello PushSubscription)
+- src/lib/api-client.ts                          (aggiunti metodi api.push.*)
+- src/components/pfc/ClienteArea.tsx             (aggiunto pulsante "Attiva notifiche")
+
+============================================================
+PROCEDURA DI INSTALLAZIONE
+============================================================
+
+1) Estrai tutto lo ZIP DENTRO la cartella root del tuo progetto
+   (la cartella che contiene package.json, src/, public/, prisma/)
+
+2) Apri PowerShell nella cartella del progetto
+
+3) Verifica che i file siano stati copiati:
+   git status
+
+4) Aggiungi tutti i file:
+   git add .
+
+5) Commit:
+   git commit -m "feat: Web Push Notifications (VAPID) - backend + frontend"
+
+6) Push su GitHub:
+   git push origin main
+
+7) Vai su Vercel e aspetta che il deploy finisca (2-3 minuti)
+   https://vercel.com/riccardofreddis-projects/portale-pfc-v2/deployments
+
+============================================================

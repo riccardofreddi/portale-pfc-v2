@@ -1,5 +1,5 @@
 // Portale PFC — schema database
-// Dev: SQLite (auto-configurato)
+// Dev: SQLite (auto-configurato dal sandbox)
 // Prod (Vercel + Supabase): cambia `provider` in "postgresql" — tutto il resto è compatibile.
 
 generator client {
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -27,10 +27,24 @@ model User {
   fileViews       FileView[]
   fileDownloads   FileDownload[]
   auditLogs       AuditLog[]
-  pushSubscriptions PushSubscription[]
   archivedMsgs    MessageArchive[]
+  pushSubs        PushSubscription[]
 
   @@map("users")
+}
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model Message {
@@ -156,16 +170,4 @@ model UploadDate {
 
   @@index([filePath])
   @@map("upload_dates")
-}
-model PushSubscription {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint    String
-  p256dhKey   String   @map("p256dh_key")
-  authKey     String   @map("auth_key")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  @@index([userId])
-  @@map("push_subscriptions")
 }
