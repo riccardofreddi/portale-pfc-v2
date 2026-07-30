@@ -1,10 +1,10 @@
-﻿/**
+/**
  * /api/messaggi
  *
  * GET ?username=... (admin: tutti i messaggi di un cliente; client: propri messaggi)
- * POST (admin): { destinatario, testo, richiedeUpload } — invia messaggio
- * DELETE ?id=... — elimina messaggio (admin o destinatario)
- * PATCH ?id=...&action=archivia — cliente archivia
+ * POST (admin): { destinatario, testo, richiedeUpload } � invia messaggio
+ * DELETE ?id=... � elimina messaggio (admin o destinatario)
+ * PATCH ?id=...&action=archivia � cliente archivia
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       read: m.read,
       requiresUpload: m.requiresUpload,
       uploadReceived: m.uploadReceived,
-      archivedByClient: m.archivedBy.map((a) => a.user.username),
+      archivedByClient: m.archivedBy.map((a) => (a as any).user?.username ?? ""),
     })),
   })
 }
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
   // Invia notifica push al cliente (non bloccante, errore silenzioso)
   sendPushToUser(dest, {
-    title: richiedeUpload ? '📥 Richiesta documento' : '💬 Nuovo messaggio',
+    title: richiedeUpload ? '?? Richiesta documento' : '?? Nuovo messaggio',
     body: text.slice(0, 100),
     url: '/',
     tag: 'pfc-messaggio',
