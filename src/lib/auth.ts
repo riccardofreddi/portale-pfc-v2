@@ -166,6 +166,8 @@ export async function ensureDefaultAdmin() {
 }
 
 export async function logAudit(username: string, action: string, detail: string = '', knownUserId?: string | null) {
+  // Non loggare le azioni dell'admin per risparmiare spazio nel DB
+  if (username === 'admin') return
   try {
     const userId = knownUserId !== undefined ? knownUserId : (await db.user.findUnique({ where: { username }, select: { id: true } }))?.id ?? null
     await db.auditLog.create({
