@@ -1,11 +1,6 @@
-/**
- * POST /api/push/test
- *   - Invia una notifica push di test all'utente loggato.
- *   - Solo per clienti (gli admin non hanno sottoscrizioni push).
- */
-
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { db } from '@/lib/db'
 import { sendPushToUser } from '@/lib/push'
 
 export const runtime = 'nodejs'
@@ -15,16 +10,36 @@ export const maxDuration = 30
 export async function POST() {
   try {
     const session = await getSession()
+    console.log('[PUSH-TEST] session:', JSON.stringify(session))
     if (!session) {
       return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
     }
 
+    // Verifica diretta: conta le subscription di questo utente
+    const user = await db.user.findUnique({
+      where: { username: session.sub },
+      select: { id: true, username: true },
+    })
+    console.log('[PUSH-TEST] user trovato da username:', JSON.stringify(user))
+
+    if (user) {
+      const subsCount = await db.pushSubscription.count({ where: { userId: user.id } })
+      console.log('[PUSH-TEST] subsCount per userId', user.id, ':', subsCount)
+
+      const subs = await db.pushSubscription.findMany({
+        where: { userId: user.id },
+        select: { endpoint: true, p256dh: true, auth: true },
+      })
+      console.log('[PUSH-TEST] subs dettaglio:', JSON.stringify(subs))
+    }
+
     const sent = await sendPushToUser(session.sub, {
-      title: '🔔 Notifica di test',
+      title: 'Notifica di test',
       body: 'Le notifiche push sono attive sul tuo account!',
       url: '/',
       tag: 'pfc-test',
     })
+    console.log('[PUSH-TEST] sendPushToUser ha ritornato:', sent)
 
     if (sent === 0) {
       return NextResponse.json(
@@ -35,7 +50,7 @@ export async function POST() {
 
     return NextResponse.json({ ok: true, sent })
   } catch (err) {
-    console.error('[PUSH test] errore:', err)
-    return NextResponse.json({ error: 'Errore server' }, { status: 500 })
+    console.error('[PUSH-TEST] errore:', err)
+    return NextResponse.json({ error: 'Errore server', detail: String(err) }, { status: 500 })
   }
 }
