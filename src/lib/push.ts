@@ -5,6 +5,16 @@
 import webpush from 'web-push'
 import { db } from './db'
 
+// Polyfill crypto per Node.js runtime su Vercel (web-push ne ha bisogno)
+try {
+  const { webcrypto } = require('crypto')
+  if (!(globalThis as any).crypto) {
+    (globalThis as any).crypto = webcrypto as any
+  }
+} catch (e) {
+  console.warn('[PUSH] crypto polyfill fallito:', e)
+}
+
 type PushSubscriptionRow = {
   id: string
   endpoint: string
@@ -24,6 +34,7 @@ function ensureConfigured() {
     throw new Error('VAPID keys non configurate.')
   }
 
+  console.log('[PUSH] Config VAPID - public len:', publicKey.length, '- subject:', subject)
   webpush.setVapidDetails(subject, publicKey, privateKey)
   configured = true
 }
@@ -90,8 +101,8 @@ export async function sendPushToUser(
         success++
         console.log('[PUSH] Invio OK per endpoint', i, '-', subs[i].endpoint.substring(0, 60) + '...')
       } else {
-        const err = r.reason as { statusCode?: number; message?: string; body?: unknown }
-        console.error('[PUSH] Invio FALLITO per endpoint', i, '- status:', err?.statusCode, '- message:', err?.message, '- body:', JSON.stringify(err?.body).substring(0, 200))
+        const err = r.reason as { statusCode?: number; message?: string; body?: unknown; headers?: unknown }
+        console.error('[PUSH] Invio FALLITO per endpoint', i, '- status:', err?.statusCode, '- message:', err?.message, '- body:', JSON.stringify(err?.body)?.substring(0, 300), '- headers:', JSON.stringify(err?.headers)?.substring(0, 300))
         if (err?.statusCode === 404 || err?.statusCode === 410) {
           staleEndpoints.push(subs[i].endpoint)
         }
