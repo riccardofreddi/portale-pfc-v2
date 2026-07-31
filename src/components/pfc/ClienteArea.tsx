@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { formatDateAudit } from '@/lib/pfc-utils'
 import { useNotificationBadge } from '@/hooks/useNotificationBadge'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
+import { restoreFavicon } from '@/lib/favicon-badge'
 
 interface Notifica {
   id: string
@@ -380,5 +381,7 @@ function clearAppBadge() {
     navigator.serviceWorker?.ready.then((reg) => {
       reg.active?.postMessage({ type: 'CLEAR_BADGE' })
     }).catch(() => {})
+    // Ripristina la favicon originale quando non ci sono più notifiche non lette
+    restoreFavicon()
   } catch {}
 }

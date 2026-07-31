@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react"
 import { api } from "@/lib/api-client"
 import { usePfcStore } from "@/store/pfc"
 import { toast } from "sonner"
+import { updateFaviconBadge, restoreFavicon } from "@/lib/favicon-badge"
 
 interface NotificaInfo {
   id: string
@@ -49,6 +50,14 @@ export function useNotificationBadge(enabled: boolean) {
               clearAppBadge: () => Promise<void>
             }).clearAppBadge().catch(() => {})
           }
+        }
+
+        // Favicon badge: funziona anche quando l'app gira come TAB del browser
+        // (su Windows/Chrome setAppBadge mostra il numero SOLO su PWA installata)
+        if (unreadCount > 0) {
+          updateFaviconBadge(unreadCount)
+        } else {
+          restoreFavicon()
         }
 
         const newNotifIds = [...unreadIds].filter(
