@@ -171,7 +171,7 @@ export function ClienteMessaggi() {
                 <div className="flex-1" />
                 {m.requiresUpload && !m.uploadReceived && (
                   <Badge variant="outline" className="text-xs border-amber-400 bg-amber-50 text-amber-700">
-                    <Paperclip className="h-3 w-3 mr-1" /> Richiesta doc
+                    <Paperclip className="h-3 w-3 mr-1" /> Richiesta documenti
                   </Badge>
                 )}
                 {m.uploadReceived && (
