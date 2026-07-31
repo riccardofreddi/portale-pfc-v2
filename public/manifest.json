@@ -1,0 +1,63 @@
+{
+  "name": "Portale PFC - Documenti Clienti",
+  "short_name": "Portale PFC",
+  "description": "Portale documenti clienti dello Studio PFC",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#047857",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "it",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Archivio Documenti",
+      "short_name": "Archivio",
+      "description": "Vai all archivio documenti",
+      "url": "/?tab=archivio",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Messaggi",
+      "short_name": "Messaggi",
+      "description": "Vai ai messaggi",
+      "url": "/?tab=messaggi",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Cassetto Digitale",
+      "short_name": "Cassetto",
+      "description": "Vai al cassetto digitale",
+      "url": "/?tab=cassetto",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    }
+  ]
+}

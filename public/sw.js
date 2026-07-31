@@ -1,15 +1,6 @@
 /* eslint-disable no-restricted-globals */
-/**
- * Portale PFC — Service Worker per Web Push Notifications.
- *
- * Responsabilità:
- *  - Riceve push events dal server (VAPID) e mostra Notification nativa.
- *  - Gestisce click sulla notifica -> apre/focus l'app sull'URL del payload.
- *  - Skip waiting su message 'SKIP_WAITING' (per future versioni del SW).
- */
-
-const CACHE_NAME = 'pfc-v1'
-const APP_SHELL = ['/', '/icon.png']
+const CACHE_NAME = 'pfc-v2'
+const APP_SHELL = ['/', '/icon.png', '/manifest.json']
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -22,7 +13,6 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
-      // Pulisci vecchie cache
       caches.keys().then((keys) =>
         Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
       ),
@@ -30,10 +20,16 @@ self.addEventListener('activate', (event) => {
   )
 })
 
-// Chiudi la notifica e apri l'URL quando l'utente ci clicca
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
+  const action = event.action
   const targetUrl = event.notification.data?.url || '/'
+  const notifId = event.notification.data?.notifId
+
+  if (action === 'mark_read' && notifId) {
+    fetch('/api/notifiche?action=segna_lette', { method: 'POST' }).catch(() => {})
+    return
+  }
 
   event.waitUntil(
     (async () => {
@@ -41,8 +37,6 @@ self.addEventListener('notificationclick', (event) => {
         type: 'window',
         includeUncontrolled: true,
       })
-
-      // Se l'app è già aperta, focus e naviga
       for (const client of allClients) {
         if ('focus' in client) {
           client.focus()
@@ -52,8 +46,6 @@ self.addEventListener('notificationclick', (event) => {
           return
         }
       }
-
-      // Altrimenti apri nuova finestra
       if (self.clients.openWindow) {
         await self.clients.openWindow(targetUrl)
       }
@@ -61,16 +53,13 @@ self.addEventListener('notificationclick', (event) => {
   )
 })
 
-// Ricezione push
 self.addEventListener('push', (event) => {
   let payload = { title: 'Portale PFC', body: '', url: '/', tag: 'pfc-notification' }
-
   try {
     if (event.data) {
       payload = { ...payload, ...event.data.json() }
     }
   } catch {
-    // payload non JSON, usa testo raw come body
     if (event.data) {
       payload.body = event.data.text()
     }
@@ -82,17 +71,32 @@ self.addEventListener('push', (event) => {
     badge: payload.badge || '/icon.png',
     tag: payload.tag || 'pfc-notification',
     renotify: true,
-    data: { url: payload.url || '/' },
+    data: { url: payload.url || '/', notifId: payload.notifId },
     vibrate: [80, 40, 80],
     requireInteraction: false,
+    actions: [
+      { action: 'open', title: 'Apri' },
+      { action: 'mark_read', title: 'Segna come letto' },
+    ],
   }
 
   event.waitUntil(self.registration.showNotification(payload.title, options))
 })
 
-// Aggiornamenti controllati dal client
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'pfc-retry-push') {
+    event.waitUntil(console.log('[SW] Background sync trigger'))
+  }
+})
+
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') {
     self.skipWaiting()
+  }
+  if (event.data?.type === 'SET_BADGE' && 'setAppBadge' in navigator) {
+    navigator.setAppBadge(event.data.count).catch(() => {})
+  }
+  if (event.data?.type === 'CLEAR_BADGE' && 'clearAppBadge' in navigator) {
+    navigator.clearAppBadge().catch(() => {})
   }
 })

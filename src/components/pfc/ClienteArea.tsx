@@ -14,6 +14,7 @@ import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { formatDateAudit } from '@/lib/pfc-utils'
+import { useNotificationBadge } from '@/hooks/useNotificationBadge'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 
 interface Notifica {
@@ -28,11 +29,11 @@ interface Notifica {
 }
 
 const NOTIF_ICONS: Record<string, string> = {
-  documento_nuovo: '📄',
-  messaggio: '💬',
-  avviso: '📢',
-  richiesta_upload: '📤',
-  upload_confermato: '✅',
+  documento_nuovo: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Å¾',
+  messaggio: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬',
+  avviso: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¢',
+  richiesta_upload: 'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¤',
+  upload_confermato: 'ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦',
 }
 
 const NOTIF_COLORS: Record<string, { gradient: string; border: string; iconBg: string; text: string; label: string }> = {
@@ -50,7 +51,7 @@ const TABS = [
   { id: 'cassetto', label: 'Cassetto Digitale', icon: Briefcase },
   { id: 'messaggi', label: 'Messaggi', icon: MessageSquare },
   { id: 'avvisi', label: 'Avvisi', icon: Megaphone },
-  { id: 'attivita', label: 'Le mie attività', icon: ClipboardList },
+  { id: 'attivita', label: 'Le mie attivitÃƒÆ’Ã‚Â ', icon: ClipboardList },
 ] as const
 
 export function ClienteArea() {
@@ -61,7 +62,10 @@ export function ClienteArea() {
   const [nMsgNonLetti, setNMsgNonLetti] = useState(0)
   const [avvisi, setAvvisi] = useState<Array<{ id: string; text: string; timestamp: string }>>([])
 
-  // Web Push Notifications — solo per clienti, solo se supportato
+  // Badge numerico su icona app + suono in-app per nuove notifiche
+  useNotificationBadge(!!user)
+
+  // Web Push Notifications ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â solo per clienti, solo se supportato
   const push = usePushNotifications(user?.role === 'client')
 
   async function handlePushToggle() {
@@ -71,7 +75,7 @@ export function ClienteArea() {
         toast.success('Notifiche push disattivate')
       } else {
         await push.subscribe()
-        toast.success('Notifiche push attivate! 🎉')
+        toast.success('Notifiche push attivate! ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Â°')
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Errore attivazione notifiche'
@@ -214,7 +218,7 @@ export function ClienteArea() {
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <Bell className="h-4 w-4 text-emerald-600" />
                 Notifiche
-                {nNotifiche > 0 && <span className="text-xs text-red-600 font-semibold">· {nNotifiche} non lette 🔴</span>}
+                {nNotifiche > 0 && <span className="text-xs text-red-600 font-semibold">Ãƒâ€šÃ‚Â· {nNotifiche} non lette ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â´</span>}
               </h3>
               <div className="flex items-center gap-2">
                 {nLette > 0 && (
@@ -240,7 +244,7 @@ export function ClienteArea() {
               ) : (
                 <div className="space-y-2">
                   {notifiche.slice(0, 20).map((n) => {
-                    const icon = NOTIF_ICONS[n.type] ?? '🔔'
+                    const icon = NOTIF_ICONS[n.type] ?? 'ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬Â'
                     const color = NOTIF_COLORS[n.type] ?? DEFAULT_NOTIF_COLOR
                     const opacity = n.read ? 'opacity-50' : 'opacity-100'
                     const cardBg = n.read ? '#f8fafc' : color.gradient
@@ -278,7 +282,7 @@ export function ClienteArea() {
                               {n.text}
                             </p>
                             {n.detail && (
-                              <p className="text-xs text-slate-400 mt-1 truncate">📎 {n.detail}</p>
+                              <p className="text-xs text-slate-400 mt-1 truncate">ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â½ {n.detail}</p>
                             )}
                           </div>
                           <div className="text-right flex-shrink-0">
@@ -289,12 +293,12 @@ export function ClienteArea() {
                         </div>
                         {n.type === 'documento_nuovo' && n.year && n.folder && (
                           <div className="mt-2 ml-13">
-                            <span className="text-xs text-blue-600 font-medium">📂 Vai alla cartella {n.folder} →</span>
+                            <span className="text-xs text-blue-600 font-medium">ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Å¡ Vai alla cartella {n.folder} ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢</span>
                           </div>
                         )}
                         {(n.type === 'messaggio' || n.type === 'richiesta_upload') && (
                           <div className="mt-2">
-                            <span className="text-xs text-emerald-600 font-medium">💬 Vai al messaggio →</span>
+                            <span className="text-xs text-emerald-600 font-medium">ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¬ Vai al messaggio ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢</span>
                           </div>
                         )}
                       </div>
@@ -317,7 +321,7 @@ export function ClienteArea() {
             {avvisi.map((a) => (
               <div key={a.id} className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-lg p-3">
                 <p className="text-xs text-amber-700 font-semibold mb-1">
-                  📢 Comunicazione dello Studio · {new Date(a.timestamp).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¢ Comunicazione dello Studio Ãƒâ€šÃ‚Â· {new Date(a.timestamp).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
                 <p className="text-sm text-amber-900 whitespace-pre-wrap">{a.text}</p>
               </div>
