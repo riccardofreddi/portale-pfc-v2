@@ -64,26 +64,8 @@ export function ClienteArea() {
   // Badge numerico su icona app + suono in-app per nuove notifiche
   useNotificationBadge(!!user)
 
-  // Registra il Service Worker automaticamente per TUTTI i clienti,
-  // anche se non attivano le notifiche push (necessario per badge/favicon
-  // e per gli aggiornamenti immediati quando arrivano nuove notifiche).
-  useEffect(() => {
-    if (!user) return
-    if (!('serviceWorker' in navigator)) return
-    let cancelled = false
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then((reg) => {
-        if (cancelled) return
-        // Attiva subito l'ultima versione del SW (niente attese)
-        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
-        // Ripristina il badge nativo persistito dal commit precedente
-        reg.active?.postMessage({ type: 'GET_BADGE' })
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [user])
-
-  // Web Push Notifications — solo per clienti, solo se supportato
+  // Web Push Notifications — ATTIVAZIONE MANUALE da parte del cliente:
+  // chi ha le scadenze attiva le notifiche push col pulsante dedicato.
   const push = usePushNotifications(user?.role === 'client')
 
   async function handlePushToggle() {
