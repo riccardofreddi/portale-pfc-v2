@@ -5,10 +5,9 @@ import { usePfcStore } from '@/store/pfc'
 import { TopBar } from './TopBar'
 import { ClienteArchivio } from './cliente/ClienteArchivio'
 import { ClienteMessaggi } from './cliente/ClienteMessaggi'
-import { ClienteAvvisi } from './cliente/ClienteAvvisi'
 import { ClienteCassetto } from './cliente/ClienteCassetto'
 import { ClienteAttivita } from './cliente/ClienteAttivita'
-import { FolderOpen, MessageSquare, Megaphone, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Check, Trash2, BellOff, BellRing } from 'lucide-react'
+import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Check, Trash2, BellOff, BellRing } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -51,7 +50,6 @@ const TABS = [
   { id: 'archivio', label: 'Archivio Documenti', icon: FolderOpen },
   { id: 'cassetto', label: 'Cassetto Digitale', icon: Briefcase },
   { id: 'messaggi', label: 'Messaggi', icon: MessageSquare },
-  { id: 'avvisi', label: 'Avvisi', icon: Megaphone },
   { id: 'attivita', label: 'Le mie attività', icon: ClipboardList },
 ] as const
 
@@ -152,9 +150,9 @@ export function ClienteArea() {
       setClienteTab('archivio')
     } else if (n.type === 'messaggio' || n.type === 'richiesta_upload') {
       setClienteTab('messaggi')
-    } else if (n.type === 'avviso') {
-      setClienteTab('avvisi')
     }
+    // Le notifiche di tipo avviso non cambiano tab: l'avviso è già
+    // visibile nel banner sotto il benvenuto.
     setShowNotifPanel(false)
   }
 
@@ -365,7 +363,6 @@ export function ClienteArea() {
         {clienteTab === 'archivio' && <ClienteArchivio />}
         {clienteTab === 'cassetto' && <ClienteCassetto />}
         {clienteTab === 'messaggi' && <ClienteMessaggi />}
-        {clienteTab === 'avvisi' && <ClienteAvvisi />}
         {clienteTab === 'attivita' && <ClienteAttivita />}
       </main>
     </div>
