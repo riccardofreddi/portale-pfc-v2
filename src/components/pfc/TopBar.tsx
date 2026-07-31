@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export function TopBar() {
-  const { user, setUser } = usePfcStore()
+  const { user, setUser, nNotifiche, setShowNotifPanel } = usePfcStore()
   const [maintenance, setMaintenance] = useState(false)
 
   useEffect(() => {
@@ -80,8 +80,21 @@ export function TopBar() {
           </button>
         )}
 
-        {/* Notifications bell (placeholder, il contenuto viene gestito da ClienteArea/AdminConsole) */}
-        {/* Questo è solo visivo nella TopBar, le notifiche vere sono nel pannello sotto */}
+        {/* Notifications bell - badge numerico per i clienti */}
+        {user.role === 'client' && (
+          <button
+            onClick={() => setShowNotifPanel(true)}
+            className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl hover:bg-slate-100 transition-all border-1.5 border-transparent hover:border-slate-200 flex-shrink-0"
+            aria-label="Notifiche"
+          >
+            <Bell className="h-5 w-5 text-slate-600" />
+            {nNotifiche > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] sm:text-[11px] font-bold rounded-full min-w-[18px] sm:min-w-[20px] h-[18px] sm:h-[20px] px-1 flex items-center justify-center shadow-md border-2 border-white">
+                {nNotifiche > 99 ? '99+' : nNotifiche}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* User Dropdown */}
         <DropdownMenu>

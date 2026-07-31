@@ -1,22 +1,12 @@
 /* eslint-disable no-restricted-globals */
 const CACHE_NAME = 'pfc-v2'
 const APP_SHELL = ['/', '/icon.png', '/manifest.json']
+const BADGE_KEY = 'pfc-unread-count'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL).catch(() => {}))
-  )
-})
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    Promise.all([
-      self.clients.claim(),
-      caches.keys().then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-      ),
-    ])
   )
 })
 
@@ -26,8 +16,17 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = event.notification.data?.url || '/'
   const notifId = event.notification.data?.notifId
 
+  // Azioni: mark_read -> segna tutte le notifiche come lette e azzera badge
   if (action === 'mark_read' && notifId) {
-    fetch('/api/notifiche?action=segna_lette', { method: 'POST' }).catch(() => {})
+    fetch('/api/notifiche?action=segna_lette', { method: 'POST' })
+      .catch(() => {})
+      .finally(() => {
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+          for (const client of clients) {
+            client.postMessage({ type: 'BADGE_UPDATE' })
+          }
+        })
+      })
     return
   }
 
@@ -53,8 +52,36 @@ self.addEventListener('notificationclick', (event) => {
   )
 })
 
+function setBadgeCount(count) {
+  // Badge nativo PWA (Android/Chrome)
+  if ('setAppBadge' in self.navigator) {
+    if (count > 0) {
+      self.navigator.setAppBadge(count).catch(() => {})
+    } else {
+      self.navigator.clearAppBadge().catch(() => {})
+    }
+  }
+  // Salva il conteggio per ripristino al riavvio della PWA
+  caches.open(CACHE_NAME).then((cache) => {
+    const res = new Response(String(count), { headers: { 'Content-Type': 'text/plain' } })
+    cache.put(BADGE_KEY, res)
+  })
+}
+
+async function restoreBadge() {
+  try {
+    const cache = await caches.open(CACHE_NAME)
+    const cached = await cache.match(BADGE_KEY)
+    if (cached) {
+      const text = await cached.text()
+      const count = parseInt(text, 10) || 0
+      setBadgeCount(count)
+    }
+  } catch {}
+}
+
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Portale PFC', body: '', url: '/', tag: 'pfc-notification' }
+  let payload = { title: 'Portale PFC', body: '', url: '/', tag: 'pfc-notification', unreadCount: 0 }
   try {
     if (event.data) {
       payload = { ...payload, ...event.data.json() }
@@ -65,13 +92,16 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const unreadCount = typeof payload.unreadCount === 'number' ? payload.unreadCount : 0
+  setBadgeCount(unreadCount)
+
   const options = {
     body: payload.body,
     icon: payload.icon || '/icon.png',
     badge: payload.badge || '/icon.png',
     tag: payload.tag || 'pfc-notification',
     renotify: true,
-    data: { url: payload.url || '/', notifId: payload.notifId },
+    data: { url: payload.url || '/', notifId: payload.notifId, unreadCount },
     vibrate: [80, 40, 80],
     requireInteraction: false,
     actions: [
@@ -80,7 +110,36 @@ self.addEventListener('push', (event) => {
     ],
   }
 
-  event.waitUntil(self.registration.showNotification(payload.title, options))
+  event.waitUntil(
+    (async () => {
+      // Mostra la notifica
+      await self.registration.showNotification(payload.title, options)
+
+      // Comunica alla pagina aperta che è arrivata una push -> aggiornamento immediato badge UI
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const client of clients) {
+        client.postMessage({ type: 'PUSH_RECEIVED', unreadCount })
+      }
+    })()
+  )
+})
+
+// Ripristina badge all'avvio dell'app
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
+  if (event.data?.type === 'SET_BADGE' && 'setAppBadge' in self.navigator) {
+    self.navigator.setAppBadge(event.data.count).catch(() => {})
+    setBadgeCount(event.data.count)
+  }
+  if (event.data?.type === 'CLEAR_BADGE' && 'clearAppBadge' in self.navigator) {
+    self.navigator.clearAppBadge().catch(() => {})
+    setBadgeCount(0)
+  }
+  if (event.data?.type === 'GET_BADGE') {
+    restoreBadge()
+  }
 })
 
 self.addEventListener('sync', (event) => {
@@ -89,14 +148,15 @@ self.addEventListener('sync', (event) => {
   }
 })
 
-self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') {
-    self.skipWaiting()
-  }
-  if (event.data?.type === 'SET_BADGE' && 'setAppBadge' in navigator) {
-    navigator.setAppBadge(event.data.count).catch(() => {})
-  }
-  if (event.data?.type === 'CLEAR_BADGE' && 'clearAppBadge' in navigator) {
-    navigator.clearAppBadge().catch(() => {})
-  }
+// Al riavvio/attivazione ripristina il badge
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      ),
+      restoreBadge(),
+    ])
+  )
 })

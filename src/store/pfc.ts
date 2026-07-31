@@ -38,6 +38,10 @@ interface PfcState {
   selectedFiles: Set<string>
   toggleSelected: (key: string) => void
   clearSelected: () => void
+  nNotifiche: number
+  setNNotifiche: (n: number) => void
+  showNotifPanel: boolean
+  setShowNotifPanel: (b: boolean) => void
 }
 
 export const usePfcStore = create<PfcState>((set) => ({
@@ -64,4 +68,8 @@ export const usePfcStore = create<PfcState>((set) => ({
       return { selectedFiles: next }
     }),
   clearSelected: () => set({ selectedFiles: new Set() }),
+  nNotifiche: 0,
+  setNNotifiche: (n) => set({ nNotifiche: n }),
+  showNotifPanel: false,
+  setShowNotifPanel: (b) => set({ showNotifPanel: b }),
 }))

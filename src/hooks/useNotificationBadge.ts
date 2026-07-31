@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { api } from "@/lib/api-client"
+import { usePfcStore } from "@/store/pfc"
 import { toast } from "sonner"
 
 interface NotificaInfo {
@@ -16,6 +17,7 @@ interface NotificaInfo {
 const POLL_INTERVAL_MS = 5000
 
 export function useNotificationBadge(enabled: boolean) {
+  const setNNotifiche = usePfcStore((s) => s.setNNotifiche)
   const previousCountRef = useRef<number>(-1)
   const previousNotificheRef = useRef<Set<string>>(new Set())
   const isMountedRef = useRef<boolean>(true)
@@ -33,6 +35,9 @@ export function useNotificationBadge(enabled: boolean) {
         const notifList = notifiche as unknown as NotificaInfo[]
         const unreadCount = notifList.filter((n) => !n.read).length
         const unreadIds = new Set(notifList.filter((n) => !n.read).map((n) => n.id))
+
+        // Aggiorna il conteggio globale -> campanella in TopBar + pannello
+        setNNotifiche(unreadCount)
 
         if ("setAppBadge" in navigator) {
           if (unreadCount > 0) {
@@ -96,11 +101,21 @@ export function useNotificationBadge(enabled: boolean) {
     const onFocus = () => checkAndUpdate()
     window.addEventListener("focus", onFocus)
 
+    // Comunicazione dal Service Worker: quando arriva una push,
+    // aggiorna immediatamente badge e conteggio (senza aspettare il polling)
+    const onSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "PUSH_RECEIVED" || event.data?.type === "BADGE_UPDATE") {
+        checkAndUpdate()
+      }
+    }
+    navigator.serviceWorker?.addEventListener("message", onSwMessage)
+
     return () => {
       isMountedRef.current = false
       clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("focus", onFocus)
+      navigator.serviceWorker?.removeEventListener("message", onSwMessage)
       if ("clearAppBadge" in navigator) {
         ;(navigator as Navigator & {
           clearAppBadge: () => Promise<void>
@@ -108,7 +123,7 @@ export function useNotificationBadge(enabled: boolean) {
       }
       document.title = "Portale PFC"
     }
-  }, [enabled])
+  }, [enabled, setNNotifiche])
 }
 
 function getNotifIcon(type: string): string {

@@ -11,8 +11,5 @@
     "src/app/api/resoconto/route.ts": { "maxDuration": 60 },
     "src/app/api/sistema/diagnostica/route.ts": { "maxDuration": 60 },
     "src/app/api/audit/route.ts": { "maxDuration": 30 }
-  },
-  "crons": [
-    { "path": "/api/push/retry", "schedule": "*/5 * * * *" }
-  ]
+  }
 }

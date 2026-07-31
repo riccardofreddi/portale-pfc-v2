@@ -55,10 +55,8 @@ const TABS = [
 ] as const
 
 export function ClienteArea() {
-  const { user, clienteTab, setClienteTab, setAnno, setCartella } = usePfcStore()
-  const [nNotifiche, setNNotifiche] = useState(0)
+  const { user, clienteTab, setClienteTab, setAnno, setCartella, nNotifiche, setNNotifiche, showNotifPanel, setShowNotifPanel } = usePfcStore()
   const [notifiche, setNotifiche] = useState<Notifica[]>([])
-  const [showNotifPanel, setShowNotifPanel] = useState(false)
   const [nMsgNonLetti, setNMsgNonLetti] = useState(0)
   const [avvisi, setAvvisi] = useState<Array<{ id: string; text: string; timestamp: string }>>([])
 
@@ -122,6 +120,7 @@ export function ClienteArea() {
       await api.notifiche.segnaLette()
       setNNotifiche(0)
       setNotifiche((curr) => curr.map((n) => ({ ...n, read: true })))
+      clearAppBadge()
       toast.success('Notifiche segnate come lette')
     } catch { toast.error('Errore') }
   }
@@ -139,6 +138,7 @@ export function ClienteArea() {
       await api.notifiche.pulisciTutte()
       setNotifiche([])
       setNNotifiche(0)
+      clearAppBadge()
       toast.success('Tutte le notifiche cancellate')
     } catch { toast.error('Errore') }
   }
@@ -368,4 +368,17 @@ export function ClienteArea() {
       </main>
     </div>
   )
+}
+
+function clearAppBadge() {
+  try {
+    if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) {
+      ;(navigator as Navigator & {
+        clearAppBadge: () => Promise<void>
+      }).clearAppBadge().catch(() => {})
+    }
+    navigator.serviceWorker?.ready.then((reg) => {
+      reg.active?.postMessage({ type: 'CLEAR_BADGE' })
+    }).catch(() => {})
+  } catch {}
 }

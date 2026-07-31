@@ -3,20 +3,18 @@
  */
 
 import webpush from 'web-push'
+import { webcrypto } from 'crypto'
 import { db } from './db'
 
 // Polyfill crypto per Node.js runtime su Vercel (web-push ne ha bisogno)
-try {
-  const { webcrypto } = require('crypto')
-  if (!(globalThis as any).crypto) {
-    (globalThis as any).crypto = webcrypto as any
-  }
-} catch (e) {
-  console.warn('[PUSH] crypto polyfill fallito:', e)
+const globalWithCrypto = globalThis as unknown as { crypto?: Crypto }
+if (!globalWithCrypto.crypto) {
+  globalWithCrypto.crypto = webcrypto as unknown as Crypto
 }
 
 type PushSubscriptionRow = {
   id: string
+  userId: string
   endpoint: string
   p256dh: string
   auth: string
@@ -73,6 +71,16 @@ export async function sendPushToUser(
     })
     if (subs.length === 0) return 0
 
+    // Conteggio notifiche non lette + ID ultima notifica per badge e azioni "segna letto"
+    const unreadCount = await db.notification.count({
+      where: { userId: user.id, read: false },
+    })
+    const latestUnread = await db.notification.findFirst({
+      where: { userId: user.id, read: false },
+      orderBy: { ts: 'desc' },
+      select: { id: true },
+    })
+
     const body = JSON.stringify({
       title: payload.title,
       body: payload.body,
@@ -80,6 +88,8 @@ export async function sendPushToUser(
       tag: payload.tag ?? 'pfc-notification',
       icon: payload.icon ?? '/icon.png',
       badge: payload.badge ?? '/icon.png',
+      notifId: latestUnread?.id,
+      unreadCount,
     })
 
     console.log('[PUSH] Tentativo di invio a', subs.length, 'subs per', username)
@@ -127,21 +137,31 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
   try {
     ensureConfigured()
 
-    const subs = await db.pushSubscription.findMany()
+    const subs = await db.pushSubscription.findMany({
+      include: { user: { select: { id: true } } },
+    })
     if (subs.length === 0) return 0
 
-    const body = JSON.stringify({
-      title: payload.title,
-      body: payload.body,
-      url: payload.url ?? '/',
-      tag: payload.tag ?? 'pfc-broadcast',
-      icon: payload.icon ?? '/icon.png',
-      badge: payload.badge ?? '/icon.png',
+    // Conta le notifiche non lette per ciascun utente (per il badge)
+    const userIds = [...new Set(subs.map((s) => s.userId))]
+    const unreadGroups = await db.notification.groupBy({
+      by: ['userId'],
+      where: { userId: { in: userIds }, read: false },
+      _count: { _all: true },
     })
+    const unreadByUser = new Map(unreadGroups.map((g) => [g.userId, g._count._all]))
 
     const results = await Promise.allSettled(
       subs.map((s) =>
-        webpush.sendNotification(toSubscription(s), body, {
+        webpush.sendNotification(toSubscription(s), JSON.stringify({
+          title: payload.title,
+          body: payload.body,
+          url: payload.url ?? '/',
+          tag: payload.tag ?? 'pfc-broadcast',
+          icon: payload.icon ?? '/icon.png',
+          badge: payload.badge ?? '/icon.png',
+          unreadCount: unreadByUser.get(s.userId) ?? 0,
+        }), {
           TTL: 60 * 60 * 24,
           urgency: 'normal',
         })
