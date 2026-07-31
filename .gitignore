@@ -1,4 +1,7 @@
-﻿# Build output
+﻿# Backup
+*.backup
+
+# Build output
 .next/
 .next.zip
 out/
