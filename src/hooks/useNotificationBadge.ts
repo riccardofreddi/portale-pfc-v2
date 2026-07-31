@@ -2,21 +2,37 @@
 
 import { useEffect, useRef } from "react"
 import { api } from "@/lib/api-client"
+import { toast } from "sonner"
+
+interface NotificaInfo {
+  id: string
+  type: string
+  text: string
+  detail: string
+  ts: string
+  read: boolean
+}
+
+const POLL_INTERVAL_MS = 5000
 
 export function useNotificationBadge(enabled: boolean) {
-  const previousCountRef = useRef<number>(0)
+  const previousCountRef = useRef<number>(-1)
+  const previousNotificheRef = useRef<Set<string>>(new Set())
+  const isMountedRef = useRef<boolean>(true)
 
   useEffect(() => {
     if (!enabled) return
-
-    let isMounted = true
+    isMountedRef.current = true
 
     async function checkAndUpdate() {
+      if (!isMountedRef.current) return
       try {
         const { notifiche } = await api.notifiche.list()
-        if (!isMounted) return
+        if (!isMountedRef.current) return
 
-        const unreadCount = (notifiche as Array<{ read: boolean }>).filter((n) => !n.read).length
+        const notifList = notifiche as unknown as NotificaInfo[]
+        const unreadCount = notifList.filter((n) => !n.read).length
+        const unreadIds = new Set(notifList.filter((n) => !n.read).map((n) => n.id))
 
         if ("setAppBadge" in navigator) {
           if (unreadCount > 0) {
@@ -30,10 +46,30 @@ export function useNotificationBadge(enabled: boolean) {
           }
         }
 
-        if (unreadCount > previousCountRef.current && previousCountRef.current !== -1) {
+        const newNotifIds = [...unreadIds].filter(
+          (id) => !previousNotificheRef.current.has(id)
+        )
+
+        if (
+          newNotifIds.length > 0 &&
+          previousCountRef.current !== -1 &&
+          previousCountRef.current !== -2
+        ) {
           playNotificationSound()
+          const newNotifs = notifList.filter((n) => newNotifIds.includes(n.id)).slice(0, 3)
+          for (const n of newNotifs) {
+            const icon = getNotifIcon(n.type)
+            const title = getNotifTitle(n.type)
+            toast(title, {
+              description: n.text.slice(0, 100),
+              icon,
+              duration: 6000,
+            })
+          }
         }
+
         previousCountRef.current = unreadCount
+        previousNotificheRef.current = unreadIds
 
         if (unreadCount > 0) {
           document.title = `(${unreadCount}) Portale PFC`
@@ -43,12 +79,12 @@ export function useNotificationBadge(enabled: boolean) {
       } catch {}
     }
 
-    previousCountRef.current = -1
+    previousCountRef.current = -2
     checkAndUpdate().then(() => {
-      if (isMounted) previousCountRef.current = 0
+      if (isMountedRef.current) previousCountRef.current = 0
     })
 
-    const interval = setInterval(checkAndUpdate, 30_000)
+    const interval = setInterval(checkAndUpdate, POLL_INTERVAL_MS)
 
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
@@ -57,10 +93,14 @@ export function useNotificationBadge(enabled: boolean) {
     }
     document.addEventListener("visibilitychange", onVisibility)
 
+    const onFocus = () => checkAndUpdate()
+    window.addEventListener("focus", onFocus)
+
     return () => {
-      isMounted = false
+      isMountedRef.current = false
       clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisibility)
+      window.removeEventListener("focus", onFocus)
       if ("clearAppBadge" in navigator) {
         ;(navigator as Navigator & {
           clearAppBadge: () => Promise<void>
@@ -69,6 +109,40 @@ export function useNotificationBadge(enabled: boolean) {
       document.title = "Portale PFC"
     }
   }, [enabled])
+}
+
+function getNotifIcon(type: string): string {
+  switch (type) {
+    case "messaggio":
+      return "💬"
+    case "richiesta_upload":
+      return "📥"
+    case "avviso":
+      return "📢"
+    case "documento_nuovo":
+      return "📄"
+    case "upload_confermato":
+      return "✅"
+    default:
+      return "🔔"
+  }
+}
+
+function getNotifTitle(type: string): string {
+  switch (type) {
+    case "messaggio":
+      return "Nuovo messaggio dallo studio"
+    case "richiesta_upload":
+      return "Richiesta documento"
+    case "avviso":
+      return "Nuovo avviso dallo studio"
+    case "documento_nuovo":
+      return "Nuovo documento disponibile"
+    case "upload_confermato":
+      return "Upload confermato"
+    default:
+      return "Portale PFC"
+  }
 }
 
 function playNotificationSound() {
