@@ -110,6 +110,10 @@ export async function DELETE(req: NextRequest) {
   }
 
   await db.message.delete({ where: { id } })
+  // Elimina anche la notifica collegata al messaggio (text del messaggio = text della notifica, stesso userId)
+  await db.notification.deleteMany({
+    where: { userId: msg.userId, text: { startsWith: msg.text.slice(0, 50) } },
+  }).catch(() => {})
   if (session.role === 'admin') {
     await logAudit(session.sub, 'ELIMINA_MESSAGGIO', id)
   }
