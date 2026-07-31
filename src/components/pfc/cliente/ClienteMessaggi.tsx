@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { formatDateAudit, formatBytes, MAX_FILE_SIZE_MB } from '@/lib/pfc-utils'
-import { MessageSquare, Inbox, Archive, Loader2, Paperclip, CheckCircle2, UploadCloud, FileText } from 'lucide-react'
+import { MessageSquare, Inbox, Archive, ArchiveRestore, Loader2, Paperclip, CheckCircle2, UploadCloud, FileText } from 'lucide-react'
 
 interface Messaggio {
   id: string
@@ -30,26 +30,43 @@ export function ClienteMessaggi() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null)
 
-  async function refresh() {
+  useEffect(() => {
     if (!user) return
-    setLoading(true)
-    try {
-      const r = await api.messaggi.list(user.username)
-      const msgs = r.messaggi as unknown as Messaggio[]
-      setMessaggi(msgs)
-      if (msgs.some((m) => !m.read)) {
-        await api.messaggi.segnaLetti().catch(() => {})
-        setMessaggi((curr) => curr.map((m) => ({ ...m, read: true })))
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await api.messaggi.list(user.username)
+        if (cancelled) return
+        const msgs = r.messaggi as unknown as Messaggio[]
+        setMessaggi(msgs)
+        if (msgs.some((m) => !m.read)) {
+          await api.messaggi.segnaLetti().catch(() => {})
+          if (cancelled) return
+          setMessaggi((curr) => curr.map((m) => ({ ...m, read: true })))
+        }
+      } catch {
+        if (!cancelled) toast.error('Errore caricamento messaggi')
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-    } catch { toast.error('Errore caricamento messaggi') }
-    finally { setLoading(false) }
-  }
-
-  useEffect(() => { refresh() }, [user])
+    })()
+    return () => { cancelled = true }
+  }, [user])
 
   async function handleArchivia(id: string) {
-    try { await api.messaggi.archivia(id); setMessaggi((curr) => curr.map((m) => m.id === id ? { ...m, archivedByClient: [...(m.archivedByClient ?? []), user?.username ?? ''] } : m)); toast.success('Messaggio archiviato') }
-    catch { toast.error('Errore archiviazione') }
+    try {
+      await api.messaggi.archivia(id)
+      setMessaggi((curr) => curr.map((m) => m.id === id ? { ...m, archivedByClient: [...(m.archivedByClient ?? []), user?.username ?? ''] } : m))
+      toast.success('Messaggio archiviato')
+    } catch { toast.error('Errore archiviazione') }
+  }
+
+  async function handleDearchivia(id: string) {
+    try {
+      await api.messaggi.dearchivia(id)
+      setMessaggi((curr) => curr.map((m) => m.id === id ? { ...m, archivedByClient: (m.archivedByClient ?? []).filter((u) => u !== user?.username) } : m))
+      toast.success('Messaggio ripristinato')
+    } catch { toast.error('Errore ripristino') }
   }
 
   function handleFileSelect(msgId: string, file: File | null) {
@@ -86,26 +103,40 @@ export function ClienteMessaggi() {
     const archived = m.archivedByClient?.includes(username) ?? false
     return showArchived ? archived : !archived
   })
+  const nArchiviati = messaggi.filter((m) => m.archivedByClient?.includes(username) ?? false).length
 
-  if (visibili.length === 0 && !showArchived) {
-    const nArchiviati = messaggi.filter((m) => m.archivedByClient?.includes(username) ?? false).length
+  if (visibili.length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-emerald-600" />
-            Messaggi dallo Studio (0)
+            {showArchived ? 'Messaggi archiviati (0)' : 'Messaggi dallo Studio (0)'}
           </h3>
-          {nArchiviati > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setShowArchived(true)}>
-              Mostra archiviati ({nArchiviati})
+          {showArchived ? (
+            <Button variant="ghost" size="sm" onClick={() => setShowArchived(false)}>
+              Torna ai messaggi
             </Button>
+          ) : (
+            nArchiviati > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setShowArchived(true)}>
+                Mostra archiviati ({nArchiviati})
+              </Button>
+            )
           )}
         </div>
         <Card><CardContent className="py-12 text-center">
           <Inbox className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-700 font-medium mb-1">Nessun messaggio</p>
-          <p className="text-sm text-slate-500">{nArchiviati > 0 ? 'Hai ' + nArchiviati + ' messaggi archiviati. Clicca Mostra archiviati per vederli.' : 'Lo studio non ha ancora inviato comunicazioni.'}</p>
+          <p className="text-slate-700 font-medium mb-1">
+            {showArchived ? 'Nessun messaggio archiviato' : 'Nessun messaggio'}
+          </p>
+          <p className="text-sm text-slate-500">
+            {showArchived
+              ? 'Non hai ancora archiviato alcun messaggio.'
+              : nArchiviati > 0
+                ? `Hai ${nArchiviati} messaggi archiviati. Clicca "Mostra archiviati" per vederli.`
+                : 'Lo studio non ha ancora inviato comunicazioni.'}
+          </p>
         </CardContent></Card>
       </div>
     )
@@ -116,10 +147,10 @@ export function ClienteMessaggi() {
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-emerald-600" />
-          Messaggi dallo Studio ({visibili.length})
+          {showArchived ? `Messaggi archiviati (${visibili.length})` : `Messaggi dallo Studio (${visibili.length})`}
         </h3>
         <Button variant="ghost" size="sm" onClick={() => setShowArchived(!showArchived)}>
-          {showArchived ? 'Nascondi archiviati' : 'Mostra archiviati'}
+          {showArchived ? 'Torna ai messaggi' : `Mostra archiviati (${nArchiviati})`}
         </Button>
       </div>
 
@@ -132,6 +163,11 @@ export function ClienteMessaggi() {
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="font-semibold text-sm text-slate-900">Studio PFC</span>
                 <span className="text-xs text-slate-500">· {formatDateAudit(m.timestamp)}</span>
+                {isArchived && (
+                  <Badge variant="outline" className="text-xs border-slate-400 bg-slate-100 text-slate-600">
+                    <Archive className="h-3 w-3 mr-1" /> Archiviato
+                  </Badge>
+                )}
                 <div className="flex-1" />
                 {m.requiresUpload && !m.uploadReceived && (
                   <Badge variant="outline" className="text-xs border-amber-400 bg-amber-50 text-amber-700">
@@ -197,13 +233,17 @@ export function ClienteMessaggi() {
                 </div>
               )}
 
-              {!isArchived && (
-                <div className="mt-3 flex justify-end">
+              <div className="mt-3 flex justify-end">
+                {isArchived ? (
+                  <Button variant="outline" size="sm" onClick={() => handleDearchivia(m.id)}>
+                    <ArchiveRestore className="h-3.5 w-3.5 mr-1.5" /> Ripristina
+                  </Button>
+                ) : (
                   <Button variant="ghost" size="sm" onClick={() => handleArchivia(m.id)}>
                     <Archive className="h-3.5 w-3.5 mr-1.5" /> Archivia
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )
         })}

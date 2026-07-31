@@ -4,7 +4,9 @@
  * GET ?username=... (admin: tutti i messaggi di un cliente; client: propri messaggi)
  * POST (admin): { destinatario, testo, richiedeUpload } - invia messaggio
  * DELETE ?id=... - elimina messaggio (admin o destinatario)
- * PATCH ?id=...&action=archivia - cliente archivia
+ * PATCH ?id=...&action=archivia      - cliente archivia
+ * PATCH ?id=...&action=dearchivia    - cliente ripristina dall'archivio
+ * PATCH ?action=segna_letti          - cliente segna tutti i messaggi come letti
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -129,14 +131,24 @@ export async function PATCH(req: NextRequest) {
   const action = searchParams.get('action')
 
   if (session.role !== 'client') {
-    return NextResponse.json({ error: 'Solo i clienti possono archiviare' }, { status: 403 })
-  }
-  if (!id || action !== 'archivia') {
-    return NextResponse.json({ error: 'Parametri non validi' }, { status: 400 })
+    return NextResponse.json({ error: 'Solo i clienti possono gestire i messaggi' }, { status: 403 })
   }
 
   const user = await db.user.findUnique({ where: { username: session.sub } })
   if (!user) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
+
+  // Segna tutti i messaggi del cliente come letti
+  if (action === 'segna_letti') {
+    await db.message.updateMany({
+      where: { userId: user.id, read: false },
+      data: { read: true },
+    })
+    return NextResponse.json({ ok: true })
+  }
+
+  if (!id || (action !== 'archivia' && action !== 'dearchivia')) {
+    return NextResponse.json({ error: 'Parametri non validi' }, { status: 400 })
+  }
 
   const msg = await db.message.findUnique({ where: { id } })
   if (!msg) return NextResponse.json({ error: 'Messaggio non trovato' }, { status: 404 })
@@ -144,11 +156,18 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
   }
 
-  await db.messageArchive.upsert({
-    where: { messageId_userId: { messageId: id, userId: user.id } },
-    create: { messageId: id, userId: user.id },
-    update: {},
-  })
+  if (action === 'archivia') {
+    await db.messageArchive.upsert({
+      where: { messageId_userId: { messageId: id, userId: user.id } },
+      create: { messageId: id, userId: user.id },
+      update: {},
+    })
+  } else {
+    // dearchivia: rimuove il cliente dagli archiviati
+    await db.messageArchive.deleteMany({
+      where: { messageId: id, userId: user.id },
+    })
+  }
 
   return NextResponse.json({ ok: true })
 }

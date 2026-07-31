@@ -63,6 +63,7 @@ export const api = {
       apiFetch('/api/messaggi', { method: 'POST', body: JSON.stringify(data) }),
     delete: (id: string) => apiFetch(`/api/messaggi?id=${id}`, { method: 'DELETE' }),
     archivia: (id: string) => apiFetch(`/api/messaggi?id=${id}&action=archivia`, { method: 'PATCH' }),
+    dearchivia: (id: string) => apiFetch(`/api/messaggi?id=${id}&action=dearchivia`, { method: 'PATCH' }),
     segnaLetti: () => apiFetch('/api/messaggi?action=segna_letti', { method: 'PATCH' }),
   },
   notifiche: {
