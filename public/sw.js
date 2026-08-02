@@ -80,6 +80,19 @@ async function restoreBadge() {
   } catch {}
 }
 
+// True se almeno una finestra del portale è aperta E visibile
+async function hasVisibleClient() {
+  try {
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const client of clients) {
+      // windowClient.visibilityState è supportato in Chrome/Edge/Opera
+      if (client.visibilityState === 'visible') return true
+    }
+  } catch {}
+  // Fallback: se non riesco a verificare, mostra la notifica di sistema
+  return false
+}
+
 self.addEventListener('push', (event) => {
   let payload = { title: 'Portale PFC', body: '', url: '/', tag: 'pfc-notification', unreadCount: 0 }
   try {
@@ -95,31 +108,38 @@ self.addEventListener('push', (event) => {
   const unreadCount = typeof payload.unreadCount === 'number' ? payload.unreadCount : 0
   setBadgeCount(unreadCount)
 
-  const options = {
-    body: payload.body,
-    icon: payload.icon || '/icon.png',
-    badge: payload.badge || '/icon.png',
-    tag: payload.tag || 'pfc-notification',
-    renotify: true,
-    data: { url: payload.url || '/', notifId: payload.notifId, unreadCount },
-    vibrate: [80, 40, 80],
-    requireInteraction: false,
-    actions: [
-      { action: 'open', title: 'Apri' },
-      { action: 'mark_read', title: 'Segna come letto' },
-    ],
-  }
-
   event.waitUntil(
     (async () => {
-      // Mostra la notifica
-      await self.registration.showNotification(payload.title, options)
+      const isVisible = await hasVisibleClient()
 
       // Comunica alla pagina aperta che è arrivata una push -> aggiornamento immediato badge UI
+      // (la pagina farà il SUO suono in-app se è visibile)
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
       for (const client of clients) {
         client.postMessage({ type: 'PUSH_RECEIVED', unreadCount })
       }
+
+      // Se il portale è aperto e visibile NON mostriamo la notifica di sistema:
+      // il suono in-app + pallino rosso sono l'unico avviso (niente doppio suono).
+      if (isVisible) return
+
+      const options = {
+        body: payload.body,
+        icon: payload.icon || '/icon.png',
+        badge: payload.badge || '/icon.png',
+        tag: payload.tag || 'pfc-notification',
+        renotify: true,
+        data: { url: payload.url || '/', notifId: payload.notifId, unreadCount },
+        vibrate: [80, 40, 80],
+        requireInteraction: false,
+        actions: [
+          { action: 'open', title: 'Apri' },
+          { action: 'mark_read', title: 'Segna come letto' },
+        ],
+      }
+
+      // Portale chiuso o in background: mostra la notifica di sistema
+      await self.registration.showNotification(payload.title, options)
     })()
   )
 })

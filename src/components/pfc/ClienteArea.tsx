@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePfcStore } from '@/store/pfc'
 import { TopBar } from './TopBar'
 import { ClienteArchivio } from './cliente/ClienteArchivio'
 import { ClienteMessaggi } from './cliente/ClienteMessaggi'
 import { ClienteCassetto } from './cliente/ClienteCassetto'
 import { ClienteAttivita } from './cliente/ClienteAttivita'
-import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Check, Trash2, BellOff, BellRing } from 'lucide-react'
+import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Check, Trash2, BellOff, BellRing, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -58,6 +58,7 @@ export function ClienteArea() {
   const [notifiche, setNotifiche] = useState<Notifica[]>([])
   const [nMsgNonLetti, setNMsgNonLetti] = useState(0)
   const [avvisi, setAvvisi] = useState<Array<{ id: string; text: string; timestamp: string }>>([])
+  const avvisiRef = useRef<HTMLDivElement | null>(null)
 
   // Badge numerico su icona app + suono in-app per nuove notifiche
   useNotificationBadge(!!user)
@@ -130,16 +131,30 @@ export function ClienteArea() {
     } catch { toast.error('Errore') }
   }
 
-  function handleNotificaClick(n: Notifica) {
+  // Segna una singola notifica come letta e la rimuove subito dal contatore
+  async function chiudiNotifica(n: Notifica) {
+    if (n.read) return
+    try {
+      await api.notifiche.segnaLetta(n.id)
+    } catch {}
+    setNNotifiche(Math.max(0, nNotifiche - 1))
+    setNotifiche((curr) => curr.map((x) => (x.id === n.id ? { ...x, read: true } : x)))
+    if (nNotifiche <= 1) clearAppBadge()
+  }
+
+  async function handleNotificaClick(n: Notifica) {
+    await chiudiNotifica(n)
     if (n.type === 'documento_nuovo' && n.year && n.folder) {
       setAnno(n.year)
       setCartella(n.folder)
       setClienteTab('archivio')
     } else if (n.type === 'messaggio' || n.type === 'richiesta_upload') {
       setClienteTab('messaggi')
+    } else {
+      // Notifiche di tipo avviso: non cambiano tab perché l'avviso è già
+      // visibile nel banner sotto il benvenuto — scroll diretto fino a lì.
+      avvisiRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-    // Le notifiche di tipo avviso non cambiano tab: l'avviso è già
-    // visibile nel banner sotto il benvenuto.
     setShowNotifPanel(false)
   }
 
@@ -264,10 +279,23 @@ export function ClienteArea() {
                               <p className="text-xs text-slate-400 mt-1 truncate">📎 {n.detail}</p>
                             )}
                           </div>
-                          <div className="text-right flex-shrink-0">
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             <span className="text-[10px] text-slate-400 whitespace-nowrap">
                               {formatDateAudit(n.ts)}
                             </span>
+                            {!n.read && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  chiudiNotifica(n)
+                                }}
+                                className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
+                                aria-label="Chiudi notifica"
+                                title="Chiudi notifica"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
                         {n.type === 'documento_nuovo' && n.year && n.folder && (
@@ -296,7 +324,7 @@ export function ClienteArea() {
 
         {/* Avvisi attivi */}
         {avvisi.length > 0 && (
-          <div className="space-y-2 mb-6">
+          <div className="space-y-2 mb-6" ref={avvisiRef}>
             {avvisi.map((a) => (
               <div key={a.id} className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-lg p-3">
                 <p className="text-xs text-amber-700 font-semibold mb-1">

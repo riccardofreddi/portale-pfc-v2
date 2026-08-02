@@ -69,6 +69,8 @@ export const api = {
   notifiche: {
     list: () => apiFetch<{ notifiche: Array<Record<string, unknown>> }>('/api/notifiche'),
     segnaLette: () => apiFetch('/api/notifiche?action=segna_lette', { method: 'POST' }),
+    segnaLetta: (id: string) =>
+      apiFetch(`/api/notifiche?action=segna_lette&id=${encodeURIComponent(id)}`, { method: 'POST' }),
     pulisciLette: () => apiFetch('/api/notifiche?action=pulisci_lette', { method: 'POST' }),
     pulisciTutte: () => apiFetch('/api/notifiche?action=pulisci_tutte', { method: 'POST' }),
   },

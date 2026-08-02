@@ -23,6 +23,11 @@ export function useNotificationBadge(enabled: boolean) {
   const previousNotificheRef = useRef<Set<string>>(new Set())
   const isMountedRef = useRef<boolean>(true)
 
+  // Il suono in-app suona SOLO quando la pagina è visibile:
+  // quando è dietro le quinte (o chiusa), ci pensa già la notifica
+  // di sistema del Service Worker — così niente doppio suono.
+  const isPageVisible = () => document.visibilityState === 'visible'
+
   useEffect(() => {
     if (!enabled) return
     isMountedRef.current = true
@@ -67,7 +72,8 @@ export function useNotificationBadge(enabled: boolean) {
         if (
           newNotifIds.length > 0 &&
           previousCountRef.current !== -1 &&
-          previousCountRef.current !== -2
+          previousCountRef.current !== -2 &&
+          isPageVisible()
         ) {
           playNotificationSound()
           const newNotifs = notifList.filter((n) => newNotifIds.includes(n.id)).slice(0, 3)
