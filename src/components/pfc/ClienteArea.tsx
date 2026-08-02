@@ -81,19 +81,6 @@ export function ClienteArea() {
     }
   }
 
-  async function handlePushTest() {
-    try {
-      const res = await push.test()
-      if (res.ok) {
-        toast.success('Notifica di test inviata! Controlla il dispositivo.')
-      } else {
-        toast.error(res.msg ?? 'Nessuna sottoscrizione attiva')
-      }
-    } catch {
-      toast.error('Errore invio test')
-    }
-  }
-
   async function loadNotifiche() {
     if (!user) return
     try {
@@ -199,14 +186,6 @@ export function ClienteArea() {
                 <BellRing className="h-3.5 w-3.5" />
                 {push.subscribed ? 'Notifiche attive' : 'Attiva notifiche push'}
               </button>
-              {push.subscribed && (
-                <button
-                  onClick={handlePushTest}
-                  className="text-xs font-medium px-2.5 py-1.5 rounded-full text-emerald-100 hover:text-white hover:bg-white/15 transition-colors"
-                >
-                  Invia test
-                </button>
-              )}
             </div>
           )}
         </div>
