@@ -7,7 +7,7 @@ import { ClienteArchivio } from './cliente/ClienteArchivio'
 import { ClienteMessaggi } from './cliente/ClienteMessaggi'
 import { ClienteCassetto } from './cliente/ClienteCassetto'
 import { ClienteAttivita } from './cliente/ClienteAttivita'
-import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Check, Trash2, BellOff, BellRing, X } from 'lucide-react'
+import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Check, Trash2, BellRing, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -206,7 +206,7 @@ export function ClienteArea() {
         </div>
 
         {/* Pannello notifiche espandibile */}
-        {showNotifPanel && (
+        {showNotifPanel && notifiche.length > 0 && (
           <div className="mb-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -225,17 +225,18 @@ export function ClienteArea() {
                     <Trash2 className="h-3 w-3 mr-1" /> Cancella tutte
                   </Button>
                 )}
+                <button
+                  onClick={() => setShowNotifPanel(false)}
+                  className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                  aria-label="Chiudi pannello notifiche"
+                  title="Chiudi pannello"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
             <div className="p-3 max-h-96 overflow-y-auto">
-              {notifiche.length === 0 ? (
-                <div className="text-center py-8">
-                  <BellOff className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                  <p className="text-slate-500 font-medium text-sm">Nessuna notifica</p>
-                  <p className="text-xs text-slate-400 mt-1">Le tue notifiche appariranno qui</p>
-                </div>
-              ) : (
                 <div className="space-y-2">
                   {notifiche.slice(0, 20).map((n) => {
                     const icon = NOTIF_ICONS[n.type] ?? '🔔'
@@ -317,7 +318,6 @@ export function ClienteArea() {
                     </p>
                   )}
                 </div>
-              )}
             </div>
           </div>
         )}
