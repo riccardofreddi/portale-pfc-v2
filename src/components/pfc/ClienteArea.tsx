@@ -178,7 +178,7 @@ export function ClienteArea() {
                 className="bg-white text-red-600 text-sm font-bold px-3 py-1.5 rounded-full shadow flex items-center gap-1.5 hover:bg-red-50 transition-colors"
               >
                 <Bell className="h-3.5 w-3.5" />
-                {nNotifiche} notifich{nNotifiche > 1 ? 'e' : 'a'} non lett{nNotifiche > 1 ? 'e' : 'a'}
+                {nNotifiche} notifica{nNotifiche > 1 ? 'he' : ''} non lett{nNotifiche > 1 ? 'e' : 'a'}
                 {showNotifPanel ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
               </button>
               <Button variant="secondary" size="sm" onClick={handleSegnaLette}>
