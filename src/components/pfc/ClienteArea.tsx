@@ -168,31 +168,31 @@ export function ClienteArea() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Welcome banner */}
-        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
-          <h2 className="text-2xl font-bold tracking-tight">Benvenuto, {user.name}!</h2>
-          <p className="text-emerald-100 mt-1 text-sm">I tuoi documenti fiscali sempre con te.</p>
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 text-white shadow-lg">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Benvenuto, {user.name}!</h2>
+          <p className="text-emerald-100 mt-0.5 text-xs sm:text-sm">I tuoi documenti fiscali sempre con te.</p>
           {nNotifiche > 0 && (
-            <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <div className="mt-3 flex items-center gap-2.5 flex-wrap">
               <button
                 onClick={() => setShowNotifPanel(!showNotifPanel)}
-                className="bg-white text-red-600 text-sm font-bold px-3 py-1.5 rounded-full shadow flex items-center gap-1.5 hover:bg-red-50 transition-colors"
+                className="bg-white text-red-600 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-full shadow flex items-center gap-1.5 hover:bg-red-50 transition-colors min-h-[36px]"
               >
                 <Bell className="h-3.5 w-3.5" />
                 {nNotifiche} notifica{nNotifiche > 1 ? 'he' : ''} non lett{nNotifiche > 1 ? 'e' : 'a'}
                 {showNotifPanel ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
               </button>
-              <Button variant="secondary" size="sm" onClick={handleSegnaLette}>
+              <Button variant="secondary" size="sm" onClick={handleSegnaLette} className="min-h-[36px] text-xs">
                 <Check className="h-3.5 w-3.5 mr-1" /> Segna come lette
               </Button>
             </div>
           )}
           {push.supported && (
-            <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
               <button
                 onClick={handlePushToggle}
                 disabled={push.loading}
                 className={cn(
-                  'text-xs font-semibold px-3 py-1.5 rounded-full shadow flex items-center gap-1.5 transition-colors disabled:opacity-60',
+                  'text-xs font-semibold px-3 py-1.5 rounded-full shadow flex items-center gap-1.5 transition-colors disabled:opacity-60 min-h-[36px]',
                   push.subscribed
                     ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                     : 'bg-white/15 text-white hover:bg-white/25 border border-white/30'
@@ -337,8 +337,8 @@ export function ClienteArea() {
         )}
 
         {/* Tab navigation */}
-        <div className="border-b border-slate-200 mb-6">
-          <nav className="-mb-px flex gap-1 overflow-x-auto" aria-label="Tabs">
+        <div className="border-b-2 border-slate-200 mb-5 sm:mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto">
+          <nav className="flex gap-1.5 min-w-max" aria-label="Tabs">
             {TABS.map((t) => {
               const Icon = t.icon
               const active = clienteTab === t.id
@@ -348,16 +348,16 @@ export function ClienteArea() {
                   key={t.id}
                   onClick={() => setClienteTab(t.id)}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative',
+                    'flex items-center gap-2 px-3.5 py-3 sm:px-4 sm:py-3.5 text-xs sm:text-sm font-semibold border-b-[3px] transition-all whitespace-nowrap relative flex-shrink-0 min-h-[44px]',
                     active
-                      ? 'border-emerald-600 text-emerald-700'
+                      ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50 rounded-t-lg'
                       : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {t.label}
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <span>{t.label}</span>
                   {badge > 0 && (
-                    <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
+                    <span className="bg-red-500 text-white text-[11px] font-extrabold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none shadow-sm">
                       {badge}
                     </span>
                   )}

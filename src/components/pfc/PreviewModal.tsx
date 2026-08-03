@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect } from 'react'
 import { usePfcStore } from '@/store/pfc'
@@ -56,15 +56,15 @@ export function PreviewModal() {
               <DialogDescription className="text-[10px] sm:text-xs">{previewFile.sizeStr}</DialogDescription>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:hidden" onClick={() => window.open(previewUrl, '_blank')}>
-              <ExternalLink className="h-4 w-4" />
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Button variant="ghost" size="sm" className="h-9 w-9 p-0 sm:hidden" onClick={() => window.open(previewUrl, '_blank')} aria-label="Apri in nuova scheda">
+              <ExternalLink className="h-4.5 w-4.5" />
             </Button>
-            <Button variant="default" size="sm" onClick={handleDownload} className="h-8 bg-blue-700 hover:bg-blue-800 text-xs">
-              <Download className="h-3.5 w-3.5 mr-1" /> <span className="hidden sm:inline">Scarica</span>
+            <Button variant="default" size="sm" onClick={handleDownload} className="h-9 px-2.5 sm:px-3 bg-blue-700 hover:bg-blue-800 text-xs">
+              <Download className="h-4 w-4 sm:h-3.5 sm:w-3.5 sm:mr-1" /> <span className="hidden sm:inline">Scarica</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setPreviewFile(null)} className="h-8 w-8 p-0">
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={() => setPreviewFile(null)} className="h-9 w-9 p-0 text-slate-500 hover:text-slate-800" aria-label="Chiudi">
+              <X className="h-5 w-5" />
             </Button>
           </div>
         </DialogHeader>

@@ -192,25 +192,25 @@ export function ClienteMessaggi() {
                   <Input
                     type="file"
                     onChange={(e) => handleFileSelect(m.id, e.target.files?.[0] ?? null)}
-                    className="bg-white"
+                    className="bg-white text-base sm:text-sm h-10"
                   />
                   {selectedFile && selectedMsgId === m.id && (
                     <div className="bg-blue-50 border border-blue-300 border-l-4 border-l-blue-500 rounded-lg p-3 space-y-2">
                       <p className="text-xs font-bold text-blue-900">📋 Anteprima file selezionato</p>
-                      <div className="flex items-center gap-2 text-sm text-blue-800">
-                        <FileText className="h-4 w-4" />
-                        <span className="font-medium">{selectedFile.name}</span>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-blue-800 flex-wrap">
+                        <FileText className="h-4 w-4 flex-shrink-0" />
+                        <span className="font-medium truncate">{selectedFile.name}</span>
                         <span className="text-xs text-blue-600">· {formatBytes(selectedFile.size)}</span>
                       </div>
-                      <div className="flex gap-2 pt-1">
-                        <Button variant="outline" size="sm" onClick={() => { setSelectedFile(null); setSelectedMsgId(null) }}>
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                        <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 text-xs" onClick={() => { setSelectedFile(null); setSelectedMsgId(null) }}>
                           Annulla
                         </Button>
                         <Button
                           size="sm"
                           onClick={() => handleUploadRisposta(m.id)}
                           disabled={uploadingMsgId === m.id}
-                          className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white w-full sm:w-auto h-9 text-xs"
                         >
                           {uploadingMsgId === m.id ? (
                             <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Invio in corso...</>

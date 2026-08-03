@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
-import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight, Edit2 } from 'lucide-react'
+import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, EyeOff, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight, Edit2 } from 'lucide-react'
 import { formatBytes, ottieniIconaFile, canPreviewFile, formatDateShort, MAX_FILE_SIZE_MB } from '@/lib/pfc-utils'
 
 interface Cliente { username: string; name: string; exemptMaintenance: boolean; createdAt: string }
@@ -28,11 +28,13 @@ export function TabGestioneClienti() {
   const [newName, setNewName] = useState('')
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<Cliente | null>(null)
   const [editName, setEditName] = useState('')
   const [editUsername, setEditUsername] = useState('')
   const [editPassword, setEditPassword] = useState('')
+  const [showEditPassword, setShowEditPassword] = useState(false)
 
   const [selectedCliente, setSelectedCliente] = useState<string>('')
   const [cassettoFiles, setCassettoFiles] = useState<CassettoFile[]>([])
@@ -230,7 +232,27 @@ export function TabGestioneClienti() {
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="space-y-1.5"><Label>Ragione Sociale</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="es. Rossi Mario S.r.l." /></div>
           <div className="space-y-1.5"><Label>Username</Label><Input value={newUsername} onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} placeholder="es. rossi" maxLength={20} /></div>
-          <div className="space-y-1.5"><Label>Password</Label><Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 4 caratteri" /></div>
+          <div className="space-y-1.5">
+            <Label>Password</Label>
+            <div className="relative">
+              <Input
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min 4 caratteri"
+                className="pr-10 text-base sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1"
+                aria-label={showNewPassword ? 'Nascondi password' : 'Mostra password'}
+                tabIndex={-1}
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
           <Button onClick={handleCreate} disabled={creating || !newName || !newUsername || !newPassword} className="bg-emerald-700 hover:bg-emerald-800 text-white">
             {creating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />} Registra
           </Button>
@@ -408,7 +430,27 @@ export function TabGestioneClienti() {
           <div className="space-y-3 py-2">
             <div className="space-y-1.5"><Label>Ragione Sociale</Label><Input value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
             <div className="space-y-1.5"><Label>Username</Label><Input value={editUsername} onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} maxLength={20} /></div>
-            <div className="space-y-1.5"><Label>Nuova password (opzionale)</Label><Input type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} placeholder="Mantieni attuale" /></div>
+            <div className="space-y-1.5">
+              <Label>Nuova password (opzionale)</Label>
+              <div className="relative">
+                <Input
+                  type={showEditPassword ? 'text' : 'password'}
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Mantieni attuale"
+                  className="pr-10 text-base sm:text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1"
+                  aria-label={showEditPassword ? 'Nascondi password' : 'Mostra password'}
+                  tabIndex={-1}
+                >
+                  {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button><Button onClick={handleSaveEdit} className="bg-emerald-700 hover:bg-emerald-800 text-white">Salva</Button></DialogFooter>
         </DialogContent>

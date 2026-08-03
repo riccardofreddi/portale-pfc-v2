@@ -278,11 +278,11 @@ export function ClienteArchivio() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Cerca nei documenti..."
-          className="pl-9 pr-10 h-9"
+          className="pl-9 pr-10 h-10 text-base sm:text-sm"
         />
         {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />}
         {searchQuery && !searching && (
-          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
@@ -441,14 +441,14 @@ export function ClienteArchivio() {
                             </div>
                             <p className="text-[10px] sm:text-xs text-slate-500">{f.sizeStr}{f.lastModified && <span className="ml-2">· {formatDateShort(f.lastModified)}</span>}</p>
                           </div>
-                          <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             {canPreview && (
-                              <Button variant="outline" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-auto sm:px-2" onClick={() => { setPreviewFile(f); setFiles((fs) => fs.map((x) => x.key === f.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x)) }}>
-                                <Eye className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Anteprima</span>
+                              <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5" onClick={() => { setPreviewFile(f); setFiles((fs) => fs.map((x) => x.key === f.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x)) }}>
+                                <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5 sm:mr-1" /><span className="hidden sm:inline">Anteprima</span>
                               </Button>
                             )}
-                            <Button variant="outline" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-auto sm:px-2" onClick={() => handleDownload(f.key, f.nome)}>
-                              <Download className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Scarica</span>
+                            <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5" onClick={() => handleDownload(f.key, f.nome)}>
+                              <Download className="h-4 w-4 sm:h-3.5 sm:w-3.5 sm:mr-1" /><span className="hidden sm:inline">Scarica</span>
                             </Button>
                           </div>
                         </div>

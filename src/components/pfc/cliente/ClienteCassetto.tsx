@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { usePfcStore } from '@/store/pfc'
@@ -167,24 +167,24 @@ export function ClienteCassetto() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
             <Briefcase className="h-5 w-5 text-emerald-600" />
             Cassetto Digitale
           </h3>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5 sm:mt-1">
             {files.length} {files.length === 1 ? 'documento' : 'documenti'} archiviati · Accesso rapido ai tuoi documenti essenziali
           </p>
         </div>
-        <Button onClick={() => setUploadOpen(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+        <Button onClick={() => setUploadOpen(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white w-full sm:w-auto min-h-[40px]">
           <UploadCloud className="h-4 w-4 mr-2" /> Aggiungi documento
         </Button>
       </div>
 
       <Card className="bg-blue-50/50 border-blue-200">
-        <CardContent className="py-4 text-sm text-slate-700">
-          <p className="font-semibold mb-1">Cos'è il Cassetto Digitale?</p>
+        <CardContent className="py-3.5 px-4 text-sm text-slate-700">
+          <p className="font-semibold mb-0.5 text-xs sm:text-sm">Cos'è il Cassetto Digitale?</p>
           <p className="text-xs text-slate-600">Uno spazio sicuro per i documenti che usi spesso (QR P.IVA, visure, identità...). Sempre disponibile con un click, senza cercare tra le cartelle.</p>
         </CardContent>
       </Card>
@@ -210,7 +210,7 @@ export function ClienteCassetto() {
                 className="border-t-4 hover:shadow-md transition-all"
                 style={{ borderTopColor: accent }}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-3.5 sm:p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div
                       className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -222,25 +222,25 @@ export function ClienteCassetto() {
                       <p className="font-bold text-sm text-slate-900 truncate">{label}</p>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {f.sizeStr} · <span className="px-1.5 py-0.5 rounded font-bold text-xs" style={{ background: `${accent}18`, color: accent }}>{ext}</span>
-                        {f.lastModified && <span className="ml-2">· {formatDateShort(f.lastModified)}</span>}
+                        {f.lastModified && <span className="ml-2 hidden sm:inline">· {formatDateShort(f.lastModified)}</span>}
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5">
                     {canPreview && (
-                      <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'visto', isPreferito: false })}>
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 text-xs" onClick={() => setPreviewFile({ ...f, stato: 'visto', isPreferito: false })}>
                         <Eye className="h-3.5 w-3.5 mr-1" /> Anteprima
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}>
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 text-xs" onClick={() => handleDownload(f.key, f.nome)}>
                       <Download className="h-3.5 w-3.5 mr-1" /> Scarica
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => openRename(f)}>
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 text-xs" onClick={() => openRename(f)}>
                       <Edit className="h-3.5 w-3.5 mr-1" /> Rinomina
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50">
+                        <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 text-xs text-red-600 hover:bg-red-50">
                           <Trash2 className="h-3.5 w-3.5 mr-1" /> Elimina
                         </Button>
                       </AlertDialogTrigger>
