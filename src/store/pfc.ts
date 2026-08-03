@@ -47,7 +47,22 @@ interface PfcState {
 export const usePfcStore = create<PfcState>((set) => ({
   user: null,
   loadingUser: true,
-  setUser: (u) => set({ user: u }),
+  setUser: (u) =>
+    set((s) => {
+      if (s.user?.username !== u?.username) {
+        return {
+          user: u,
+          annoSelezionato: null,
+          cartellaSelezionata: null,
+          previewFile: null,
+          selectedFiles: new Set(),
+          nNotifiche: 0,
+          showNotifPanel: false,
+          clienteTab: 'archivio',
+        }
+      }
+      return { user: u }
+    }),
   setLoadingUser: (b) => set({ loadingUser: b }),
   adminTab: 'invio',
   setAdminTab: (t) => set({ adminTab: t }),

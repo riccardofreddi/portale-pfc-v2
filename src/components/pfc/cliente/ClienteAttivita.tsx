@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
+import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,7 @@ const ACTION_BORDER: Record<string, string> = {
 }
 
 export function ClienteAttivita() {
+  const { user } = usePfcStore()
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -79,7 +81,7 @@ export function ClienteAttivita() {
     }
   }
 
-  useEffect(() => { refresh() }, [])
+  useEffect(() => { refresh() }, [user])
 
   if (loading) return (
     <div className="flex items-center justify-center py-12">

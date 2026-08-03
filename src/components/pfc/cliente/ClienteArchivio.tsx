@@ -26,11 +26,19 @@ interface SearchResult {
   stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'; isPreferito: boolean;
 }
 
-// Cache globale persistente per tutta la sessione (sopravvive ai re-render)
+// Cache globale per la sessione (azzerata automaticamente al cambio utente)
 const globalCache = {
+  owner: null as string | null,
   anni: null as string[] | null,
   cartelle: {} as Record<string, CartellaMeta[]>,
   files: {} as Record<string, FileItem[]>,
+}
+
+export function clearArchivioGlobalCache() {
+  globalCache.owner = null
+  globalCache.anni = null
+  globalCache.cartelle = {}
+  globalCache.files = {}
 }
 
 export function ClienteArchivio() {
@@ -52,12 +60,13 @@ export function ClienteArchivio() {
 
   const username = user?.username ?? ''
 
-  // Cache lato client: non rifare le stesse chiamate
-  const cacheRef = useRef<{
-    anni: string[] | null
-    cartelle: Record<string, CartellaMeta[]>
-    files: Record<string, FileItem[]>
-  }>({ anni: null, cartelle: {}, files: {} })
+  // Resetta la cache globale se l'utente e cambiato rispetto a quello memorizzato
+  if (username && globalCache.owner !== username) {
+    globalCache.owner = username
+    globalCache.anni = null
+    globalCache.cartelle = {}
+    globalCache.files = {}
+  }
 
   // ─── RICERCA ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -77,7 +86,7 @@ export function ClienteArchivio() {
   // ─── LOAD FILES per cartella (con cache) ────────────────────────────────────
   const loadFiles = useCallback(async (anno: string, cartella: string) => {
     const cacheKey = `${anno}::${cartella}`
-    if (globalCache.files[cacheKey]) {
+    if (globalCache.owner === username && globalCache.files[cacheKey]) {
       setFiles(globalCache.files[cacheKey])
       setPage(1)
       clearSelected()
@@ -87,7 +96,9 @@ export function ClienteArchivio() {
     try {
       const r = await api.documenti.list({ username, anno, cartella })
       const data = (r.files ?? []) as unknown as FileItem[]
-      globalCache.files[cacheKey] = data
+      if (globalCache.owner === username) {
+        globalCache.files[cacheKey] = data
+      }
       setFiles(data)
       setPage(1)
       clearSelected()
@@ -97,7 +108,7 @@ export function ClienteArchivio() {
 
   // ─── LOAD CARTELLE per anno (con cache) ─────────────────────────────────────
   const loadCartelle = useCallback(async (anno: string, cartellaTarget?: string | null) => {
-    if (globalCache.cartelle[anno]) {
+    if (globalCache.owner === username && globalCache.cartelle[anno]) {
       const carts = globalCache.cartelle[anno]
       setCartelle(carts)
       const target = cartellaTarget ?? (carts.length > 0 ? carts[0].nome : null)
@@ -114,7 +125,9 @@ export function ClienteArchivio() {
     try {
       const r = await api.documenti.list({ username, anno })
       const carts = (r.cartelle ?? []) as unknown as CartellaMeta[]
-      globalCache.cartelle[anno] = carts
+      if (globalCache.owner === username) {
+        globalCache.cartelle[anno] = carts
+      }
       setCartelle(carts)
       const target = cartellaTarget ?? (carts.length > 0 ? carts[0].nome : null)
       if (target) {
@@ -128,12 +141,12 @@ export function ClienteArchivio() {
     finally { setLoadingCartelle(false) }
   }, [username, setCartella, loadFiles])
 
-  // ─── INIT: carica anni (una volta sola) ─────────────────────────────────────
+  // ─── INIT: carica anni (una volta sola per utente) ─────────────────────────
   useEffect(() => {
     if (!username) return
 
-    // Se già in cache, applica subito senza spinner
-    if (globalCache.anni !== null) {
+    // Se gia in cache per l'utente corrente, applica subito senza spinner
+    if (globalCache.owner === username && globalCache.anni !== null) {
       const anniData = globalCache.anni
       setAnni(anniData)
       setLoading(false)
@@ -151,6 +164,7 @@ export function ClienteArchivio() {
         if (r.r2NotConfigured) { setR2Error(true); setAnni([]); return }
         setR2Error(false)
         const anniData = r.anni ?? []
+        globalCache.owner = username
         globalCache.anni = anniData
         setAnni(anniData)
         if (anniData.length > 0) {
