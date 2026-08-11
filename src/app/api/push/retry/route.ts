@@ -53,10 +53,15 @@ export async function POST(req: NextRequest) {
 
     for (const [, { username, notifiche }] of byUser) {
       const latest = notifiche[0]
+      // Messaggi e richieste upload aprono direttamente la tab Messaggi
+      const url =
+        latest.type === "messaggio" || latest.type === "richiesta_upload"
+          ? "/?tab=messaggi"
+          : "/"
       const sent = await sendPushToUser(username, {
         title: getNotifTitle(latest.type),
         body: latest.text.slice(0, 100),
-        url: "/",
+        url,
         tag: "pfc-retry-" + latest.id,
       })
       totalSent += sent

@@ -86,7 +86,7 @@ export function ClienteArea() {
     if (!user) return
     try {
       const [n, m, a] = await Promise.all([
-        api.notifiche.list(),
+        api.notifiche.list().catch(() => ({ notifiche: [] })),
         api.messaggi.list(user.username).catch(() => ({ messaggi: [] })),
         api.avvisi.list().catch(() => ({ avvisi: [] })),
       ])
@@ -101,7 +101,64 @@ export function ClienteArea() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadNotifiche()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, clienteTab])
+
+  // Apertura da notifica push con URL ?tab=... (es. /?tab=messaggi):
+  // attiva subito la tab corretta appena la pagina viene caricata.
+  useEffect(() => {
+    if (!user) return
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+    if (tab) {
+      const validTab = TABS.find((t) => t.id === tab)
+      if (validTab) setClienteTab(validTab.id)
+    }
+    // Il parametro serve solo all'apertura: evita di riapplicarlo ai refresh
+    if (params.has('tab')) {
+      try {
+        window.history.replaceState(null, '', window.location.pathname)
+      } catch {}
+    }
+  }, [user, setClienteTab])
+
+  // Aggiornamento "live" di badge e conteggi: focus sulla finestra, ritorno da
+  // background, messaggi dal Service Worker (push ricevuta / tab da attivare) e
+  // messaggi segnati come letti dentro la tab Messaggi.
+  useEffect(() => {
+    if (!user) return
+
+    const onSwMessage = (event: MessageEvent) => {
+      const data = event.data as { type?: string; tab?: string } | undefined
+      if (!data?.type) return
+      if (data.type === 'OPEN_TAB' && data.tab) {
+        const validTab = TABS.find((t) => t.id === data.tab)
+        if (validTab) setClienteTab(validTab.id)
+        loadNotifiche()
+      }
+      if (data.type === 'PUSH_RECEIVED' || data.type === 'BADGE_UPDATE') {
+        loadNotifiche()
+      }
+    }
+    const onFocus = () => loadNotifiche()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') loadNotifiche()
+    }
+    const onMessaggiLetti = () => loadNotifiche()
+
+    navigator.serviceWorker?.addEventListener('message', onSwMessage)
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pfc-messaggi-letti', onMessaggiLetti)
+
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', onSwMessage)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pfc-messaggi-letti', onMessaggiLetti)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, setClienteTab])
 
   async function handleSegnaLette() {
     try {

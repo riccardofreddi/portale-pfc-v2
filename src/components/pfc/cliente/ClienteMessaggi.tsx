@@ -43,6 +43,8 @@ export function ClienteMessaggi() {
           await api.messaggi.segnaLetti().catch(() => {})
           if (cancelled) return
           setMessaggi((curr) => curr.map((m) => ({ ...m, read: true })))
+          // Comunica a ClienteArea di aggiornare il pallino sulla tab Messaggi
+          window.dispatchEvent(new Event('pfc-messaggi-letti'))
         }
       } catch {
         if (!cancelled) toast.error('Errore caricamento messaggi')

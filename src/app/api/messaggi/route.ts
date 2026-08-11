@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
   sendPushToUser(dest, {
     title: richiedeUpload ? 'Richiesta documento' : 'Nuovo messaggio',
     body: text.slice(0, 100),
-    url: '/',
+    url: '/?tab=messaggi',
     tag: 'pfc-messaggio',
   }).catch((e) => console.error('[PUSH] messaggi errore:', e))
 

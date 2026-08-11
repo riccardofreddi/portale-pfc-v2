@@ -32,19 +32,43 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     (async () => {
+      // Tab da attivare, es. /?tab=messaggi per i messaggi
+      let tab = null
+      try {
+        tab = new URL(targetUrl, self.location.origin).searchParams.get('tab')
+      } catch {}
+
       const allClients = await self.clients.matchAll({
         type: 'window',
         includeUncontrolled: true,
       })
+
+      // 1) Avvisa subito le finestre aperte: la tab viene attivata anche se la
+      //    navigazione qui sotto fallisce (es. client già sulla stessa URL).
+      if (tab) {
+        for (const client of allClients) {
+          try {
+            client.postMessage({ type: 'OPEN_TAB', tab })
+          } catch {}
+        }
+      }
+
+      // 2) Focus sulla prima finestra e navigazione alla URL del payload
       for (const client of allClients) {
         if ('focus' in client) {
-          client.focus()
+          await client.focus()
           if ('navigate' in client) {
-            await client.navigate(targetUrl)
+            try {
+              await client.navigate(targetUrl)
+            } catch {
+              // La pagina ha già ricevuto OPEN_TAB: applica comunque la tab
+            }
           }
           return
         }
       }
+
+      // 3) Nessuna finestra aperta: apri la PWA alla URL target
       if (self.clients.openWindow) {
         await self.clients.openWindow(targetUrl)
       }

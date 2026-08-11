@@ -31,6 +31,11 @@ export function TopBar() {
       await api.auth.logout()
       setUser(null)
       toast.success('Disconnessione eseguita')
+      // Reset completo dell'interfaccia: garantisce il ritorno al login anche
+      // con eventuali stati cached/stale (PWA o tab rimasta in background).
+      setTimeout(() => {
+        window.location.assign('/')
+      }, 200)
     } catch {
       toast.error('Errore durante il logout')
     }
