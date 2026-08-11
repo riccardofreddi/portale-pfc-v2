@@ -41,10 +41,16 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
 
   if (action === 'segna_lette') {
+    // Filtro opzionale per tipo (es. ?tipi=messaggio,richiesta_upload): permette di
+    // segnare come lette SOLO certe notifiche senza azzerare avvisi/documenti.
+    const tipi = searchParams.get('tipi')?.split(',').filter(Boolean) ?? null
     if (id) {
       await db.notification.updateMany({ where: { id, userId: user.id }, data: { read: true } })
     } else {
-      await db.notification.updateMany({ where: { userId: user.id, read: false }, data: { read: true } })
+      await db.notification.updateMany({
+        where: { userId: user.id, read: false, ...(tipi ? { type: { in: tipi } } : {}) },
+        data: { read: true },
+      })
     }
     return NextResponse.json({ ok: true })
   }

@@ -68,7 +68,11 @@ export const api = {
   },
   notifiche: {
     list: () => apiFetch<{ notifiche: Array<Record<string, unknown>> }>('/api/notifiche'),
-    segnaLette: () => apiFetch('/api/notifiche?action=segna_lette', { method: 'POST' }),
+    segnaLette: (tipi?: string[]) => {
+      const q = new URLSearchParams({ action: 'segna_lette' })
+      if (tipi?.length) q.set('tipi', tipi.join(','))
+      return apiFetch(`/api/notifiche?${q}`, { method: 'POST' })
+    },
     segnaLetta: (id: string) =>
       apiFetch(`/api/notifiche?action=segna_lette&id=${encodeURIComponent(id)}`, { method: 'POST' }),
     pulisciLette: () => apiFetch('/api/notifiche?action=pulisci_lette', { method: 'POST' }),

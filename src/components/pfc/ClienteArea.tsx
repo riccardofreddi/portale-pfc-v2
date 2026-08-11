@@ -135,9 +135,17 @@ export function ClienteArea() {
         const validTab = TABS.find((t) => t.id === data.tab)
         if (validTab) setClienteTab(validTab.id)
         loadNotifiche()
+        // Apertura da notifica di messaggio: ricarica l'elenco e segna tutto letto.
+        // Se la tab non è ancora montata, ci pensa comunque il mount di ClienteMessaggi.
+        if (data.tab === 'messaggi') window.dispatchEvent(new Event('pfc-messaggi-refresh'))
       }
       if (data.type === 'PUSH_RECEIVED' || data.type === 'BADGE_UPDATE') {
         loadNotifiche()
+        // Se siamo GIÀ sulla tab Messaggi, ricarica l'elenco per vedere subito il
+        // messaggio e mantenere i badge a zero (getState = valore corrente, niente closure stale).
+        if (usePfcStore.getState().clienteTab === 'messaggi') {
+          window.dispatchEvent(new Event('pfc-messaggi-refresh'))
+        }
       }
     }
     const onFocus = () => loadNotifiche()

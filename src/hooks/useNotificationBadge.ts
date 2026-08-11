@@ -116,6 +116,11 @@ export function useNotificationBadge(enabled: boolean) {
     const onFocus = () => checkAndUpdate()
     window.addEventListener("focus", onFocus)
 
+    // Messaggi segnati come letti (tab Messaggi aperta): azzera subito badge,
+    // favicon e titolo invece di aspettare il polling di 5 s.
+    const onMessaggiLetti = () => checkAndUpdate()
+    window.addEventListener("pfc-messaggi-letti", onMessaggiLetti)
+
     // Comunicazione dal Service Worker: quando arriva una push,
     // aggiorna immediatamente badge e conteggio (senza aspettare il polling)
     const onSwMessage = (event: MessageEvent) => {
@@ -144,6 +149,7 @@ export function useNotificationBadge(enabled: boolean) {
       clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("focus", onFocus)
+      window.removeEventListener("pfc-messaggi-letti", onMessaggiLetti)
       navigator.serviceWorker?.removeEventListener("message", onSwMessage)
       if ("clearAppBadge" in navigator) {
         ;(navigator as Navigator & {

@@ -32,18 +32,25 @@ export function ClienteMessaggi() {
 
   useEffect(() => {
     if (!user) return
+    const username = user.username
     let cancelled = false
-    ;(async () => {
+
+    async function refresh() {
       try {
-        const r = await api.messaggi.list(user.username)
+        const r = await api.messaggi.list(username)
         if (cancelled) return
         const msgs = r.messaggi as unknown as Messaggio[]
         setMessaggi(msgs)
         if (msgs.some((m) => !m.read)) {
-          await api.messaggi.segnaLetti().catch(() => {})
+          // Essere sulla tab Messaggi = messaggi e relative notifiche letti.
+          // Il filtro per tipo evita di azzerare per sbaglio avvisi 📢 e documenti.
+          await Promise.all([
+            api.messaggi.segnaLetti().catch(() => {}),
+            api.notifiche.segnaLette(['messaggio', 'richiesta_upload']).catch(() => {}),
+          ])
           if (cancelled) return
           setMessaggi((curr) => curr.map((m) => ({ ...m, read: true })))
-          // Comunica a ClienteArea di aggiornare il pallino sulla tab Messaggi
+          // Comunica a ClienteArea e useNotificationBadge di aggiornare subito i badge
           window.dispatchEvent(new Event('pfc-messaggi-letti'))
         }
       } catch {
@@ -51,8 +58,18 @@ export function ClienteMessaggi() {
       } finally {
         if (!cancelled) setLoading(false)
       }
-    })()
-    return () => { cancelled = true }
+    }
+
+    refresh()
+
+    // Ricarica "live" quando arriva una push di messaggio mentre siamo GIÀ sulla tab
+    const onRefresh = () => refresh()
+    window.addEventListener('pfc-messaggi-refresh', onRefresh)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener('pfc-messaggi-refresh', onRefresh)
+    }
   }, [user])
 
   async function handleArchivia(id: string) {
