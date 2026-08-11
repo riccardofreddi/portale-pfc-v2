@@ -32,6 +32,12 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output
 }
 
+// Impronta della chiave VAPID usata per creare la subscription. Permette di riconoscere
+// le subscription obsolete quando le chiavi VAPID vengono rigenerate (FCM risponde 403,
+// WNS risponde 401) e di mostrare correttamente "Attiva notifiche push" invece di un
+// falso "Notifiche attive".
+const VAPID_KEY_STORAGE = 'pfc_vapid_key'
+
 export interface PushState {
   supported: boolean
   permission: NotificationPermission
@@ -70,7 +76,20 @@ export function usePushNotifications(enabled: boolean = true): PushState {
     try {
       const reg = await navigator.serviceWorker.ready
       const existing = await reg.pushManager.getSubscription()
-      setSubscribed(!!existing)
+      if (!existing) {
+        setSubscribed(false)
+        return
+      }
+      // Una subscription creata con chiavi VAPID diverse da quelle attuali è inutilizzabile.
+      // Confronto l'impronta salvata al momento dell'iscrizione con la chiave corrente del backend.
+      try {
+        const { publicKey } = await api.push.vapidKey()
+        const storedKey = localStorage.getItem(VAPID_KEY_STORAGE)
+        setSubscribed(storedKey === publicKey)
+      } catch {
+        // Impossibile confrontare: meglio far riattivare che mostrare un falso "attive"
+        setSubscribed(false)
+      }
     } catch {
       setSubscribed(false)
     }
@@ -100,13 +119,22 @@ export function usePushNotifications(enabled: boolean = true): PushState {
       const { publicKey } = await api.push.vapidKey()
       const applicationServerKey = urlBase64ToUint8Array(publicKey)
 
-      // 4. Subscribe
+      // 4. Se esiste già una subscription obsoleta (creata con chiavi VAPID diverse o
+      //    rimasta orfana nel browser), rimuovila prima di iscriversi di nuovo.
+      const existing = await reg.pushManager.getSubscription()
+      if (existing) {
+        const oldEndpoint = existing.endpoint
+        await existing.unsubscribe()
+        await api.push.unsubscribe(oldEndpoint).catch(() => {})
+      }
+
+      // 5. Subscribe
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: applicationServerKey as BufferSource,
       })
 
-      // 5. Send to backend
+      // 6. Send to backend
       const subJson = sub.toJSON()
       await api.push.subscribe({
         endpoint: subJson.endpoint!,
@@ -115,6 +143,13 @@ export function usePushNotifications(enabled: boolean = true): PushState {
           auth: subJson.keys!.auth!,
         },
       })
+
+      // 7. Salva l'impronta della chiave VAPID per le verifiche successive
+      try {
+        localStorage.setItem(VAPID_KEY_STORAGE, publicKey)
+      } catch {
+        // storage non disponibile: non blocca l'attivazione
+      }
 
       setSubscribed(true)
     } finally {
@@ -131,6 +166,11 @@ export function usePushNotifications(enabled: boolean = true): PushState {
         const endpoint = existing.endpoint
         await existing.unsubscribe()
         await api.push.unsubscribe(endpoint).catch(() => {})
+      }
+      try {
+        localStorage.removeItem(VAPID_KEY_STORAGE)
+      } catch {
+        // ignore
       }
       setSubscribed(false)
     } finally {

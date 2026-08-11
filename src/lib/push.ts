@@ -113,7 +113,14 @@ export async function sendPushToUser(
       } else {
         const err = r.reason as { statusCode?: number; message?: string; body?: unknown; headers?: unknown }
         console.error('[PUSH] Invio FALLITO per endpoint', i, '- status:', err?.statusCode, '- message:', err?.message, '- body:', JSON.stringify(err?.body)?.substring(0, 300), '- headers:', JSON.stringify(err?.headers)?.substring(0, 300))
-        if (err?.statusCode === 404 || err?.statusCode === 410) {
+        // 404/410 = subscription rimossa dal dispositivo; 401/403 = subscription orfana o
+        // creata con chiavi VAPID diverse. In ogni caso non è più consegnabile: va ripulita.
+        if (
+          err?.statusCode === 404 ||
+          err?.statusCode === 410 ||
+          err?.statusCode === 401 ||
+          err?.statusCode === 403
+        ) {
           staleEndpoints.push(subs[i].endpoint)
         }
       }
@@ -176,7 +183,12 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
         success++
       } else {
         const err = r.reason as { statusCode?: number }
-        if (err?.statusCode === 404 || err?.statusCode === 410) {
+        if (
+          err?.statusCode === 404 ||
+          err?.statusCode === 410 ||
+          err?.statusCode === 401 ||
+          err?.statusCode === 403
+        ) {
           staleEndpoints.push(subs[i].endpoint)
         }
       }
