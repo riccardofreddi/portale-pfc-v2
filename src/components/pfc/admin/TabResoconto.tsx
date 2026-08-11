@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,7 +44,40 @@ export function TabResoconto() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { refresh() }, [])
+  // Aggiornamento "quasi-realtime" del SOLO log attività: mentre la tab è aperta
+  // viene riletto ogni 5 s (e al focus/ritorno sulla pagina). Non tocca i dati
+  // pesanti (stats/resoconto/diagnostica) e non mostra lo spinner di caricamento.
+  const pollingRef = useRef(false)
+  async function refreshLogs() {
+    if (pollingRef.current) return
+    pollingRef.current = true
+    try {
+      const l = await api.audit.list(500)
+      setLogs(l.logs)
+    } catch {
+      // Poll silenzioso: nessun toast, al giro successivo si riprova
+    } finally {
+      pollingRef.current = false
+    }
+  }
+
+  useEffect(() => {
+    // setTimeout(0): evita il setState sincrono nel body dell'effect
+    // (regola react-hooks/set-state-in-effect)
+    const initial = setTimeout(() => { refresh() }, 0)
+    const poll = () => { if (document.visibilityState === 'visible') refreshLogs() }
+    const interval = setInterval(poll, 5000)
+    const onVisibility = () => { if (document.visibilityState === 'visible') refreshLogs() }
+    const onFocus = () => refreshLogs()
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearTimeout(initial)
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [])
 
   async function toggleExempt(username: string, currentExempt: boolean) {
     const newExempt = !currentExempt

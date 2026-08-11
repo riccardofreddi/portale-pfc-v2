@@ -5,11 +5,14 @@ export const dynamic = 'force-dynamic'
 
 export async function POST() {
   // Il cookie va azzerato SUBITO: il logout non deve mai dipendere da query
-  // lente o fallite sul DB. L'audit viene fatto in background (fire-and-forget).
+  // lente o fallite sul DB.
   const session = await getSession().catch(() => null)
   await clearSessionCookie()
   if (session && session.sub !== 'admin') {
-    logAudit(session.sub, 'LOGOUT', 'Logout manuale').catch(() => {})
+    // NB: atteso, NON fire-and-forget. Su serverless (Vercel) una promessa
+    // non attesa muore con la funzione quando termina la richiesta e il LOGOUT
+    // non verrebbe mai scritto. logAudit gestisce già gli errori internamente.
+    await logAudit(session.sub, 'LOGOUT', 'Logout manuale')
   }
   return NextResponse.json({ ok: true })
 }

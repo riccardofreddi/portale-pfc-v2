@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { Card, CardContent } from '@/components/ui/card'
@@ -81,7 +81,40 @@ export function ClienteAttivita() {
     }
   }
 
-  useEffect(() => { refresh() }, [user])
+  // Aggiornamento "quasi-realtime" della propria attività: ogni 5 s (e al focus/
+  // ritorno sulla pagina) si rilegge il log senza mostrare lo spinner.
+  const pollingRef = useRef(false)
+  async function refreshLogs() {
+    if (pollingRef.current) return
+    pollingRef.current = true
+    try {
+      const r = await api.audit.meList(200)
+      setLogs(r.logs)
+    } catch {
+      // Poll silenzioso: nessun toast, al giro successivo si riprova
+    } finally {
+      pollingRef.current = false
+    }
+  }
+
+  useEffect(() => {
+    if (!user) return
+    // setTimeout(0): evita il setState sincrono nel body dell'effect
+    // (regola react-hooks/set-state-in-effect)
+    const initial = setTimeout(() => { refresh() }, 0)
+    const poll = () => { if (document.visibilityState === 'visible') refreshLogs() }
+    const interval = setInterval(poll, 5000)
+    const onVisibility = () => { if (document.visibilityState === 'visible') refreshLogs() }
+    const onFocus = () => refreshLogs()
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearTimeout(initial)
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [user])
 
   if (loading) return (
     <div className="flex items-center justify-center py-12">
