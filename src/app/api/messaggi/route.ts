@@ -8,15 +8,15 @@
  * PATCH ?id=...&action=dearchivia    - cliente ripristina dall'archivio
  * PATCH ?action=segna_letti          - cliente segna tutti i messaggi come letti
  */
-import { NextRequest, NextResponse, after } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, logAudit } from '@/lib/auth'
 import { DEFAULT_ADMIN_USER } from '@/lib/pfc-utils'
 import { sendPushToUser } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
-// Budget extra per il lavoro post-response (after): Vercel mantiene viva la funzione
-// finché l'invio push non è completato.
+// Budget per l'invio push inline: su Vercel limita la durata massima della funzione
+// mentre la push viene consegnata (più lunga con molti destinatari broadcast).
 export const maxDuration = 30
 
 export async function GET(req: NextRequest) {
@@ -85,19 +85,22 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  // L'invio push parte DOPO la risposta (after): il cliente riceve subito l'ok e
-  // Vercel mantiene la funzione attiva finché la push non è stata consegnata.
-  after(() => {
-    sendPushToUser(dest, {
-      title: richiedeUpload ? 'Richiesta documento' : 'Nuovo messaggio',
-      body: text.slice(0, 100),
-      url: '/?tab=messaggi',
-      tag: 'pfc-messaggio',
-    }).catch((e) => console.error('[PUSH] messaggi errore:', e))
+  // Invio push PRIMA della risposta (await inline): l'invio avviene nell'arco di vita
+  // della funzione serverless, senza dipendere da after()/grace period che su Vercel
+  // possono troncare il lavoro post-risposta. L'admin aspetta al più qualche secondo;
+  // in cambio la consegna è garantita (e subito, grazie a urgency: high).
+  const pushSent = await sendPushToUser(dest, {
+    title: richiedeUpload ? 'Richiesta documento' : 'Nuovo messaggio',
+    body: text.slice(0, 100),
+    url: '/?tab=messaggi',
+    tag: 'pfc-messaggio',
+  }).catch((e) => {
+    console.error('[PUSH] messaggi errore:', e)
+    return 0
   })
 
   await logAudit(session.sub, 'INVIA_MESSAGGIO', `${dest}: ${text.slice(0, 60)}`)
-  return NextResponse.json({ ok: true, id: msg.id })
+  return NextResponse.json({ ok: true, id: msg.id, pushSent })
 }
 
 export async function DELETE(req: NextRequest) {

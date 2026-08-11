@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from 'next/server'
 import webpush from 'web-push'
+import https from 'node:https'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -48,6 +49,9 @@ export async function GET() {
       // web-push non espone questo direttamente, ma proviamo sendNotification su un endpoint fittizio
       const result = await webpush.sendNotification(testSub, JSON.stringify({ title: 'test' }), {
         TTL: 60,
+        // Stesso approccio di src/lib/push.ts: agent senza keep-alive per evitare
+        // il riuso di socket morti sul serverless (causa dei socket hang up).
+        agent: new https.Agent({ keepAlive: false }),
       })
       debug.testSendSuccess = true
     } catch (err: any) {

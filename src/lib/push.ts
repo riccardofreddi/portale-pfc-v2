@@ -3,6 +3,7 @@
  */
 
 import webpush from 'web-push'
+import https from 'node:https'
 import { webcrypto } from 'crypto'
 import { db } from './db'
 
@@ -44,6 +45,53 @@ function toSubscription(row: PushSubscriptionRow): webpush.PushSubscription {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Agent HTTPS dedicato SENZA keep-alive.
+//
+// Senza un agent esplicito, web-push usa https.globalAgent, che da Node >= 19 ha
+// keepAlive: true: i socket verso il push service (FCM) restano aperti nel pool.
+// Su Vercel (serverless) questi socket vengono chiusi dalla piattaforma quando la
+// funzione va in freeze/teardown; al riuso nel warm start successivo la richiesta
+// viene scritta su un socket morto e fallisce con ECONNRESET "socket hang up"
+// (statusCode undefined) — è per questo che gli invii fallivano TUTTI, anche senza
+// timeout. Con keepAlive: false ogni richiesta apre una connessione TLS nuova e la
+// chiude appena finita: non esiste alcun socket da riutilizzare, quindi niente
+// "socket hang up". Un solo agent per invocazione (maxSockets limita il paralle
+// lismo negli invii broadcast).
+// ---------------------------------------------------------------------------
+const pushAgent = new https.Agent({ keepAlive: false, maxSockets: 20 })
+
+// Errori transitori di rete (nessuna risposta HTTP dal push service): conviene
+// ritentare una volta. Gli errori con statusCode (404/410/401/403) sono risposte
+// definitive del push service: NON si ritentano, la subscription va ripulita
+// (lo fa già il chiamante).
+function isTransientNetworkError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const e = err as { statusCode?: unknown; message?: unknown }
+  if (e.statusCode !== undefined) return false
+  const msg = String(e.message ?? '').toLowerCase()
+  return /socket hang up|econnreset|timed out|etimedout|epipe|eai_again|enotfound|network|econnrefused/.test(msg)
+}
+
+async function sendPushWithRetry(
+  sub: webpush.PushSubscription,
+  body: string,
+  options: webpush.RequestOptions
+): Promise<void> {
+  try {
+    await webpush.sendNotification(sub, body, { ...options, agent: pushAgent })
+  } catch (err) {
+    if (isTransientNetworkError(err)) {
+      const msg = String((err as Error)?.message ?? err)
+      console.log(`[PUSH] Errore transitorio (${msg}), riprovo una volta`)
+      // Retry con un agent fresco: assorbe i reset di connessione del cold start.
+      await webpush.sendNotification(sub, body, { ...options, agent: new https.Agent({ keepAlive: false }) })
+    } else {
+      throw err
+    }
+  }
+}
+
 export interface PushPayload {
   title: string
   body: string
@@ -68,23 +116,18 @@ export async function sendPushToUser(
     })
     if (!user) return 0
 
-    const subs = await db.pushSubscription.findMany({
-      where: { userId: user.id },
-    })
-    if (subs.length === 0) return 0
-
-    // Conteggio notifiche non lette + ID ultima notifica per badge e azioni "segna letto"
-    // (query in parallelo: riduce i roundtrip al DB, importante su serverless)
-    const [unreadCount, latestUnread] = await Promise.all([
-      db.notification.count({
-        where: { userId: user.id, read: false },
-      }),
+    // Query in parallelo (serverless: meno roundtrip, meno latenza): subscription,
+    // conteggio non lette e ID ultima notifica per badge e azioni "segna letto".
+    const [subs, unreadCount, latestUnread] = await Promise.all([
+      db.pushSubscription.findMany({ where: { userId: user.id } }),
+      db.notification.count({ where: { userId: user.id, read: false } }),
       db.notification.findFirst({
         where: { userId: user.id, read: false },
         orderBy: { ts: 'desc' },
         select: { id: true },
       }),
     ])
+    if (subs.length === 0) return 0
 
     const body = JSON.stringify({
       title: payload.title,
@@ -101,14 +144,9 @@ export async function sendPushToUser(
 
     const results = await Promise.allSettled(
       subs.map((s) =>
-        webpush.sendNotification(toSubscription(s), body, {
+        sendPushWithRetry(toSubscription(s), body, {
           TTL: 60 * 60 * 24,
           urgency: 'high',
-          // Niente timeout: il timeout di web-push chiama destroy() sul socket a metà
-          // richiesta; su Vercel (cold start, handshake TLS lento verso FCM) scatta
-          // ECONNRESET "socket hang up" e fa fallire TUTTI gli invii. Il push service
-          // risponde comunque sempre (anche 404/410 per endpoint rimossi) e maxDuration
-          // limita la durata dell'after().
         })
       )
     )
@@ -174,19 +212,22 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
 
     const results = await Promise.allSettled(
       subs.map((s) =>
-        webpush.sendNotification(toSubscription(s), JSON.stringify({
-          title: payload.title,
-          body: payload.body,
-          url: payload.url ?? '/',
-          tag: payload.tag ?? 'pfc-broadcast',
-          icon: payload.icon ?? '/icon.png',
-          badge: payload.badge ?? '/icon.png',
-          unreadCount: unreadByUser.get(s.userId) ?? 0,
-        }), {
-          TTL: 60 * 60 * 24,
-          urgency: 'high',
-          // Niente timeout: vedi commento in sendPushToUser.
-        })
+        sendPushWithRetry(
+          toSubscription(s),
+          JSON.stringify({
+            title: payload.title,
+            body: payload.body,
+            url: payload.url ?? '/',
+            tag: payload.tag ?? 'pfc-broadcast',
+            icon: payload.icon ?? '/icon.png',
+            badge: payload.badge ?? '/icon.png',
+            unreadCount: unreadByUser.get(s.userId) ?? 0,
+          }),
+          {
+            TTL: 60 * 60 * 24,
+            urgency: 'high',
+          }
+        )
       )
     )
 
