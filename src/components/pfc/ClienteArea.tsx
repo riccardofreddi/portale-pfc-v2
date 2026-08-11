@@ -380,7 +380,7 @@ export function ClienteArea() {
             {avvisi.map((a) => (
               <div key={a.id} className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-lg p-3">
                 <p className="text-xs text-amber-700 font-semibold mb-1">
-                  📢 Comunicazione dello Studio · {new Date(a.timestamp).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  📢 Comunicazione dello Studio
                 </p>
                 <p className="text-sm text-amber-900 whitespace-pre-wrap">{a.text}</p>
               </div>

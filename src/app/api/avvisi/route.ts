@@ -40,18 +40,9 @@ export async function POST(req: NextRequest) {
 
   const avviso = await db.notice.create({ data: { text: testo } })
 
-  // Crea notifica per tutti i clienti
-  const clienti = await db.user.findMany({ where: { role: 'client' } })
-  if (clienti.length > 0) {
-    await db.notification.createMany({
-      data: clienti.map((c) => ({
-        userId: c.id,
-        type: 'avviso',
-        text: `Nuovo avviso dallo studio: ${testo.slice(0, 80)}${testo.length > 80 ? '...' : ''}`,
-        detail: testo,
-      })),
-    })
-  }
+  // NB: per gli avvisi globali NON creiamo notifiche in campanella: la push
+  // arriva comunque anche ad app chiusa e il cliente vede subito l'avviso
+  // in giallo nel banner sotto il benvenuto (niente notifica non letta superflua).
 
   // Invio push PRIMA della risposta (await inline): garantito nell'arco di vita
   // della funzione (vedi commento in /api/messaggi).
