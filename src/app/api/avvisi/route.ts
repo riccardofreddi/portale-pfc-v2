@@ -4,12 +4,15 @@
  * POST: crea avviso (admin)
  * DELETE: elimina avviso (admin) ?id=...
  */
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, logAudit } from '@/lib/auth'
 import { sendPushToAll } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
+// Budget extra per il lavoro post-response (after): Vercel mantiene viva la funzione
+// finché l'invio push non è completato.
+export const maxDuration = 30
 
 export async function GET() {
   const session = await getSession()
@@ -50,13 +53,15 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // Invia notifica push a tutti i clienti (non bloccante)
-  sendPushToAll({
-    title: '📢 Nuovo avviso dallo studio',
-    body: testo.slice(0, 100),
-    url: '/',
-    tag: 'pfc-avviso',
-  }).catch((e) => console.error('[PUSH] avvisi errore:', e))
+  // Invia notifica push a tutti i clienti DOPO la risposta (after)
+  after(() => {
+    sendPushToAll({
+      title: '📢 Nuovo avviso dallo studio',
+      body: testo.slice(0, 100),
+      url: '/',
+      tag: 'pfc-avviso',
+    }).catch((e) => console.error('[PUSH] avvisi errore:', e))
+  })
 
   await logAudit(session.sub, 'PUBBLICA_AVVISO', testo.slice(0, 100))
   return NextResponse.json({ ok: true, id: avviso.id })

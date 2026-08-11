@@ -104,17 +104,43 @@ async function restoreBadge() {
   } catch {}
 }
 
-// True se almeno una finestra del portale è aperta E visibile
-async function hasVisibleClient() {
-  try {
-    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-    for (const client of clients) {
-      // windowClient.visibilityState è supportato in Chrome/Edge/Opera
-      if (client.visibilityState === 'visible') return true
+// Chiede alle finestre APERTE se una di esse (visibile) gestirà la notifica in-app
+// (suono + toast). Se una finestra visibile risponde PUSH_ACK, NON mostriamo la
+// notifica di sistema: il portale aperto gestisce l'avviso da solo (niente doppio
+// suono). In tutti gli altri casi — app chiusa, in background, o pagina di login
+// visibile (cliente disconnesso) — mostriamo la notifica di sistema.
+const PUSH_ACK_TIMEOUT_MS = 400
+
+function askVisibleClients(clients, unreadCount) {
+  return new Promise((resolve) => {
+    let settled = false
+    let onMessage = () => {}
+    const finish = (handled) => {
+      if (settled) return
+      settled = true
+      self.removeEventListener('message', onMessage)
+      resolve(handled)
     }
-  } catch {}
-  // Fallback: se non riesco a verificare, mostra la notifica di sistema
-  return false
+    onMessage = (event) => {
+      const source = event.source
+      const sourceVisible =
+        source && 'visibilityState' in source && source.visibilityState === 'visible'
+      if (event.data?.type === 'PUSH_ACK' && sourceVisible) finish(true)
+    }
+    self.addEventListener('message', onMessage)
+    setTimeout(() => finish(false), PUSH_ACK_TIMEOUT_MS)
+
+    // ack=true solo per le finestre visibili: solo loro possono sopprimere la notifica
+    for (const client of clients) {
+      const isVisible = client.visibilityState === 'visible'
+      try {
+        client.postMessage({ type: 'PUSH_RECEIVED', unreadCount, ack: isVisible })
+      } catch {}
+    }
+
+    // Nessuna finestra aperta: mostra subito la notifica di sistema, senza attendere il timeout
+    if (clients.length === 0) finish(false)
+  })
 }
 
 self.addEventListener('push', (event) => {
@@ -134,18 +160,12 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      const isVisible = await hasVisibleClient()
-
-      // Comunica alla pagina aperta che è arrivata una push -> aggiornamento immediato badge UI
-      // (la pagina farà il SUO suono in-app se è visibile)
+      // Aggiornamento immediato badge UI sulle pagine aperte + conferma (PUSH_ACK)
+      // da parte di una finestra visibile che gestirà la notifica in-app.
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-      for (const client of clients) {
-        client.postMessage({ type: 'PUSH_RECEIVED', unreadCount })
-      }
+      const handledByPage = await askVisibleClients(clients, unreadCount)
 
-      // Se il portale è aperto e visibile NON mostriamo la notifica di sistema:
-      // il suono in-app + pallino rosso sono l'unico avviso (niente doppio suono).
-      if (isVisible) return
+      if (handledByPage) return
 
       const options = {
         body: payload.body,
@@ -162,7 +182,8 @@ self.addEventListener('push', (event) => {
         ],
       }
 
-      // Portale chiuso o in background: mostra la notifica di sistema
+      // Portale chiuso, in background, o pagina di login visibile senza conferma:
+      // mostra la notifica di sistema
       await self.registration.showNotification(payload.title, options)
     })()
   )

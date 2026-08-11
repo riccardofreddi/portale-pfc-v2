@@ -7,7 +7,7 @@ import { ClienteArchivio } from './cliente/ClienteArchivio'
 import { ClienteMessaggi } from './cliente/ClienteMessaggi'
 import { ClienteCassetto } from './cliente/ClienteCassetto'
 import { ClienteAttivita } from './cliente/ClienteAttivita'
-import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Check, Trash2, BellRing, X } from 'lucide-react'
+import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Trash2, BellRing, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -160,16 +160,6 @@ export function ClienteArea() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, setClienteTab])
 
-  async function handleSegnaLette() {
-    try {
-      await api.notifiche.segnaLette()
-      setNNotifiche(0)
-      setNotifiche((curr) => curr.map((n) => ({ ...n, read: true })))
-      clearAppBadge()
-      toast.success('Notifiche segnate come lette')
-    } catch { toast.error('Errore') }
-  }
-
   async function handlePulisciLette() {
     try {
       await api.notifiche.pulisciLette()
@@ -238,9 +228,6 @@ export function ClienteArea() {
                 {nNotifiche} notifica{nNotifiche > 1 ? 'he' : ''} non lett{nNotifiche > 1 ? 'e' : 'a'}
                 {showNotifPanel ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
               </button>
-              <Button variant="secondary" size="sm" onClick={handleSegnaLette} className="min-h-[36px] text-xs">
-                <Check className="h-3.5 w-3.5 mr-1" /> Segna come lette
-              </Button>
             </div>
           )}
           {push.supported && (

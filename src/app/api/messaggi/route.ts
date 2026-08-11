@@ -8,13 +8,16 @@
  * PATCH ?id=...&action=dearchivia    - cliente ripristina dall'archivio
  * PATCH ?action=segna_letti          - cliente segna tutti i messaggi come letti
  */
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, logAudit } from '@/lib/auth'
 import { DEFAULT_ADMIN_USER } from '@/lib/pfc-utils'
 import { sendPushToUser } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
+// Budget extra per il lavoro post-response (after): Vercel mantiene viva la funzione
+// finché l'invio push non è completato.
+export const maxDuration = 30
 
 export async function GET(req: NextRequest) {
   const session = await getSession()
@@ -82,12 +85,16 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  sendPushToUser(dest, {
-    title: richiedeUpload ? 'Richiesta documento' : 'Nuovo messaggio',
-    body: text.slice(0, 100),
-    url: '/?tab=messaggi',
-    tag: 'pfc-messaggio',
-  }).catch((e) => console.error('[PUSH] messaggi errore:', e))
+  // L'invio push parte DOPO la risposta (after): il cliente riceve subito l'ok e
+  // Vercel mantiene la funzione attiva finché la push non è stata consegnata.
+  after(() => {
+    sendPushToUser(dest, {
+      title: richiedeUpload ? 'Richiesta documento' : 'Nuovo messaggio',
+      body: text.slice(0, 100),
+      url: '/?tab=messaggi',
+      tag: 'pfc-messaggio',
+    }).catch((e) => console.error('[PUSH] messaggi errore:', e))
+  })
 
   await logAudit(session.sub, 'INVIA_MESSAGGIO', `${dest}: ${text.slice(0, 60)}`)
   return NextResponse.json({ ok: true, id: msg.id })

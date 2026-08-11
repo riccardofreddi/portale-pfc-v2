@@ -119,7 +119,21 @@ export function useNotificationBadge(enabled: boolean) {
     // Comunicazione dal Service Worker: quando arriva una push,
     // aggiorna immediatamente badge e conteggio (senza aspettare il polling)
     const onSwMessage = (event: MessageEvent) => {
-      if (event.data?.type === "PUSH_RECEIVED" || event.data?.type === "BADGE_UPDATE") {
+      if (event.data?.type === "PUSH_RECEIVED") {
+        // Conferma al Service Worker che questa pagina gestirà la notifica in-app
+        // (suono + toast): così non mostrerà anche la notifica di sistema.
+        if (event.data?.ack) {
+          if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: "PUSH_ACK" })
+          } else {
+            navigator.serviceWorker.ready
+              .then((reg) => reg.active?.postMessage({ type: "PUSH_ACK" }))
+              .catch(() => {})
+          }
+        }
+        checkAndUpdate()
+      }
+      if (event.data?.type === "BADGE_UPDATE") {
         checkAndUpdate()
       }
     }

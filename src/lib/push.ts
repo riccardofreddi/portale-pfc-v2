@@ -60,6 +60,8 @@ export async function sendPushToUser(
   try {
     ensureConfigured()
 
+    const startMs = Date.now()
+
     const user = await db.user.findUnique({
       where: { username },
       select: { id: true },
@@ -72,14 +74,17 @@ export async function sendPushToUser(
     if (subs.length === 0) return 0
 
     // Conteggio notifiche non lette + ID ultima notifica per badge e azioni "segna letto"
-    const unreadCount = await db.notification.count({
-      where: { userId: user.id, read: false },
-    })
-    const latestUnread = await db.notification.findFirst({
-      where: { userId: user.id, read: false },
-      orderBy: { ts: 'desc' },
-      select: { id: true },
-    })
+    // (query in parallelo: riduce i roundtrip al DB, importante su serverless)
+    const [unreadCount, latestUnread] = await Promise.all([
+      db.notification.count({
+        where: { userId: user.id, read: false },
+      }),
+      db.notification.findFirst({
+        where: { userId: user.id, read: false },
+        orderBy: { ts: 'desc' },
+        select: { id: true },
+      }),
+    ])
 
     const body = JSON.stringify({
       title: payload.title,
@@ -98,7 +103,8 @@ export async function sendPushToUser(
       subs.map((s) =>
         webpush.sendNotification(toSubscription(s), body, {
           TTL: 60 * 60 * 24,
-          urgency: 'normal',
+          urgency: 'high',
+          timeout: 5000,
         })
       )
     )
@@ -132,7 +138,9 @@ export async function sendPushToUser(
       }).catch(() => {})
     }
 
-    console.log('[PUSH] Totale successi:', success, '/', subs.length)
+    console.log(
+      `[PUSH] sendPushToUser completato: ${success}/${subs.length} successi in ${Date.now() - startMs}ms`
+    )
     return success
   } catch (err) {
     console.error('[PUSH] sendPushToUser errore:', err)
@@ -143,6 +151,8 @@ export async function sendPushToUser(
 export async function sendPushToAll(payload: PushPayload): Promise<number> {
   try {
     ensureConfigured()
+
+    const startMs = Date.now()
 
     const subs = await db.pushSubscription.findMany({
       include: { user: { select: { id: true } } },
@@ -170,7 +180,8 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
           unreadCount: unreadByUser.get(s.userId) ?? 0,
         }), {
           TTL: 60 * 60 * 24,
-          urgency: 'normal',
+          urgency: 'high',
+          timeout: 5000,
         })
       )
     )
@@ -200,6 +211,9 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
       }).catch(() => {})
     }
 
+    console.log(
+      `[PUSH] sendPushToAll completato: ${success}/${subs.length} successi in ${Date.now() - startMs}ms`
+    )
     return success
   } catch (err) {
     console.error('[PUSH] sendPushToAll errore:', err)
