@@ -40,9 +40,11 @@ export async function POST(req: NextRequest) {
 
   const avviso = await db.notice.create({ data: { text: testo } })
 
-  // NB: per gli avvisi globali NON creiamo notifiche in campanella: la push
-  // arriva comunque anche ad app chiusa e il cliente vede subito l'avviso
-  // in giallo nel banner sotto il benvenuto (niente notifica non letta superflua).
+  // NB: per gli avvisi globali NON creiamo notifiche in campanella (niente non
+  // letta superflua): la push arriva comunque anche ad app chiusa e il cliente
+  // vede subito il banner giallo. Nei data della push passiamo avviso.text:
+  // se il cliente è già dentro con la pagina visibile, il client suona in-app
+  // e mostra il toast (stessa logica del suono per le notifiche private).
 
   // Invio push PRIMA della risposta (await inline): garantito nell'arco di vita
   // della funzione (vedi commento in /api/messaggi).
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
     body: testo.slice(0, 100),
     url: '/',
     tag: 'pfc-avviso',
+    data: { avviso: { text: testo } },
   }).catch((e) => {
     console.error('[PUSH] avvisi errore:', e)
     return 0

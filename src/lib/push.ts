@@ -99,6 +99,8 @@ export interface PushPayload {
   tag?: string
   icon?: string
   badge?: string
+  /** Metadati opzionali inoltrati al client (es. avviso globale: data.avviso). */
+  data?: Record<string, unknown>
 }
 
 export async function sendPushToUser(
@@ -138,6 +140,7 @@ export async function sendPushToUser(
       badge: payload.badge ?? '/icon.png',
       notifId: latestUnread?.id,
       unreadCount,
+      data: payload.data ?? {},
     })
 
     console.log('[PUSH] Tentativo di invio a', subs.length, 'subs per', username)
@@ -222,6 +225,7 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
             icon: payload.icon ?? '/icon.png',
             badge: payload.badge ?? '/icon.png',
             unreadCount: unreadByUser.get(s.userId) ?? 0,
+            data: payload.data ?? {},
           }),
           {
             TTL: 60 * 60 * 24,

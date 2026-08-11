@@ -125,6 +125,18 @@ export function useNotificationBadge(enabled: boolean) {
     // aggiorna immediatamente badge e conteggio (senza aspettare il polling)
     const onSwMessage = (event: MessageEvent) => {
       if (event.data?.type === "PUSH_RECEIVED") {
+        // Avviso globale con pagina già aperta e visibile: la push porta
+        // data.avviso (nessuna notifica "non letta" in campanella), quindi il
+        // suono in-app + toast partono da qui, stessa logica degli avvisi privati.
+        if (event.data?.data?.avviso && isPageVisible()) {
+          const avvisoText = String(event.data.data.avviso?.text ?? "").slice(0, 100)
+          playNotificationSound()
+          toast(getNotifTitle("avviso"), {
+            description: avvisoText,
+            icon: getNotifIcon("avviso"),
+            duration: 6000,
+          })
+        }
         // Conferma al Service Worker che questa pagina gestirà la notifica in-app
         // (suono + toast): così non mostrerà anche la notifica di sistema.
         if (event.data?.ack) {

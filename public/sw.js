@@ -111,7 +111,7 @@ async function restoreBadge() {
 // visibile (cliente disconnesso) — mostriamo la notifica di sistema.
 const PUSH_ACK_TIMEOUT_MS = 400
 
-function askVisibleClients(clients, unreadCount) {
+function askVisibleClients(clients, unreadCount, data) {
   return new Promise((resolve) => {
     let settled = false
     let onMessage = () => {}
@@ -134,7 +134,7 @@ function askVisibleClients(clients, unreadCount) {
     for (const client of clients) {
       const isVisible = client.visibilityState === 'visible'
       try {
-        client.postMessage({ type: 'PUSH_RECEIVED', unreadCount, ack: isVisible })
+        client.postMessage({ type: 'PUSH_RECEIVED', unreadCount, ack: isVisible, data })
       } catch {}
     }
 
@@ -144,7 +144,7 @@ function askVisibleClients(clients, unreadCount) {
 }
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Portale PFC', body: '', url: '/', tag: 'pfc-notification', unreadCount: 0 }
+  let payload = { title: 'Portale PFC', body: '', url: '/', tag: 'pfc-notification', unreadCount: 0, data: {} }
   try {
     if (event.data) {
       payload = { ...payload, ...event.data.json() }
@@ -163,7 +163,7 @@ self.addEventListener('push', (event) => {
       // Aggiornamento immediato badge UI sulle pagine aperte + conferma (PUSH_ACK)
       // da parte di una finestra visibile che gestirà la notifica in-app.
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-      const handledByPage = await askVisibleClients(clients, unreadCount)
+      const handledByPage = await askVisibleClients(clients, unreadCount, payload.data)
 
       if (handledByPage) return
 
