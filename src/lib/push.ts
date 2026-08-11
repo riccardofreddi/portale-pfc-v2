@@ -104,7 +104,11 @@ export async function sendPushToUser(
         webpush.sendNotification(toSubscription(s), body, {
           TTL: 60 * 60 * 24,
           urgency: 'high',
-          timeout: 5000,
+          // Niente timeout: il timeout di web-push chiama destroy() sul socket a metà
+          // richiesta; su Vercel (cold start, handshake TLS lento verso FCM) scatta
+          // ECONNRESET "socket hang up" e fa fallire TUTTI gli invii. Il push service
+          // risponde comunque sempre (anche 404/410 per endpoint rimossi) e maxDuration
+          // limita la durata dell'after().
         })
       )
     )
@@ -117,8 +121,8 @@ export async function sendPushToUser(
         success++
         console.log('[PUSH] Invio OK per endpoint', i, '-', subs[i].endpoint.substring(0, 60) + '...')
       } else {
-        const err = r.reason as { statusCode?: number; message?: string; body?: unknown; headers?: unknown }
-        console.error('[PUSH] Invio FALLITO per endpoint', i, '- status:', err?.statusCode, '- message:', err?.message, '- body:', JSON.stringify(err?.body)?.substring(0, 300), '- headers:', JSON.stringify(err?.headers)?.substring(0, 300))
+        const err = r.reason as { statusCode?: number; message?: string; body?: unknown; headers?: unknown; code?: string }
+        console.error('[PUSH] Invio FALLITO per endpoint', i, '- status:', err?.statusCode, '- code:', err?.code, '- message:', err?.message, '- body:', JSON.stringify(err?.body)?.substring(0, 300), '- headers:', JSON.stringify(err?.headers)?.substring(0, 300))
         // 404/410 = subscription rimossa dal dispositivo; 401/403 = subscription orfana o
         // creata con chiavi VAPID diverse. In ogni caso non è più consegnabile: va ripulita.
         if (
@@ -181,7 +185,7 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
         }), {
           TTL: 60 * 60 * 24,
           urgency: 'high',
-          timeout: 5000,
+          // Niente timeout: vedi commento in sendPushToUser.
         })
       )
     )
