@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   const scadenze = await db.scadenza.findMany({
     where: {
       userId: user.id,
+      pagata: false,
       dataScadenza: { gte: new Date() },
     },
     orderBy: { dataScadenza: 'asc' },
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
       filePath: s.filePath,
       dataScadenza: s.dataScadenza,
       anticipoGiorni: s.anticipoGiorni,
+      pagata: s.pagata,
     })),
   })
 }

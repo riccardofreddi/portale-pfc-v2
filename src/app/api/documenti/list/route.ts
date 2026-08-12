@@ -125,6 +125,7 @@ export async function GET(req: NextRequest) {
             titolo: scadenzaMap.get(f.key)!.titolo,
             dataScadenza: scadenzaMap.get(f.key)!.dataScadenza,
             anticipoGiorni: scadenzaMap.get(f.key)!.anticipoGiorni,
+            pagata: scadenzaMap.get(f.key)!.pagata,
           }
         : null,
     }))
@@ -147,6 +148,7 @@ export async function GET(req: NextRequest) {
             titolo: scadenzaMapAdmin.get(f.key)!.titolo,
             dataScadenza: scadenzaMapAdmin.get(f.key)!.dataScadenza,
             anticipoGiorni: scadenzaMapAdmin.get(f.key)!.anticipoGiorni,
+            pagata: scadenzaMapAdmin.get(f.key)!.pagata,
           }
         : null,
     }))

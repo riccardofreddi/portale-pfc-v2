@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { cn } from '@/lib/utils'
 import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
@@ -47,7 +48,7 @@ export function TabGestioneClienti() {
   const [deleteBulkTarget, setDeleteBulkTarget] = useState<{ anno: string; cartella?: string } | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
   const [renameNewName, setRenameNewName] = useState('')
-  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean } | null>(null)
+  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean } | null>(null)
   const [scadenzaData, setScadenzaData] = useState('')
   const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
   const [scadenzaSaving, setScadenzaSaving] = useState(false)
@@ -219,7 +220,7 @@ export function TabGestioneClienti() {
 
   function openScadenza(f: { key: string; nome: string }) {
     // Se il file ha già una scadenza (passata dalla lista), precompila i campi.
-    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number } }).scadenza
+    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean } }).scadenza
     let dataIniziale = ''
     let anticipoIniziale = 10
     if (scad) {
@@ -230,7 +231,7 @@ export function TabGestioneClienti() {
       }
       anticipoIniziale = scad.anticipoGiorni
     }
-    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad })
+    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false })
     setScadenzaData(dataIniziale)
     setScadenzaAnticipo(String(anticipoIniziale))
   }
@@ -622,6 +623,43 @@ export function TabGestioneClienti() {
                 <Input type="number" min={1} max={365} value={scadenzaAnticipo} onChange={(e) => setScadenzaAnticipo(e.target.value)} />
               </div>
             </div>
+            {scadenzaTarget?.had && (
+              <div className="flex items-center gap-2 text-sm">
+                <Label className="text-slate-600">Stato pagamento</Label>
+                <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold', scadenzaTarget.pagata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                  {scadenzaTarget.pagata ? '✅ Pagata' : '⏰ Da pagare'}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  disabled={scadenzaSaving}
+                  onClick={async () => {
+                    if (!scadenzaTarget) return
+                    setScadenzaSaving(true)
+                    try {
+                      const res = await fetch('/api/documenti/scadenza/paga', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filePath: scadenzaTarget.key, pagata: !scadenzaTarget.pagata }),
+                      })
+                      if (!res.ok) throw new Error('Errore')
+                      const data = await res.json()
+                      setScadenzaTarget((t) => (t ? { ...t, pagata: data.pagata } : t))
+                      toast.success(data.pagata ? 'Scadenza segnata come pagata' : 'Pagamento annullato')
+                      if (selectedCliente) await loadArchivioCliente(selectedCliente)
+                    } catch {
+                      toast.error('Errore aggiornamento stato')
+                    } finally {
+                      setScadenzaSaving(false)
+                    }
+                  }}
+                >
+                  {scadenzaTarget.pagata ? 'Segna come non pagata' : 'Segna come pagata'}
+                </Button>
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setScadenzaTarget(null)}>Annulla</Button>

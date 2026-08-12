@@ -7,7 +7,7 @@ import { ClienteArchivio } from './cliente/ClienteArchivio'
 import { ClienteMessaggi } from './cliente/ClienteMessaggi'
 import { ClienteCassetto } from './cliente/ClienteCassetto'
 import { ClienteAttivita } from './cliente/ClienteAttivita'
-import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Trash2, BellRing, X, CalendarClock } from 'lucide-react'
+import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Trash2, BellRing, X, CalendarClock, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -59,8 +59,9 @@ export function ClienteArea() {
   const [nMsgNonLetti, setNMsgNonLetti] = useState(0)
   const [avvisi, setAvvisi] = useState<Array<{ id: string; text: string; timestamp: string }>>([])
   const avvisiRef = useRef<HTMLDivElement | null>(null)
-  const [scadenze, setScadenze] = useState<Array<{ id: string; titolo: string; filePath: string; dataScadenza: string; anticipoGiorni: number }>>([])
+  const [scadenze, setScadenze] = useState<Array<{ id: string; titolo: string; filePath: string; dataScadenza: string; anticipoGiorni: number; pagata: boolean }>>([])
   const [scadenzeHidden, setScadenzeHidden] = useState(false)
+  const [scadenzaPagataLoading, setScadenzaPagataLoading] = useState<string | null>(null)
 
   // Badge numerico su icona app + suono in-app per nuove notifiche
   useNotificationBadge(!!user)
@@ -81,6 +82,26 @@ export function ClienteArea() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Errore attivazione notifiche'
       toast.error(msg)
+    }
+  }
+
+  // Il cliente conferma il pagamento: la scadenza sparisce dal banner.
+  async function handleScadenzaPagata(s: { id: string; filePath: string }) {
+    setScadenzaPagataLoading(s.id)
+    try {
+      const res = await fetch('/api/documenti/scadenza/paga', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: s.filePath, pagata: true }),
+      })
+      if (!res.ok) throw new Error('Errore')
+      // Rimuove subito la scadenza dal banner (ottimistico).
+      setScadenze((prev) => prev.filter((x) => x.id !== s.id))
+      toast.success('Pagamento registrato ✅')
+    } catch {
+      toast.error('Impossibile registrare il pagamento')
+    } finally {
+      setScadenzaPagataLoading(null)
     }
   }
 
@@ -105,7 +126,7 @@ export function ClienteArea() {
       const r = await fetch('/api/documenti/scadenza/list')
       if (!r.ok) return
       const data = await r.json()
-      setScadenze((data.scadenze as Array<{ id: string; titolo: string; filePath: string; dataScadenza: string; anticipoGiorni: number }>) ?? [])
+      setScadenze((data.scadenze as Array<{ id: string; titolo: string; filePath: string; dataScadenza: string; anticipoGiorni: number; pagata: boolean }>) ?? [])
     } catch {}
   }
 
@@ -442,13 +463,24 @@ export function ClienteArea() {
                 {scadenze.map((s) => {
                   const giorni = Math.ceil((new Date(s.dataScadenza).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
                   const quando = giorni <= 0 ? 'oggi' : `tra ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`
+                  const loading = scadenzaPagataLoading === s.id
                   return (
                     <li key={s.id} className="text-sm text-amber-900 flex items-center justify-between gap-2">
-                      <span className="truncate">⏰ {s.titolo}</span>
-                      <span className="font-medium whitespace-nowrap">
-                        {new Date(s.dataScadenza).toLocaleDateString('it-IT')}
-                        <span className="text-amber-600 font-normal"> · {quando}</span>
+                      <span className="truncate flex items-center gap-1.5">
+                        ⏰ {s.titolo}
+                        <span className="font-medium text-amber-600 font-normal whitespace-nowrap">
+                          {new Date(s.dataScadenza).toLocaleDateString('it-IT')} · {quando}
+                        </span>
                       </span>
+                      <button
+                        onClick={() => handleScadenzaPagata(s)}
+                        disabled={loading}
+                        className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2 py-1 border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+                        title="Segna come pagato: la scadenza sparisce dal promemoria"
+                      >
+                        {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        Pagato
+                      </button>
                     </li>
                   )
                 })}

@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
     const scadenze = await db.scadenza.findMany({
       where: {
         notificata: false,
+        pagata: false,
         dataScadenza: { gte: oggi },
       },
       include: { user: { select: { username: true, name: true } } },
