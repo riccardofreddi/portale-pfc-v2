@@ -44,11 +44,19 @@ export async function POST(req: NextRequest) {
     // Filtro opzionale per tipo (es. ?tipi=messaggio,richiesta_upload): permette di
     // segnare come lette SOLO certe notifiche senza azzerare avvisi/documenti.
     const tipi = searchParams.get('tipi')?.split(',').filter(Boolean) ?? null
+    const year = searchParams.get('year')
+    const folder = searchParams.get('folder')
     if (id) {
       await db.notification.updateMany({ where: { id, userId: user.id }, data: { read: true } })
     } else {
       await db.notification.updateMany({
-        where: { userId: user.id, read: false, ...(tipi ? { type: { in: tipi } } : {}) },
+        where: {
+          userId: user.id,
+          read: false,
+          ...(tipi ? { type: { in: tipi } } : {}),
+          ...(year ? { year } : {}),
+          ...(folder ? { folder } : {}),
+        },
         data: { read: true },
       })
     }

@@ -1,4 +1,4 @@
-﻿/** API client minimale per il frontend. */
+/** API client minimale per il frontend. */
 
 async function apiFetch<T = unknown>(url: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -68,9 +68,11 @@ export const api = {
   },
   notifiche: {
     list: () => apiFetch<{ notifiche: Array<Record<string, unknown>> }>('/api/notifiche'),
-    segnaLette: (tipi?: string[]) => {
+    segnaLette: (tipi?: string[], year?: string, folder?: string) => {
       const q = new URLSearchParams({ action: 'segna_lette' })
       if (tipi?.length) q.set('tipi', tipi.join(','))
+      if (year) q.set('year', year)
+      if (folder) q.set('folder', folder)
       return apiFetch(`/api/notifiche?${q}`, { method: 'POST' })
     },
     segnaLetta: (id: string) =>

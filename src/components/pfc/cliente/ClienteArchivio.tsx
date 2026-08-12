@@ -266,6 +266,18 @@ export function ClienteArchivio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, annoSelezionato, cartellaSelezionata])
 
+  // ─── SEGNA NOTIFICHE COME LETTE AUTOMATICAMENTE AL VIEW DELLA CARTELLA ──────
+  // Quando l'utente visualizza una cartella specifica, segna le relative notifiche
+  // di nuovo documento come lette sul server e aggiorna i badge della UI in tempo reale.
+  useEffect(() => {
+    if (!username || !annoSelezionato || !cartellaSelezionata) return
+    api.notifiche.segnaLette(['documento_nuovo'], annoSelezionato, cartellaSelezionata)
+      .then(() => {
+        window.dispatchEvent(new Event('pfc-documenti-visti'))
+      })
+      .catch(() => {})
+  }, [username, annoSelezionato, cartellaSelezionata])
+
   // ─── HANDLERS cambio anno/cartella (istantanei se in cache) ─────────────────
   function handleAnnoClick(anno: string) {
     if (anno === annoSelezionato) return
