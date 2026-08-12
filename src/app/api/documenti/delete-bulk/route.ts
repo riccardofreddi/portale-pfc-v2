@@ -7,6 +7,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
+import { db } from '@/lib/db'
 import { listaOggetti, caricaBytes, salvaBytes, eliminaOggetto, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
 
 export const dynamic = 'force-dynamic'
@@ -65,6 +66,9 @@ export async function POST(req: NextRequest) {
         })
       )
     }
+
+    // Rimuovi le eventuali scadenze collegate ai file eliminati.
+    await db.scadenza.deleteMany({ where: { filePath: { in: objs.map(o => o.key) } } }).catch(() => {})
 
     const target = cartella ? `cartella ${cartella}` : `anno ${anno}`
     await logAudit(session.sub, 'DELETE_BULK', `${username} - ${target} (${deleted} file)`)

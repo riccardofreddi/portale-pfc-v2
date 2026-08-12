@@ -49,6 +49,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nessun file ricevuto' }, { status: 400 })
     }
 
+    // Scadenze per-file: mappa "nomeFile" -> { data, anticipo } (opzionale).
+    // Permette all'admin di impostare una data di scadenza diversa per ciascun
+    // documento caricato (es. vari F24 con date diverse).
+    let scadenzeInput: Record<string, { data: string; anticipo?: number }> = {}
+    try {
+      const raw = String(formData.get('scadenze') ?? '').trim()
+      if (raw) scadenzeInput = JSON.parse(raw)
+    } catch {
+      return NextResponse.json({ error: 'Formato scadenze non valido' }, { status: 400 })
+    }
+
     const prefix = `${DOCS_PREFIX}/${username}/${anno}/${cartella}/`
     const existingObjs = await listaOggetti(prefix)
     const existingNames = new Set(existingObjs.map((o) => o.key.slice(prefix.length)))
@@ -123,8 +134,39 @@ export async function POST(req: NextRequest) {
       results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'caricato' })
     }
 
+    // Crea le scadenze per i file appena caricati (se l'admin le ha indicate).
+    // La mappa scadenzeInput è per nome file finale; matchiamo sui risultati.
+    const nCaricati = results.filter(
+      (r) => r.status === 'caricato' || r.status === 'rinominato' || r.status === 'sostituito'
+    )
+    if (Object.keys(scadenzeInput).length > 0 && nCaricati.length > 0) {
+      for (const r of nCaricati) {
+        const spec = scadenzeInput[r.nome]
+        if (!spec) continue
+        const data = new Date(String(spec.data))
+        if (isNaN(data.getTime())) continue
+        await db.scadenza.upsert({
+          where: { filePath: r.key },
+          create: {
+            filePath: r.key,
+            userId: cliente.id,
+            titolo: r.nome,
+            dataScadenza: data,
+            anticipoGiorni: Number.isFinite(Number(spec.anticipo)) ? Number(spec.anticipo) : 10,
+            notificata: false,
+          },
+          update: {
+            titolo: r.nome,
+            dataScadenza: data,
+            anticipoGiorni: Number.isFinite(Number(spec.anticipo)) ? Number(spec.anticipo) : 10,
+            notificata: false,
+          },
+        })
+      }
+    }
+
     let pushSent = 0
-    if (results.some((r) => r.status === 'caricato' || r.status === 'rinominato' || r.status === 'sostituito')) {
+    if (nCaricati.length > 0) {
       await db.notification.create({
         data: {
           userId: cliente.id,

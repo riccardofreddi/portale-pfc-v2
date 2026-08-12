@@ -2,6 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["fra1"],
+  "crons": [
+    {
+      "path": "/api/scadenze/check",
+      "schedule": "7 0 * * *"
+    }
+  ],
   "functions": {
     "src/app/api/documenti/upload/route.ts": { "maxDuration": 60 },
     "src/app/api/documenti/zip/route.ts": { "maxDuration": 60 },
@@ -10,6 +16,7 @@
     "src/app/api/clienti/route.ts": { "maxDuration": 60 },
     "src/app/api/resoconto/route.ts": { "maxDuration": 60 },
     "src/app/api/sistema/diagnostica/route.ts": { "maxDuration": 60 },
-    "src/app/api/audit/route.ts": { "maxDuration": 30 }
+    "src/app/api/audit/route.ts": { "maxDuration": 30 },
+    "src/app/api/scadenze/check/route.ts": { "maxDuration": 60 }
   }
 }

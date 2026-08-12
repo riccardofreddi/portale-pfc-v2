@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
-import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, EyeOff, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight, Edit2 } from 'lucide-react'
+import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, EyeOff, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight, Edit2, CalendarClock } from 'lucide-react'
 import { formatBytes, ottieniIconaFile, canPreviewFile, formatDateShort, MAX_FILE_SIZE_MB } from '@/lib/pfc-utils'
 
 interface Cliente { username: string; name: string; exemptMaintenance: boolean; createdAt: string }
@@ -47,6 +47,10 @@ export function TabGestioneClienti() {
   const [deleteBulkTarget, setDeleteBulkTarget] = useState<{ anno: string; cartella?: string } | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
   const [renameNewName, setRenameNewName] = useState('')
+  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean } | null>(null)
+  const [scadenzaData, setScadenzaData] = useState('')
+  const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
+  const [scadenzaSaving, setScadenzaSaving] = useState(false)
   const [openCassetto, setOpenCassetto] = useState(false)
 
   const [uploadTipo, setUploadTipo] = useState('')
@@ -213,6 +217,69 @@ export function TabGestioneClienti() {
     }
   }
 
+  function openScadenza(f: { key: string; nome: string }) {
+    // Se il file ha già una scadenza (passata dalla lista), precompila i campi.
+    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number } }).scadenza
+    let dataIniziale = ''
+    let anticipoIniziale = 10
+    if (scad) {
+      // dataScadenza arriva come stringa ISO dal JSON della fetch
+      const d = new Date(scad.dataScadenza)
+      if (!isNaN(d.getTime())) {
+        dataIniziale = d.toISOString().slice(0, 10)
+      }
+      anticipoIniziale = scad.anticipoGiorni
+    }
+    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad })
+    setScadenzaData(dataIniziale)
+    setScadenzaAnticipo(String(anticipoIniziale))
+  }
+
+  async function handleSaveScadenza() {
+    if (!scadenzaTarget) return
+    if (!scadenzaData.trim()) { toast.error('Inserisci una data di scadenza'); return }
+    setScadenzaSaving(true)
+    try {
+      const res = await fetch('/api/documenti/scadenza', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filePath: scadenzaTarget.key,
+          titolo: scadenzaTarget.nome,
+          dataScadenza: scadenzaData,
+          anticipoGiorni: Number(scadenzaAnticipo) || 10,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore ' + res.status)
+      }
+      toast.success(`Promemoria impostato per ${scadenzaTarget.nome}`)
+      setScadenzaTarget(null)
+      if (selectedCliente) await loadArchivioCliente(selectedCliente)
+    } catch (err) {
+      toast.error('Errore scadenza: ' + (err instanceof Error ? err.message : 'errore'))
+    } finally {
+      setScadenzaSaving(false)
+    }
+  }
+
+  async function handleRemoveScadenza() {
+    if (!scadenzaTarget) return
+    setScadenzaSaving(true)
+    try {
+      const res = await fetch(`/api/documenti/scadenza?filePath=${encodeURIComponent(scadenzaTarget.key)}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Errore ' + res.status)
+      toast.success('Promemoria rimosso')
+      setScadenzaTarget(null)
+      if (selectedCliente) await loadArchivioCliente(selectedCliente)
+    } catch {
+      toast.error('Errore rimozione promemoria')
+    } finally {
+      setScadenzaSaving(false)
+    }
+  }
+
   async function handleDownload(key: string, nome: string) {
     try {
       const res = await fetch(`/api/documenti/download?key=${encodeURIComponent(key)}`)
@@ -373,6 +440,10 @@ export function TabGestioneClienti() {
                                               {canPreviewFile(f.nome) && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'nuovo', isPreferito: false })}><Eye className="h-3 w-3" /></Button>}
                                               <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3 w-3" /></Button>
 <Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
+{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number } }).scadenza && (
+                                                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium">⏰ {new Date((f as unknown as { scadenza: { dataScadenza: string } }).scadenza.dataScadenza).toLocaleDateString('it-IT')}</span>
+                                              )}
+                                              <Button variant="outline" size="sm" className="text-amber-700 border-amber-300" onClick={() => openScadenza(f)}><CalendarClock className="h-3 w-3" /></Button>
                                               <AlertDialog>
                                                 <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="text-red-600"><Trash2 className="h-3 w-3" /></Button></AlertDialogTrigger>
                                                 <AlertDialogContent>
@@ -526,6 +597,42 @@ export function TabGestioneClienti() {
           <DialogFooter>
             <Button variant='outline' onClick={() => setRenameTarget(null)}>Annulla</Button>
             <Button onClick={handleRename} disabled={!renameNewName.trim() || renameNewName === renameTarget?.nome} className='bg-emerald-700 hover:bg-emerald-800 text-white'>Salva</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog promemoria scadenza */}
+      <Dialog open={!!scadenzaTarget} onOpenChange={(o) => !o && setScadenzaTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-amber-600" /> Promemoria scadenza</DialogTitle>
+            <DialogDescription>
+              Il cliente riceverà una notifica push N giorni prima della scadenza (anche se non è loggato).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-slate-500">File: <span className="font-mono break-all">{scadenzaTarget?.nome}</span></p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Data scadenza</Label>
+                <Input type="date" value={scadenzaData} onChange={(e) => setScadenzaData(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Avvisa N giorni prima</Label>
+                <Input type="number" min={1} max={365} value={scadenzaAnticipo} onChange={(e) => setScadenzaAnticipo(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setScadenzaTarget(null)}>Annulla</Button>
+            {scadenzaTarget?.had && (
+              <Button variant="outline" className="text-red-600 border-red-300" onClick={handleRemoveScadenza} disabled={scadenzaSaving}>
+                Rimuovi
+              </Button>
+            )}
+            <Button onClick={handleSaveScadenza} disabled={scadenzaSaving || !scadenzaData.trim()} className="bg-amber-600 hover:bg-amber-700 text-white">
+              {scadenzaSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null} Salva promemoria
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

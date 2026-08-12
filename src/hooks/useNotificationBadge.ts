@@ -194,6 +194,8 @@ function getNotifIcon(type: string): string {
       return "📄"
     case "upload_confermato":
       return "✅"
+    case "scadenza":
+      return "⏰"
     default:
       return "🔔"
   }
@@ -211,6 +213,8 @@ function getNotifTitle(type: string): string {
       return "Nuovo documento disponibile"
     case "upload_confermato":
       return "Upload confermato"
+    case "scadenza":
+      return "Scadenza imminente"
     default:
       return "Portale PFC"
   }

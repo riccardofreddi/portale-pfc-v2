@@ -7,7 +7,7 @@ import { ClienteArchivio } from './cliente/ClienteArchivio'
 import { ClienteMessaggi } from './cliente/ClienteMessaggi'
 import { ClienteCassetto } from './cliente/ClienteCassetto'
 import { ClienteAttivita } from './cliente/ClienteAttivita'
-import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Trash2, BellRing, X } from 'lucide-react'
+import { FolderOpen, MessageSquare, Bell, Briefcase, ClipboardList, ChevronDown, ChevronRight, Trash2, BellRing, X, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -59,6 +59,8 @@ export function ClienteArea() {
   const [nMsgNonLetti, setNMsgNonLetti] = useState(0)
   const [avvisi, setAvvisi] = useState<Array<{ id: string; text: string; timestamp: string }>>([])
   const avvisiRef = useRef<HTMLDivElement | null>(null)
+  const [scadenze, setScadenze] = useState<Array<{ id: string; titolo: string; filePath: string; dataScadenza: string; anticipoGiorni: number }>>([])
+  const [scadenzeHidden, setScadenzeHidden] = useState(false)
 
   // Badge numerico su icona app + suono in-app per nuove notifiche
   useNotificationBadge(!!user)
@@ -98,9 +100,19 @@ export function ClienteArea() {
     } catch {}
   }
 
+  async function loadScadenze() {
+    try {
+      const r = await fetch('/api/documenti/scadenza/list')
+      if (!r.ok) return
+      const data = await r.json()
+      setScadenze((data.scadenze as Array<{ id: string; titolo: string; filePath: string; dataScadenza: string; anticipoGiorni: number }>) ?? [])
+    } catch {}
+  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadNotifiche()
+    loadScadenze()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, clienteTab])
 
@@ -169,6 +181,7 @@ export function ClienteArea() {
     }
     const onFocus = () => {
       loadNotifiche()
+      loadScadenze()
       if (usePfcStore.getState().clienteTab === 'archivio') {
         window.dispatchEvent(new Event('pfc-archivio-refresh'))
       }
@@ -404,6 +417,42 @@ export function ClienteArea() {
                     </p>
                   )}
                 </div>
+            </div>
+          </div>
+        )}
+
+        {/* Banner scadenze imminenti */}
+        {scadenze.length > 0 && !scadenzeHidden && (
+          <div className="space-y-2 mb-6">
+            <div className="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-lg p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs text-amber-700 font-semibold flex items-center gap-1.5">
+                  <CalendarClock className="h-3.5 w-3.5" /> Scadenze imminenti
+                </p>
+                <button
+                  onClick={() => setScadenzeHidden(true)}
+                  className="text-amber-500 hover:text-amber-700"
+                  aria-label="Nascondi scadenze"
+                  title="Nascondi"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <ul className="mt-1.5 space-y-1">
+                {scadenze.map((s) => {
+                  const giorni = Math.ceil((new Date(s.dataScadenza).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+                  const quando = giorni <= 0 ? 'oggi' : `tra ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`
+                  return (
+                    <li key={s.id} className="text-sm text-amber-900 flex items-center justify-between gap-2">
+                      <span className="truncate">⏰ {s.titolo}</span>
+                      <span className="font-medium whitespace-nowrap">
+                        {new Date(s.dataScadenza).toLocaleDateString('it-IT')}
+                        <span className="text-amber-600 font-normal"> · {quando}</span>
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
           </div>
         )}

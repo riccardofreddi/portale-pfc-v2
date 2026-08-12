@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
-import { UploadCloud, FileText, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { UploadCloud, FileText, Loader2, AlertTriangle, CheckCircle2, CalendarClock } from 'lucide-react'
 import { formatBytes, MAX_FILE_SIZE_MB } from '@/lib/pfc-utils'
 
 interface Cliente { username: string; name: string }
@@ -27,6 +27,8 @@ export function TabInvioDocumenti() {
   const [cartellaNuova, setCartellaNuova] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [mode, setMode] = useState<'rename' | 'versioning' | 'skip'>('rename')
+  const [scadenzaData, setScadenzaData] = useState('')
+  const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
   const [uploading, setUploading] = useState(false)
   const [results, setResults] = useState<UploadResult[] | null>(null)
   const [cartelleDisponibili, setCartelleDisponibili] = useState<string[]>([])
@@ -81,6 +83,16 @@ export function TabInvioDocumenti() {
       formData.append('cartella', cartellaFinale)
       formData.append('mode', mode)
       for (const f of files) formData.append('files', f)
+      // Scadenza: se impostata una data, la applichiamo a tutti i file caricati
+      // (1 scadenza per file, come previsto dal modello Scadenza).
+      if (scadenzaData.trim()) {
+        const mappa: Record<string, { data: string; anticipo: number }> = {}
+        for (const f of files) mappa[f.name] = {
+          data: scadenzaData,
+          anticipo: Number(scadenzaAnticipo) || 10,
+        }
+        formData.append('scadenze', JSON.stringify(mappa))
+      }
       const res = await api.documenti.upload(formData)
       const r = (res.results ?? []) as unknown as UploadResult[]
       setResults(r)
@@ -197,6 +209,28 @@ export function TabInvioDocumenti() {
             </div>
           )}
         </div>
+        {files.length > 0 && (
+          <div className="space-y-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-amber-600" />
+              <Label className="text-sm font-semibold text-amber-800">Promemoria scadenza (opzionale)</Label>
+            </div>
+            <p className="text-xs text-amber-700">
+              Imposta una data di scadenza per i file caricati: il cliente riceverà una notifica push
+              (anche se non è loggato) N giorni prima. Una scadenza per ogni file.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-500 mb-1 block">Data scadenza</Label>
+                <Input type="date" value={scadenzaData} onChange={(e) => setScadenzaData(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500 mb-1 block">Avvisa N giorni prima</Label>
+                <Input type="number" min={1} max={365} value={scadenzaAnticipo} onChange={(e) => setScadenzaAnticipo(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        )}
         {files.length > 0 && (
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-slate-700">Comportamento per file con nome esistente</Label>

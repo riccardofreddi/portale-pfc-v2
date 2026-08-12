@@ -114,7 +114,20 @@ export async function GET(req: NextRequest) {
         // Arricchisci con data caricamento effettiva (UploadDate)
     const uploadDates = await db.uploadDate.findMany({ where: { filePath: { in: files.map(f => f.key) } } })
     const uploadDateMap = new Map(uploadDates.map(u => [u.filePath, u.ts]))
-    const enrichedWithDate = enriched.map(f => ({ ...f, uploadDate: uploadDateMap.get(f.key) || null }))
+    const scadenze = await db.scadenza.findMany({ where: { filePath: { in: files.map(f => f.key) } } })
+    const scadenzaMap = new Map(scadenze.map(s => [s.filePath, s]))
+    const enrichedWithDate = enriched.map(f => ({
+      ...f,
+      uploadDate: uploadDateMap.get(f.key) || null,
+      scadenza: scadenzaMap.has(f.key)
+        ? {
+            id: scadenzaMap.get(f.key)!.id,
+            titolo: scadenzaMap.get(f.key)!.titolo,
+            dataScadenza: scadenzaMap.get(f.key)!.dataScadenza,
+            anticipoGiorni: scadenzaMap.get(f.key)!.anticipoGiorni,
+          }
+        : null,
+    }))
     return NextResponse.json({ files: enrichedWithDate })
       }
     }
@@ -123,7 +136,20 @@ export async function GET(req: NextRequest) {
     // Arricchisci con data caricamento effettiva (UploadDate) - admin
     const uploadDatesAdmin = await db.uploadDate.findMany({ where: { filePath: { in: files.map(f => f.key) } } })
     const uploadDateMapAdmin = new Map(uploadDatesAdmin.map(u => [u.filePath, u.ts]))
-    const filesWithDate = files.map(f => ({ ...f, uploadDate: uploadDateMapAdmin.get(f.key) || null }))
+    const scadenzeAdmin = await db.scadenza.findMany({ where: { filePath: { in: files.map(f => f.key) } } })
+    const scadenzaMapAdmin = new Map(scadenzeAdmin.map(s => [s.filePath, s]))
+    const filesWithDate = files.map(f => ({
+      ...f,
+      uploadDate: uploadDateMapAdmin.get(f.key) || null,
+      scadenza: scadenzaMapAdmin.has(f.key)
+        ? {
+            id: scadenzaMapAdmin.get(f.key)!.id,
+            titolo: scadenzaMapAdmin.get(f.key)!.titolo,
+            dataScadenza: scadenzaMapAdmin.get(f.key)!.dataScadenza,
+            anticipoGiorni: scadenzaMapAdmin.get(f.key)!.anticipoGiorni,
+          }
+        : null,
+    }))
     return NextResponse.json({ files: filesWithDate })
   } catch (err) {
     console.error('[documenti/list] errore:', err)
