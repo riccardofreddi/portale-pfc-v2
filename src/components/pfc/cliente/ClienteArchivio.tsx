@@ -88,9 +88,9 @@ export function ClienteArchivio() {
   }, [searchQuery, username])
 
   // ─── LOAD FILES per cartella (con cache) ────────────────────────────────────
-  const loadFiles = useCallback(async (anno: string, cartella: string) => {
+  const loadFiles = useCallback(async (anno: string, cartella: string, force = false) => {
     const cacheKey = `${anno}::${cartella}`
-    if (globalCache.owner === username && globalCache.files[cacheKey]) {
+    if (!force && globalCache.owner === username && globalCache.files[cacheKey]) {
       setFiles(globalCache.files[cacheKey])
       setPage(1)
       clearSelected()
@@ -111,8 +111,8 @@ export function ClienteArchivio() {
   }, [username, clearSelected])
 
   // ─── LOAD CARTELLE per anno (con cache) ─────────────────────────────────────
-  const loadCartelle = useCallback(async (anno: string, cartellaTarget?: string | null) => {
-    if (globalCache.owner === username && globalCache.cartelle[anno]) {
+  const loadCartelle = useCallback(async (anno: string, cartellaTarget?: string | null, force = false) => {
+    if (!force && globalCache.owner === username && globalCache.cartelle[anno]) {
       const carts = globalCache.cartelle[anno]
       setCartelle(carts)
       const target = cartellaTarget ?? (carts.length > 0 ? carts[0].nome : null)
@@ -138,7 +138,7 @@ export function ClienteArchivio() {
       if (target) {
         lastFolderNavRef.current = `${anno}::${target}`
         setCartella(target)
-        await loadFiles(anno, target)
+        await loadFiles(anno, target, force)
       } else {
         setCartella(null)
         setFiles([])
@@ -219,6 +219,20 @@ export function ClienteArchivio() {
     setTimeout(() => loadFiles(annoSelezionato, cartellaSelezionata), 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, annoSelezionato, cartellaSelezionata, loadFiles])
+
+  // ─── REFRESH LIVE (push documento ricevuta con app già a video) ──────────────
+  // ClienteArea dispatches 'pfc-archivio-refresh' quando arriva una notifica
+  // documento / badge update mentre siamo sulla tab Archivio: ricarica cartelle
+  // (badge +N) e file della cartella aperta BYPASSANDO la cache, così il nuovo
+  // documento compare subito senza dover ricaricare la pagina.
+  useEffect(() => {
+    const onRefresh = () => {
+      if (!annoSelezionato) return
+      loadCartelle(annoSelezionato, cartellaSelezionata, true)
+    }
+    window.addEventListener('pfc-archivio-refresh', onRefresh)
+    return () => window.removeEventListener('pfc-archivio-refresh', onRefresh)
+  }, [annoSelezionato, cartellaSelezionata, loadCartelle])
 
   // ─── HANDLERS cambio anno/cartella (istantanei se in cache) ─────────────────
   function handleAnnoClick(anno: string) {

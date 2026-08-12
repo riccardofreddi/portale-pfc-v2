@@ -160,6 +160,11 @@ export function ClienteArea() {
         if (usePfcStore.getState().clienteTab === 'messaggi') {
           window.dispatchEvent(new Event('pfc-messaggi-refresh'))
         }
+        // Se siamo GIÀ sulla tab Archivio, ricarica cartelle e file della cartella
+        // aperta: il documento caricato dall'admin compare subito (niente reload).
+        if (usePfcStore.getState().clienteTab === 'archivio') {
+          window.dispatchEvent(new Event('pfc-archivio-refresh'))
+        }
       }
     }
     const onFocus = () => loadNotifiche()

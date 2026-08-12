@@ -66,7 +66,7 @@ export function TabGestioneClienti() {
   async function handleDeleteBulk(anno: string, cartella?: string) {
     if (!selectedCliente) return
     const target = cartella ? 'cartella ' + cartella : 'anno ' + anno
-    if (!confirm('Eliminare tutta la ' + target + ' di ' + selectedCliente + '? I file verranno spostati nel cestino.')) return
+    // La conferma è già nell'AlertDialog centrato: nessun window.confirm() in più.
     try {
       const res = await fetch('/api/documenti/delete-bulk', {
         method: 'POST',
