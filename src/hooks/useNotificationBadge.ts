@@ -121,6 +121,11 @@ export function useNotificationBadge(enabled: boolean) {
     const onMessaggiLetti = () => checkAndUpdate()
     window.addEventListener("pfc-messaggi-letti", onMessaggiLetti)
 
+    // Documento aperto in anteprima o scaricato: il server segna lette le
+    // notifiche "documento_nuovo" → aggiorna subito il badge della campanella.
+    const onDocumentiVisti = () => checkAndUpdate()
+    window.addEventListener("pfc-documenti-visti", onDocumentiVisti)
+
     // Comunicazione dal Service Worker: quando arriva una push,
     // aggiorna immediatamente badge e conteggio (senza aspettare il polling)
     const onSwMessage = (event: MessageEvent) => {
@@ -162,6 +167,7 @@ export function useNotificationBadge(enabled: boolean) {
       document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("focus", onFocus)
       window.removeEventListener("pfc-messaggi-letti", onMessaggiLetti)
+      window.removeEventListener("pfc-documenti-visti", onDocumentiVisti)
       navigator.serviceWorker?.removeEventListener("message", onSwMessage)
       if ("clearAppBadge" in navigator) {
         ;(navigator as Navigator & {

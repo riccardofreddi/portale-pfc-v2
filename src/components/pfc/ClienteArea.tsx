@@ -172,17 +172,22 @@ export function ClienteArea() {
       if (document.visibilityState === 'visible') loadNotifiche()
     }
     const onMessaggiLetti = () => loadNotifiche()
+    // Documento aperto in anteprima o scaricato: ricarica subito l'elenco
+    // notifiche (le "documento_nuovo" sono già state segnate lette dal server).
+    const onDocumentiVisti = () => loadNotifiche()
 
     navigator.serviceWorker?.addEventListener('message', onSwMessage)
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('pfc-messaggi-letti', onMessaggiLetti)
+    window.addEventListener('pfc-documenti-visti', onDocumentiVisti)
 
     return () => {
       navigator.serviceWorker?.removeEventListener('message', onSwMessage)
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('pfc-messaggi-letti', onMessaggiLetti)
+      window.removeEventListener('pfc-documenti-visti', onDocumentiVisti)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, setClienteTab, setAnno, setCartella])

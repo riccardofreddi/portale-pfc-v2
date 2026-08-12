@@ -61,7 +61,11 @@ export function TabGestioneClienti() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { refresh() }, [])
+  useEffect(() => {
+    // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
+    const t = setTimeout(() => { refresh() }, 0)
+    return () => clearTimeout(t)
+  }, [])
 
   async function handleDeleteBulk(anno: string, cartella?: string) {
     if (!selectedCliente) return
@@ -324,7 +328,7 @@ export function TabGestioneClienti() {
               </Collapsible>
 
               {archivioAnni.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-4">Nessun documento nell'archivio</p>
+                <p className="text-sm text-slate-500 text-center py-4">Nessun documento nell&apos;archivio</p>
               ) : (
                 archivioAnni.map((anno) => (
                   <Collapsible key={anno} open={openAnno === anno} onOpenChange={(o) => setOpenAnno(o ? anno : null)}>

@@ -2,6 +2,7 @@
 import { getSession, logAudit } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { caricaBytes, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
+import { segnaNotificheDocumentoLette } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,6 +39,9 @@ export async function GET(req: NextRequest) {
         create: { userId: user.id, filePath: key },
         update: { ts: new Date() },
       })
+      // Download = documento letto: azzera le notifiche "documento_nuovo" della
+      // stessa cartella/anno (badge campanella coerente col badge della cartella).
+      await segnaNotificheDocumentoLette(user.id, key)
     }
     await logAudit(session.sub, 'DOWNLOAD_DOC', key)
   }

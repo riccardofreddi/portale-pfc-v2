@@ -64,19 +64,18 @@ export function ClienteArchivio() {
 
   const username = user?.username ?? ''
 
-  // Resetta la cache globale se l'utente e cambiato rispetto a quello memorizzato
-  if (username && globalCache.owner !== username) {
-    globalCache.owner = username
-    globalCache.anni = null
-    globalCache.cartelle = {}
-    globalCache.files = {}
-  }
-
   // ─── RICERCA ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current)
-    if (searchQuery.trim().length < 2) { setSearchResults([]); setSearching(false); return }
-    setSearching(true)
+    if (searchQuery.trim().length < 2) {
+      // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
+      setTimeout(() => {
+        setSearchResults([])
+        setSearching(false)
+      }, 0)
+      return
+    }
+    setTimeout(() => setSearching(true), 0)
     searchTimer.current = setTimeout(async () => {
       try {
         const r = await api.ricerca(searchQuery.trim(), username)
@@ -151,6 +150,14 @@ export function ClienteArchivio() {
   useEffect(() => {
     if (!username) return
 
+    // Resetta la cache globale se l'utente e cambiato rispetto a quello memorizzato
+    if (globalCache.owner !== username) {
+      globalCache.owner = username
+      globalCache.anni = null
+      globalCache.cartelle = {}
+      globalCache.files = {}
+    }
+
     // Apertura da notifica push (?tab=archivio&anno=...&cartella=...): usa come
     // anno/cartella iniziali quelli indicati nella URL, altrimenti lo store.
     let urlAnno: string | null = null
@@ -164,18 +171,22 @@ export function ClienteArchivio() {
     // Se gia in cache per l'utente corrente, applica subito senza spinner
     if (globalCache.owner === username && globalCache.anni !== null) {
       const anniData = globalCache.anni
-      setAnni(anniData)
-      setLoading(false)
-      if (anniData.length > 0) {
-        const anno = urlAnno ?? annoSelezionato ?? anniData[0]
-        if (urlAnno) setAnno(urlAnno)
-        else if (!annoSelezionato) setAnno(anno)
-        loadCartelle(anno, urlCartella ?? cartellaSelezionata)
-      }
+      // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
+      setTimeout(() => {
+        setAnni(anniData)
+        setLoading(false)
+        if (anniData.length > 0) {
+          const anno = urlAnno ?? annoSelezionato ?? anniData[0]
+          if (urlAnno) setAnno(urlAnno)
+          else if (!annoSelezionato) setAnno(anno)
+          loadCartelle(anno, urlCartella ?? cartellaSelezionata)
+        }
+      }, 0)
       return
     }
 
-    setLoading(true)
+    // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
+    setTimeout(() => setLoading(true), 0)
     api.documenti.list({ username })
       .then(async (r) => {
         if (r.r2NotConfigured) { setR2Error(true); setAnni([]); return }
@@ -234,6 +245,21 @@ export function ClienteArchivio() {
     return () => window.removeEventListener('pfc-archivio-refresh', onRefresh)
   }, [annoSelezionato, cartellaSelezionata, loadCartelle])
 
+  // ─── MARCA FILE VISTO/SCARICATO dall'esterno (PreviewModal) ────────────────
+  // Quando il cliente apre l'anteprima o scarica dalla modale, ClienteArchivio
+  // aggiorna subito lo stato locale dei file e il badge "+N" della cartella,
+  // senza aspettare il prossimo fetch.
+  useEffect(() => {
+    const onDocumentoVisto = (e: Event) => {
+      const detail = (e as CustomEvent<{ key?: string; stato?: 'visto' | 'scaricato' }>).detail
+      if (!detail?.key || !detail.stato) return
+      marcaFileLetto(detail.key, detail.stato)
+    }
+    window.addEventListener('pfc-documento-visto', onDocumentoVisto)
+    return () => window.removeEventListener('pfc-documento-visto', onDocumentoVisto)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files, annoSelezionato, cartellaSelezionata])
+
   // ─── HANDLERS cambio anno/cartella (istantanei se in cache) ─────────────────
   function handleAnnoClick(anno: string) {
     if (anno === annoSelezionato) return
@@ -248,6 +274,37 @@ export function ClienteArchivio() {
     if (annoSelezionato) lastFolderNavRef.current = `${annoSelezionato}::${cartella}`
     setCartella(cartella)
     if (annoSelezionato) loadFiles(annoSelezionato, cartella)
+  }
+
+  // Ricalcola il badge "+N" della cartella corrente (stato locale + cache).
+  // Usato quando un file passa da "nuovo" a "visto"/"scaricato".
+  function aggiornaBadgeCartella(nNuovi: number) {
+    if (!annoSelezionato || !cartellaSelezionata) return
+    setCartelle((prev) => prev.map((c) => (c.nome === cartellaSelezionata ? { ...c, nNuovi } : c)))
+    const cached = globalCache.cartelle[annoSelezionato]
+    if (cached) {
+      globalCache.cartelle[annoSelezionato] = cached.map((c) => (c.nome === cartellaSelezionata ? { ...c, nNuovi } : c))
+    }
+  }
+
+  // Aggiorna lo stato locale di un file (visto/scaricato), ricalcola il badge
+  // "+N" della cartella corrente e aggiorna la cache. Chiamata dal download
+  // diretto e da PreviewModal (evento 'pfc-documento-visto').
+  function marcaFileLetto(key: string, stato: 'visto' | 'scaricato') {
+    const nuovoStato = (f: FileItem): FileItem['stato'] => {
+      if (f.key !== key) return f.stato
+      if (stato === 'scaricato') return f.stato === 'preferito' ? 'preferito' : 'scaricato'
+      return f.stato === 'preferito' || f.stato === 'scaricato' ? f.stato : 'visto'
+    }
+    const nextFiles = files.map((f) => ({ ...f, stato: nuovoStato(f) }))
+    setFiles(nextFiles)
+    aggiornaBadgeCartella(nextFiles.filter((f) => f.stato === 'nuovo').length)
+    if (annoSelezionato && cartellaSelezionata) {
+      const cacheKey = `${annoSelezionato}::${cartellaSelezionata}`
+      if (globalCache.files[cacheKey]) {
+        globalCache.files[cacheKey] = globalCache.files[cacheKey].map((f) => ({ ...f, stato: nuovoStato(f) }))
+      }
+    }
   }
 
   // ─── PREFERITI ──────────────────────────────────────────────────────────────
@@ -288,7 +345,10 @@ export function ClienteArchivio() {
       a.href = url; a.download = nome
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      setFiles((fs) => fs.map((f) => f.key === key ? { ...f, stato: 'scaricato' } : f))
+      marcaFileLetto(key, 'scaricato')
+      // Il server ha già segnato lette le notifiche documento_nuovo: aggiorna
+      // subito campanella e pannello notifiche (niente attesa del polling di 5s).
+      window.dispatchEvent(new Event('pfc-documenti-visti'))
       toast.success(`Download: ${nome}`)
     } catch { toast.error('Errore download') }
   }

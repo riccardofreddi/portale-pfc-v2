@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { usePfcStore } from '@/store/pfc'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,19 @@ export function PreviewModal() {
   const isPdf = previewFile?.nome.toLowerCase().endsWith('.pdf') ?? false
   const isImage = previewFile ? /\.(jpg|jpeg|png|svg|gif|webp)$/i.test(previewFile.nome) : false
   const previewUrl = previewFile ? `/api/documenti/preview?key=${encodeURIComponent(previewFile.key)}` : ''
+
+  // Evita di ri-segnalare lo stesso file se la modale viene riaperta
+  const lastVistoKeyRef = useRef<string | null>(null)
+
+  // Segnala a ClienteArchivio che il file è stato aperto in anteprima (stato
+  // "Visto" → badge cartella e notifiche documento_nuovo). Una volta per file.
+  useEffect(() => {
+    if (!previewFile) return
+    if (lastVistoKeyRef.current !== previewFile.key) {
+      lastVistoKeyRef.current = previewFile.key
+      window.dispatchEvent(new CustomEvent('pfc-documento-visto', { detail: { key: previewFile.key, stato: 'visto' } }))
+    }
+  }, [previewFile])
 
   // Auto-apertura su mobile: se è mobile e PDF, apri in nuova scheda e chiudi modal
   useEffect(() => {
@@ -37,6 +50,9 @@ export function PreviewModal() {
       a.href = url; a.download = previewFile.nome
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      window.dispatchEvent(new CustomEvent('pfc-documento-visto', { detail: { key: previewFile.key, stato: 'scaricato' } }))
+      // Il server segna lette le notifiche documento_nuovo: aggiorna subito i badge.
+      window.dispatchEvent(new Event('pfc-documenti-visti'))
       toast.success(`Download: ${previewFile.nome}`)
     } catch {
       toast.error('Errore download')
@@ -71,7 +87,7 @@ export function PreviewModal() {
 
         <div className="flex-1 min-h-0 bg-slate-100">
           {isPdf ? (
-            <object data={previewUrl} type="application/pdf" className="w-full h-full">
+            <object data={previewUrl} type="application/pdf" className="w-full h-full" onLoad={() => window.dispatchEvent(new Event('pfc-documenti-visti'))}>
               <div className="flex flex-col items-center justify-center h-full p-6 text-center gap-4">
                 <FileText className="h-12 w-12 text-slate-400" />
                 <p className="text-sm text-slate-600 font-medium">Anteprima non disponibile</p>
@@ -87,7 +103,7 @@ export function PreviewModal() {
             </object>
           ) : isImage ? (
             <div className="w-full h-full flex items-center justify-center p-2 sm:p-4 overflow-auto">
-              <img src={previewUrl} alt={previewFile.nome} className="max-w-full max-h-full object-contain shadow-lg rounded bg-white" />
+              <img src={previewUrl} alt={previewFile.nome} className="max-w-full max-h-full object-contain shadow-lg rounded bg-white" onLoad={() => window.dispatchEvent(new Event('pfc-documenti-visti'))} />
             </div>
           ) : (
             <div className="text-center text-slate-600 mt-12 p-4">

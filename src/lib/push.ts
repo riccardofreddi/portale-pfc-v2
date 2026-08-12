@@ -282,3 +282,25 @@ export async function countPushSubscriptions(username: string): Promise<number> 
     return 0
   }
 }
+
+/**
+ * Quando il cliente apre in anteprima o scarica un documento appena caricato,
+ * segna come lette le notifiche "documento_nuovo" della stessa cartella/anno:
+ * così il "+1" della campanella sparisce insieme a quello della cartella.
+ *
+ * La chiave R2 ha forma `Documenti/<username>/<anno>/<cartella>/<file>`.
+ */
+export async function segnaNotificheDocumentoLette(userId: string, filePath: string): Promise<void> {
+  try {
+    const parts = filePath.split('/')
+    const year = parts[2]
+    const folder = parts[3]
+    if (!year || !folder) return
+    await db.notification.updateMany({
+      where: { userId, type: 'documento_nuovo', read: false, year, folder },
+      data: { read: true },
+    })
+  } catch (err) {
+    console.error('[PUSH] segnaNotificheDocumentoLette errore:', err)
+  }
+}
