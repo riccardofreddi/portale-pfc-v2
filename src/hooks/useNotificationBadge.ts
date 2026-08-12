@@ -142,14 +142,17 @@ export function useNotificationBadge(enabled: boolean) {
             duration: 6000,
           })
         }
-        // Conferma al Service Worker che questa pagina gestirà la notifica in-app
-        // (suono + toast): così non mostrerà anche la notifica di sistema.
-        if (event.data?.ack) {
+        // Conferma al Service Worker che questa pagina (loggata e visibile) gestirà la
+        // notifica in-app (suono + toast): il SW non mostrerà la notifica di sistema.
+        // IMPORTANTE: visible:true indica che questo client è loggato e visibile —
+        // il SW si fida di questa dichiarazione (non può leggerla direttamente).
+        if (event.data?.ack && isPageVisible()) {
+          const ack = { type: 'PUSH_ACK', visible: true }
           if (navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: "PUSH_ACK" })
+            navigator.serviceWorker.controller.postMessage(ack)
           } else {
             navigator.serviceWorker.ready
-              .then((reg) => reg.active?.postMessage({ type: "PUSH_ACK" }))
+              .then((reg) => reg.active?.postMessage(ack))
               .catch(() => {})
           }
         }

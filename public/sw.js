@@ -110,12 +110,15 @@ async function restoreBadge() {
   } catch {}
 }
 
-// Chiede alle finestre APERTE se una di esse (visibile) gestirà la notifica in-app
-// (suono + toast). Se una finestra visibile risponde PUSH_ACK, NON mostriamo la
-// notifica di sistema: il portale aperto gestisce l'avviso da solo (niente doppio
-// suono). In tutti gli altri casi — app chiusa, in background, o pagina di login
-// visibile (cliente disconnesso) — mostriamo la notifica di sistema.
-const PUSH_ACK_TIMEOUT_MS = 400
+// Chiede alle finestre APERTE se una di esse (visibile e loggata) gestirà la
+// notifica in-app (suono + toast). Se riceve PUSH_ACK con visible=true entro il
+// timeout, NON mostra la notifica di sistema (niente doppio suono).
+// In tutti gli altri casi — app chiusa, in background, pagina di login visibile
+// (cliente disconnesso) — mostra la notifica di sistema con suono.
+//
+// NOTA: source.visibilityState NON è affidabile nei messaggi SW in tutti i browser.
+// Quindi è il CLIENT a dichiarare la propria visibilità nel PUSH_ACK ({ visible: true }).
+const PUSH_ACK_TIMEOUT_MS = 600
 
 function askVisibleClients(clients, unreadCount, data) {
   return new Promise((resolve) => {
@@ -128,15 +131,14 @@ function askVisibleClients(clients, unreadCount, data) {
       resolve(handled)
     }
     onMessage = (event) => {
-      const source = event.source
-      const sourceVisible =
-        source && 'visibilityState' in source && source.visibilityState === 'visible'
-      if (event.data?.type === 'PUSH_ACK' && sourceVisible) finish(true)
+      // Il client dichiara esplicitamente se è visibile E loggato (visible: true)
+      if (event.data?.type === 'PUSH_ACK' && event.data?.visible === true) finish(true)
     }
     self.addEventListener('message', onMessage)
     setTimeout(() => finish(false), PUSH_ACK_TIMEOUT_MS)
 
-    // ack=true solo per le finestre visibili: solo loro possono sopprimere la notifica
+    // Invia PUSH_RECEIVED a tutte le finestre aperte (anche login page, anche background)
+    // Il client risponderà PUSH_ACK solo se è visibile E l'utente è loggato
     for (const client of clients) {
       const isVisible = client.visibilityState === 'visible'
       try {
@@ -144,7 +146,7 @@ function askVisibleClients(clients, unreadCount, data) {
       } catch {}
     }
 
-    // Nessuna finestra aperta: mostra subito la notifica di sistema, senza attendere il timeout
+    // Nessuna finestra aperta: mostra subito la notifica di sistema
     if (clients.length === 0) finish(false)
   })
 }
