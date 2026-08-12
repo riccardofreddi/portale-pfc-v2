@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { sendPushToUser } from '@/lib/push'
 import { salvaBytes, listaOggetti, eliminaOggetto, caricaBytes, buildKey, DOCS_PREFIX, haConfigurazioneR2 } from '@/lib/r2'
 import { sanitizzaNomeFile, sanitizzaNomeCartella, MAX_FILE_SIZE_BYTES } from '@/lib/pfc-utils'
 
 export const dynamic = 'force-dynamic'
+// Budget per l'invio push inline: su Vercel limita la durata massima della funzione
+// mentre la push viene consegnata. 60s = margine anche per upload multipli pesanti
+// (file fino a 20MB ciascuno) + invio push in coda.
+export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   const session = await getSession()
@@ -104,6 +109,7 @@ export async function POST(req: NextRequest) {
       results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'caricato' })
     }
 
+    let pushSent = 0
     if (results.some((r) => r.status === 'caricato' || r.status === 'rinominato' || r.status === 'sostituito')) {
       await db.notification.create({
         data: {
@@ -115,10 +121,27 @@ export async function POST(req: NextRequest) {
           folder: cartella,
         },
       })
+
+      // Notifica push con la stessa logica dei messaggi privati:
+      //  - app chiusa / in background → notifica di sistema (Service Worker)
+      //  - app aperta e visibile → suono + toast in-app (PUSH_ACK sopprime
+      //    la notifica di sistema per evitare il doppio suono)
+      // Il click sulla notifica apre l'Archivio sulla cartella esatta (?anno=&cartella=).
+      // Invio inline PRIMA della risposta: su Vercel una promise non attesa muore
+      // con la funzione, quindi l'invio va completato nell'arco di vita dell'handler.
+      pushSent = await sendPushToUser(username, {
+        title: 'Nuovo documento disponibile',
+        body: `Nuovi documenti caricati in ${cartella}/${anno}`,
+        url: `/?tab=archivio&anno=${encodeURIComponent(anno)}&cartella=${encodeURIComponent(cartella)}`,
+        tag: 'pfc-documento',
+      }).catch((e) => {
+        console.error('[PUSH] documenti errore:', e)
+        return 0
+      })
     }
 
     await logAudit(session.sub, 'UPLOAD_DOC', `${username}/${anno}/${cartella} (${results.length} file)`)
-    return NextResponse.json({ ok: true, results })
+    return NextResponse.json({ ok: true, results, pushSent })
   } catch (err) {
     console.error('[upload] errore:', err)
     return NextResponse.json({ error: `Errore upload: ${String(err)}` }, { status: 500 })

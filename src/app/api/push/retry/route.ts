@@ -53,11 +53,14 @@ export async function POST(req: NextRequest) {
 
     for (const [, { username, notifiche }] of byUser) {
       const latest = notifiche[0]
-      // Messaggi e richieste upload aprono direttamente la tab Messaggi
+      // Messaggi e richieste upload aprono direttamente la tab Messaggi; le
+      // notifiche documento aprono l'Archivio sulla cartella esatta.
       const url =
         latest.type === "messaggio" || latest.type === "richiesta_upload"
           ? "/?tab=messaggi"
-          : "/"
+          : latest.type === "documento_nuovo" && latest.year && latest.folder
+            ? `/?tab=archivio&anno=${encodeURIComponent(latest.year)}&cartella=${encodeURIComponent(latest.folder)}`
+            : "/"
       const sent = await sendPushToUser(username, {
         title: getNotifTitle(latest.type),
         body: latest.text.slice(0, 100),

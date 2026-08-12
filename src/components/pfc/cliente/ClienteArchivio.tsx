@@ -58,6 +58,10 @@ export function ClienteArchivio() {
   const [searching, setSearching] = useState(false)
   const searchTimer = useRef<NodeJS.Timeout | null>(null)
 
+  // Ultima cartella già caricata da INIT / click UI: usata dall'effect di
+  // "navigazione esterna" per evitare ricariche doppie (formato `anno::cartella`).
+  const lastFolderNavRef = useRef<string>('')
+
   const username = user?.username ?? ''
 
   // Resetta la cache globale se l'utente e cambiato rispetto a quello memorizzato
@@ -113,6 +117,7 @@ export function ClienteArchivio() {
       setCartelle(carts)
       const target = cartellaTarget ?? (carts.length > 0 ? carts[0].nome : null)
       if (target) {
+        lastFolderNavRef.current = `${anno}::${target}`
         setCartella(target)
         await loadFiles(anno, target)
       } else {
@@ -131,6 +136,7 @@ export function ClienteArchivio() {
       setCartelle(carts)
       const target = cartellaTarget ?? (carts.length > 0 ? carts[0].nome : null)
       if (target) {
+        lastFolderNavRef.current = `${anno}::${target}`
         setCartella(target)
         await loadFiles(anno, target)
       } else {
@@ -145,15 +151,26 @@ export function ClienteArchivio() {
   useEffect(() => {
     if (!username) return
 
+    // Apertura da notifica push (?tab=archivio&anno=...&cartella=...): usa come
+    // anno/cartella iniziali quelli indicati nella URL, altrimenti lo store.
+    let urlAnno: string | null = null
+    let urlCartella: string | null = null
+    try {
+      const params = new URLSearchParams(window.location.search)
+      urlAnno = params.get('anno')
+      urlCartella = params.get('cartella')
+    } catch {}
+
     // Se gia in cache per l'utente corrente, applica subito senza spinner
     if (globalCache.owner === username && globalCache.anni !== null) {
       const anniData = globalCache.anni
       setAnni(anniData)
       setLoading(false)
       if (anniData.length > 0) {
-        const anno = annoSelezionato ?? anniData[0]
-        if (!annoSelezionato) setAnno(anno)
-        loadCartelle(anno, cartellaSelezionata)
+        const anno = urlAnno ?? annoSelezionato ?? anniData[0]
+        if (urlAnno) setAnno(urlAnno)
+        else if (!annoSelezionato) setAnno(anno)
+        loadCartelle(anno, urlCartella ?? cartellaSelezionata)
       }
       return
     }
@@ -168,15 +185,40 @@ export function ClienteArchivio() {
         globalCache.anni = anniData
         setAnni(anniData)
         if (anniData.length > 0) {
-          const anno = annoSelezionato ?? anniData[0]
-          if (!annoSelezionato) setAnno(anno)
-          await loadCartelle(anno, cartellaSelezionata)
+          const anno = urlAnno ?? annoSelezionato ?? anniData[0]
+          if (urlAnno) setAnno(urlAnno)
+          else if (!annoSelezionato) setAnno(anno)
+          await loadCartelle(anno, urlCartella ?? cartellaSelezionata)
         }
       })
       .catch(() => toast.error('Errore caricamento anni'))
       .finally(() => setLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username])
+
+  // ─── NAVIGAZIONE ESTERNA (notifica push / ?anno=&cartella= da URL o
+  // OPEN_TAB del Service Worker) ────────────────────────────────────────────────
+  // Quando anno e cartella arrivano dallo store senza passare dai pulsanti UI,
+  // carica direttamente quella cartella. lastFolderNavRef (già valorizzato da
+  // INIT / handleAnnoClick / handleCartellaClick) evita ricariche doppie.
+  useEffect(() => {
+    if (!username || !annoSelezionato || !cartellaSelezionata) return
+    const cacheKey = `${annoSelezionato}::${cartellaSelezionata}`
+    if (lastFolderNavRef.current === cacheKey) return
+    lastFolderNavRef.current = cacheKey
+    if (globalCache.owner === username && globalCache.files[cacheKey]) {
+      const cached = globalCache.files[cacheKey]
+      // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
+      setTimeout(() => {
+        setFiles(cached)
+        setPage(1)
+        clearSelected()
+      }, 0)
+      return
+    }
+    setTimeout(() => loadFiles(annoSelezionato, cartellaSelezionata), 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username, annoSelezionato, cartellaSelezionata, loadFiles])
 
   // ─── HANDLERS cambio anno/cartella (istantanei se in cache) ─────────────────
   function handleAnnoClick(anno: string) {
@@ -189,6 +231,7 @@ export function ClienteArchivio() {
 
   function handleCartellaClick(cartella: string) {
     if (cartella === cartellaSelezionata) return
+    if (annoSelezionato) lastFolderNavRef.current = `${annoSelezionato}::${cartella}`
     setCartella(cartella)
     if (annoSelezionato) loadFiles(annoSelezionato, cartella)
   }

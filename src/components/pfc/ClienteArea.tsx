@@ -104,8 +104,9 @@ export function ClienteArea() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, clienteTab])
 
-  // Apertura da notifica push con URL ?tab=... (es. /?tab=messaggi):
-  // attiva subito la tab corretta appena la pagina viene caricata.
+  // Apertura da notifica push con URL ?tab=... (es. /?tab=messaggi oppure
+  // /?tab=archivio&anno=...&cartella=...): attiva subito la tab corretta e, per
+  // i documenti, l'anno/cartella indicati appena la pagina viene caricata.
   useEffect(() => {
     if (!user) return
     const params = new URLSearchParams(window.location.search)
@@ -114,13 +115,19 @@ export function ClienteArea() {
       const validTab = TABS.find((t) => t.id === tab)
       if (validTab) setClienteTab(validTab.id)
     }
-    // Il parametro serve solo all'apertura: evita di riapplicarlo ai refresh
-    if (params.has('tab')) {
+    const anno = params.get('anno')
+    const cartella = params.get('cartella')
+    if (anno && cartella) {
+      setAnno(anno)
+      setCartella(cartella)
+    }
+    // I parametri servono solo all'apertura: evita di riapplicarli ai refresh
+    if (params.has('tab') || params.has('anno') || params.has('cartella')) {
       try {
         window.history.replaceState(null, '', window.location.pathname)
       } catch {}
     }
-  }, [user, setClienteTab])
+  }, [user, setClienteTab, setAnno, setCartella])
 
   // Aggiornamento "live" di badge e conteggi: focus sulla finestra, ritorno da
   // background, messaggi dal Service Worker (push ricevuta / tab da attivare) e
@@ -129,11 +136,18 @@ export function ClienteArea() {
     if (!user) return
 
     const onSwMessage = (event: MessageEvent) => {
-      const data = event.data as { type?: string; tab?: string } | undefined
+      const data = event.data as { type?: string; tab?: string; anno?: string; cartella?: string } | undefined
       if (!data?.type) return
-      if (data.type === 'OPEN_TAB' && data.tab) {
-        const validTab = TABS.find((t) => t.id === data.tab)
-        if (validTab) setClienteTab(validTab.id)
+      if (data.type === 'OPEN_TAB' && (data.tab || data.anno || data.cartella)) {
+        if (data.tab) {
+          const validTab = TABS.find((t) => t.id === data.tab)
+          if (validTab) setClienteTab(validTab.id)
+        }
+        // Notifica documento: apri direttamente anno/cartella indicati nella push
+        if (data.anno && data.cartella) {
+          setAnno(data.anno)
+          setCartella(data.cartella)
+        }
         loadNotifiche()
         // Apertura da notifica di messaggio: ricarica l'elenco e segna tutto letto.
         // Se la tab non è ancora montata, ci pensa comunque il mount di ClienteMessaggi.
@@ -166,7 +180,7 @@ export function ClienteArea() {
       window.removeEventListener('pfc-messaggi-letti', onMessaggiLetti)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, setClienteTab])
+  }, [user, setClienteTab, setAnno, setCartella])
 
   async function handlePulisciLette() {
     try {

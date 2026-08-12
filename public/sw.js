@@ -32,10 +32,16 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     (async () => {
-      // Tab da attivare, es. /?tab=messaggi per i messaggi
+      // Parametri da applicare all'apertura: tab (es. ?tab=messaggi), e per i
+      // documenti anche anno e cartella (?tab=archivio&anno=...&cartella=...)
       let tab = null
+      let anno = null
+      let cartella = null
       try {
-        tab = new URL(targetUrl, self.location.origin).searchParams.get('tab')
+        const params = new URL(targetUrl, self.location.origin).searchParams
+        tab = params.get('tab')
+        anno = params.get('anno')
+        cartella = params.get('cartella')
       } catch {}
 
       const allClients = await self.clients.matchAll({
@@ -45,10 +51,10 @@ self.addEventListener('notificationclick', (event) => {
 
       // 1) Avvisa subito le finestre aperte: la tab viene attivata anche se la
       //    navigazione qui sotto fallisce (es. client già sulla stessa URL).
-      if (tab) {
+      if (tab || anno || cartella) {
         for (const client of allClients) {
           try {
-            client.postMessage({ type: 'OPEN_TAB', tab })
+            client.postMessage({ type: 'OPEN_TAB', tab, anno, cartella })
           } catch {}
         }
       }
