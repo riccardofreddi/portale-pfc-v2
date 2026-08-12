@@ -8,7 +8,9 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
+import { db } from '@/lib/db'
 import { caricaBytes, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
+import { segnaNotificheDocumentoLette } from '@/lib/push'
 import { ZipArchive } from 'archiver'
 
 export const dynamic = 'force-dynamic'
@@ -71,6 +73,21 @@ export async function POST(req: NextRequest) {
 
     if (session.role === 'client') {
       await logAudit(session.sub, 'SCARICA_ARCHIVIO', `${finalName} (${keys.length} file)`)
+      // Il download ZIP conta come download dei singoli file: registra i record
+      // di "scaricato" (pallino verde + badge cartella) e segna lette le notifiche
+      // documento_nuovo delle cartelle coinvolte.
+      const user = await db.user.findUnique({ where: { username: session.sub } })
+      if (user) {
+        const now = new Date()
+        for (const key of keys) {
+          await db.fileDownload.upsert({
+            where: { userId_filePath: { userId: user.id, filePath: key } },
+            create: { userId: user.id, filePath: key },
+            update: { ts: now },
+          })
+          await segnaNotificheDocumentoLette(user.id, key)
+        }
+      }
     } else {
       await logAudit(session.sub, 'ADMIN_ZIP', `${finalName} (${keys.length} file)`)
     }

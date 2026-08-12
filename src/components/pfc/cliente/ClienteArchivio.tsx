@@ -181,6 +181,12 @@ export function ClienteArchivio() {
           else if (!annoSelezionato) setAnno(anno)
           loadCartelle(anno, urlCartella ?? cartellaSelezionata)
         }
+        // La cache può essere vecchia (es. nuovo file caricato dall'admin mentre
+        // l'app era in background o su un'altra tab): ricarica con forza per
+        // mostrare subito il badge "+N" e i nuovi documenti, senza spinner.
+        setTimeout(() => {
+          window.dispatchEvent(new Event('pfc-archivio-refresh'))
+        }, 400)
       }, 0)
       return
     }
@@ -370,6 +376,10 @@ export function ClienteArchivio() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
       toast.success(`ZIP scaricato: ${zipName} (${keys.length} file, ${formatBytes(blob.size)})`, { id: toastId })
+      // Il server ha registrato i file scaricati (pallino verde) e segnato le
+      // notifiche documento_nuovo come lette: aggiorna subito i badge e la lista.
+      window.dispatchEvent(new Event('pfc-documenti-visti'))
+      window.dispatchEvent(new Event('pfc-archivio-refresh'))
     } catch (err) {
       toast.error(`Errore ZIP: ${err instanceof Error ? err.message : 'errore sconosciuto'}`, { id: toastId })
     } finally { setZipping(false) }

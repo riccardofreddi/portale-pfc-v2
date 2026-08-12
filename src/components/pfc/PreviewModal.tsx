@@ -36,6 +36,15 @@ export function PreviewModal() {
     if (isMobile) {
       window.open(previewUrl, '_blank')
       setPreviewFile(null)
+      // Su mobile il PDF si apre in una nuova scheda: la tab originale non riceve
+      // l'evento "pfc-documento-visto". Il server ha già segnato la notifica come
+      // letta quando la nuova scheda carica la preview: aggiorna subito i badge
+      // (campanella + cartella) con un piccolo delay per dare tempo al server.
+      setTimeout(() => {
+        window.dispatchEvent(new Event('pfc-documenti-visti'))
+        window.dispatchEvent(new Event('pfc-archivio-refresh'))
+      }, 1200)
+
     }
   }, [previewFile, isPdf, previewUrl, setPreviewFile])
 

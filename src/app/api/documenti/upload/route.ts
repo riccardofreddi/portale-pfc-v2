@@ -55,6 +55,17 @@ export async function POST(req: NextRequest) {
 
     const results: { nome: string; key: string; size: number; status: 'caricato' | 'saltato' | 'rinominato' | 'sostituito' }[] = []
 
+    // Un file appena scritto (nuovo, rinominato o versione sostituita sulla stessa
+    // key) deve ripartire da stato "nuovo" per il cliente: i vecchi record di
+    // anteprima/download della stessa key renderebbero il file "visto"/"scaricato"
+    // all'istante e la cartella perderebbe il badge "+N".
+    async function azzeraStatoFileLetto(key: string) {
+      await Promise.all([
+        db.fileView.deleteMany({ where: { filePath: key } }).catch(() => {}),
+        db.fileDownload.deleteMany({ where: { filePath: key } }).catch(() => {}),
+      ])
+    }
+
     for (const file of files) {
       if (file.size > MAX_FILE_SIZE_BYTES) {
         return NextResponse.json({
@@ -84,6 +95,7 @@ export async function POST(req: NextRequest) {
           await salvaBytes(newKey, buf)
           existingNames.add(newName)
           await db.uploadDate.upsert({ where: { filePath: newKey }, create: { filePath: newKey }, update: { ts: new Date() } })
+          await azzeraStatoFileLetto(newKey)
           results.push({ nome: newName, key: newKey, size: file.size, status: 'rinominato' })
           continue
         }
@@ -97,6 +109,7 @@ export async function POST(req: NextRequest) {
           const buf = Buffer.from(await file.arrayBuffer())
           await salvaBytes(targetKey, buf)
           await db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } })
+          await azzeraStatoFileLetto(targetKey)
           results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'sostituito' })
           continue
         }
@@ -106,6 +119,7 @@ export async function POST(req: NextRequest) {
       await salvaBytes(targetKey, buf)
       existingNames.add(nomePulito)
       await db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } })
+      await azzeraStatoFileLetto(targetKey)
       results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'caricato' })
     }
 

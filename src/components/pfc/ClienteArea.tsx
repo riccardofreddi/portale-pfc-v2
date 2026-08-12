@@ -167,9 +167,19 @@ export function ClienteArea() {
         }
       }
     }
-    const onFocus = () => loadNotifiche()
+    const onFocus = () => {
+      loadNotifiche()
+      if (usePfcStore.getState().clienteTab === 'archivio') {
+        window.dispatchEvent(new Event('pfc-archivio-refresh'))
+      }
+    }
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') loadNotifiche()
+      if (document.visibilityState === 'visible') {
+        loadNotifiche()
+        if (usePfcStore.getState().clienteTab === 'archivio') {
+          window.dispatchEvent(new Event('pfc-archivio-refresh'))
+        }
+      }
     }
     const onMessaggiLetti = () => loadNotifiche()
     // Documento aperto in anteprima o scaricato: ricarica subito l'elenco

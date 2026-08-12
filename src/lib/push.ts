@@ -6,6 +6,7 @@ import webpush from 'web-push'
 import https from 'node:https'
 import { webcrypto } from 'crypto'
 import { db } from './db'
+import { listFilesInCartella, haConfigurazioneR2 } from './r2'
 
 // Polyfill crypto per Node.js runtime su Vercel (web-push ne ha bisogno)
 const globalWithCrypto = globalThis as unknown as { crypto?: Crypto }
@@ -293,9 +294,32 @@ export async function countPushSubscriptions(username: string): Promise<number> 
 export async function segnaNotificheDocumentoLette(userId: string, filePath: string): Promise<void> {
   try {
     const parts = filePath.split('/')
+    const username = parts[1]
     const year = parts[2]
     const folder = parts[3]
-    if (!year || !folder) return
+    if (!username || !year || !folder) return
+
+    // La notifica documento_nuovo riguarda l'intera cartella/anno. Per mantenere
+    // la campanella allineata al badge "+N" della cartella, la azzeriamo SOLO
+    // quando non restano file "nuovi" (né visti né scaricati) in quella cartella.
+    if (!haConfigurazioneR2()) {
+      // Senza R2 non possiamo elencare i file: azzera come prima (legacy).
+      await db.notification.updateMany({
+        where: { userId, type: 'documento_nuovo', read: false, year, folder },
+        data: { read: true },
+      })
+      return
+    }
+    const files = await listFilesInCartella(username, year, folder)
+    if (files.length === 0) return
+    const [views, downloads] = await Promise.all([
+      db.fileView.findMany({ where: { userId }, select: { filePath: true } }),
+      db.fileDownload.findMany({ where: { userId }, select: { filePath: true } }),
+    ])
+    const letti = new Set<string>([...views.map((v) => v.filePath), ...downloads.map((d) => d.filePath)])
+    const restanoNuovi = files.some((f) => !letti.has(f.key))
+    if (restanoNuovi) return // ci sono ancora file non letti: la notifica resta
+
     await db.notification.updateMany({
       where: { userId, type: 'documento_nuovo', read: false, year, folder },
       data: { read: true },
