@@ -298,7 +298,7 @@ export function ClienteArea() {
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <Bell className="h-4 w-4 text-emerald-600" />
                 Notifiche
-                {nNotifiche > 0 && <span className="text-xs text-red-600 font-semibold">· {nNotifiche} non lette 🔴</span>}
+                {nNotifiche > 0 && <span className="text-xs text-red-600 font-semibold">· {nNotifiche} {nNotifiche === 1 ? 'non letta' : 'non lette'} 🔴</span>}
               </h3>
               <div className="flex items-center gap-2">
                 {nLette > 0 && (
