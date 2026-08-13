@@ -49,6 +49,8 @@ export async function notifyScadenzaImminente(params: {
   dataScadenza: Date
   anticipoGiorni?: number
   pagata?: boolean
+  /** Se true, forza la (ri)creazione della notifica campanella anche se gia presente. */
+  forceNotifica?: boolean
   oggi?: Date
 }): Promise<{ notified: boolean; pushSent: number }> {
   const oggi = params.oggi ?? new Date()
@@ -61,29 +63,54 @@ export async function notifyScadenzaImminente(params: {
 
   const text = buildScadenzaNotificaText(params.titolo, params.dataScadenza, oggi)
 
-  await db.notification.create({
-    data: {
-      userId: params.userId,
-      type: 'scadenza',
-      text,
-      detail: params.filePath,
-    },
+  // La campanella (Notification DB) la creiamo UNA SOLA VOLTA: evita duplicati
+  // se il cron ritenta giorno dopo giorno. Se l'admin ricarica la stessa
+  // scadenza (forceNotifica) la ricreiamo per "riaccendere" il badge.
+  const giaNotificata = await db.scadenza.findUnique({
+    where: { id: params.scadenzaId },
+    select: { notificata: true },
   })
+  if (!giaNotificata?.notificata || params.forceNotifica) {
+    await db.notification.create({
+      data: {
+        userId: params.userId,
+        type: 'scadenza',
+        text,
+        detail: params.filePath,
+      },
+    })
+  }
 
-  const pushSent = await sendPushToUser(params.username, {
-    title: '⏰ Scadenza imminente',
-    body: text,
-    url: scadenzaPushUrl(params.filePath),
-    tag: 'pfc-scadenza-' + params.scadenzaId,
-    data: { testo: text, tipo: 'scadenza' },
-  }).catch((e) => {
-    console.error('[SCADENZA] push errore:', e)
-    return 0
+  // La push la inviamo SOLO se non e gia stata consegnata con successo.
+  // Così, se il cliente era offline / senza subscription / token scaduto, il
+  // cron la ritenta il giorno dopo finche non arriva. Nessun cliente perso.
+  const stato = await db.scadenza.findUnique({
+    where: { id: params.scadenzaId },
+    select: { pushInviata: true },
   })
+  let pushSent = 0
+  if (!stato?.pushInviata) {
+    pushSent = await sendPushToUser(params.username, {
+      title: '⏰ Scadenza imminente',
+      body: text,
+      url: scadenzaPushUrl(params.filePath),
+      tag: 'pfc-scadenza-' + params.scadenzaId,
+      data: { testo: text, tipo: 'scadenza' },
+    }).catch((e) => {
+      console.error('[SCADENZA] push errore:', e)
+      return 0
+    })
+  }
 
   await db.scadenza.update({
     where: { id: params.scadenzaId },
-    data: { notificata: true },
+    data: {
+      notificata: true,
+      // pushInviata = vero SOLO se abbiamo davvero recapitato ad almeno una
+      // subscription. Se non ci sono subscription o tutte falliscono, resta
+      // false e il cron riprovera nei giorni successivi.
+      pushInviata: pushSent > 0 ? true : (stato?.pushInviata ?? false),
+    },
   })
 
   return { notified: true, pushSent }

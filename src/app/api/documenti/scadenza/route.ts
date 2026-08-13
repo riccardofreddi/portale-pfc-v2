@@ -68,18 +68,23 @@ export async function POST(req: NextRequest) {
       dataScadenza: data,
       anticipoGiorni: anticipo,
       notificata: false,
+      pushInviata: false,
     },
     update: {
       titolo: titoloFinal,
       dataScadenza: data,
       anticipoGiorni: anticipo,
+      // Reset completo: se l'admin cambia la data, il cliente deve ricevere
+      // di nuovo il promemoria (campanella + push) per la nuova scadenza.
       notificata: false,
+      pushInviata: false,
     },
   })
 
   // Notifica immediata se la scadenza è già nel periodo di preavviso.
   // Così, quando l'admin imposta/modifica una scadenza imminente, il cliente
   // riceve subito campanella + push senza dover aspettare il cron notturno.
+  // forceNotifica ricrea la campanella (il badge) anche se esisteva gia.
   const { notified: notificataImmediata } = await notifyScadenzaImminente({
     scadenzaId: scadenza.id,
     userId: user.id,
@@ -89,6 +94,7 @@ export async function POST(req: NextRequest) {
     dataScadenza: data,
     anticipoGiorni: anticipo,
     pagata: scadenza.pagata,
+    forceNotifica: true,
   })
 
   await logAudit(session.sub, 'IMPOSTA_SCADENZA', `${filePath} -> ${data.toISOString().slice(0, 10)}`)

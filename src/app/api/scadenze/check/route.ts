@@ -39,24 +39,33 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
 
   try {
     const oggi = new Date()
-    // Prendiamo tutte le scadenze non ancora notificate con data futura (o oggi).
+    // Inizio della giornata corrente (00:00:00.000) così includiamo anche le
+    // scadenze DI OGGI (la notifica piu importante: il giorno della scadenza).
+    // Senza questo, una scadenza salvata a mezzanotte risulterebbe "prima" di
+    // adesso e verrebbe saltata per sempre.
+    const inizioOggi = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate())
+
+    // Prendiamo tutte le scadenze non pagate con data odierna o futura, che
+    // hanno la campanella non ancora creata OPPURE la push non ancora consegnata
+    // (cosi il cron ritenta la push giorno dopo giorno finche non arriva).
     const scadenze = await db.scadenza.findMany({
       where: {
-        notificata: false,
         pagata: false,
-        dataScadenza: { gte: oggi },
+        dataScadenza: { gte: inizioOggi },
+        OR: [{ notificata: false }, { pushInviata: false }],
       },
       include: { user: { select: { username: true, name: true } } },
     })
 
     let notificate = 0
+    let pushInviate = 0
     const dettagli: Array<{ filePath: string; titolo: string; giorni: number }> = []
 
     for (const s of scadenze) {
       const giorni = giorniMancanti(s.dataScadenza, oggi)
       if (giorni > s.anticipoGiorni) continue // ancora troppo presto
 
-      const { notified } = await notifyScadenzaImminente({
+      const { notified, pushSent } = await notifyScadenzaImminente({
         scadenzaId: s.id,
         userId: s.userId,
         username: s.user.username,
@@ -70,11 +79,13 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       if (!notified) continue
 
       notificate++
+      pushInviate += pushSent
       dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
     }
 
     console.log(
       `[CRON] scadenze notificate: ${notificate}/${scadenze.length} · ` +
+        `push inviate: ${pushInviate} · ` +
         dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ')
     )
 
@@ -82,6 +93,7 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       ok: true,
       controllate: scadenze.length,
       notificate,
+      pushInviate,
       dettagli,
     })
   } catch (err) {

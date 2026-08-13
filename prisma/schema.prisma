@@ -185,6 +185,7 @@ model Scadenza {
   dataScadenza    DateTime @map("data_scadenza")
   anticipoGiorni  Int      @default(10) @map("anticipo_giorni")
   notificata      Boolean  @default(false)
+  pushInviata     Boolean  @default(false) @map("push_inviata")
   pagata          Boolean  @default(false)
   createdAt       DateTime @default(now()) @map("created_at")
 

@@ -157,12 +157,14 @@ export async function POST(req: NextRequest) {
             dataScadenza: data,
             anticipoGiorni: anticipo,
             notificata: false,
+            pushInviata: false,
           },
           update: {
             titolo: r.nome,
             dataScadenza: data,
             anticipoGiorni: anticipo,
             notificata: false,
+            pushInviata: false,
           },
         })
         const { notified } = await notifyScadenzaImminente({
