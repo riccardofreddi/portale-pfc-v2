@@ -145,6 +145,12 @@ export function TabGestioneClienti() {
   }
 
   async function handleCreate() {
+    const errUsername = newUsername.length < 3 ? 'Lo username deve avere almeno 3 caratteri' : ''
+    const errPassword = newPassword.length < 4 ? 'La password deve avere almeno 4 caratteri' : ''
+    if (errUsername || errPassword || !newName) {
+      toast.error(errUsername || errPassword || 'Inserisci la ragione sociale')
+      return
+    }
     setCreating(true)
     try {
       await api.clienti.create({ username: newUsername, name: newName, password: newPassword })
@@ -303,7 +309,7 @@ export function TabGestioneClienti() {
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><UserPlus className="h-5 w-5 text-emerald-600" /> Nuovo Cliente</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="space-y-1.5"><Label>Ragione Sociale</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="es. Rossi Mario S.r.l." /></div>
-          <div className="space-y-1.5"><Label>Username</Label><Input value={newUsername} onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} placeholder="es. rossi" maxLength={20} /></div>
+          <div className="space-y-1.5"><Label>Username</Label><Input value={newUsername} onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} placeholder="min 3 lettere/numeri (es. rossi)" maxLength={20} /></div>
           <div className="space-y-1.5">
             <Label>Password</Label>
             <div className="relative">
@@ -313,6 +319,7 @@ export function TabGestioneClienti() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Min 4 caratteri"
                 className="pr-10 text-base sm:text-sm"
+                minLength={4}
               />
               <button
                 type="button"
@@ -325,7 +332,7 @@ export function TabGestioneClienti() {
               </button>
             </div>
           </div>
-          <Button onClick={handleCreate} disabled={creating || !newName || !newUsername || !newPassword} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+          <Button onClick={handleCreate} disabled={creating || !newName || newUsername.length < 3 || newPassword.length < 4} className="bg-emerald-700 hover:bg-emerald-800 text-white">
             {creating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />} Registra
           </Button>
         </CardContent>

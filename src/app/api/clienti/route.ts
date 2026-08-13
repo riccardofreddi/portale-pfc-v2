@@ -38,17 +38,28 @@ export async function POST(req: NextRequest) {
   const password = String(body.password ?? '')
 
   const v = validaUsername(String(body.username ?? ''))
-  if (!v.ok) return NextResponse.json({ error: v.msg }, { status: 400 })
+  if (!v.ok) {
+    console.error('[clienti POST] 400 validaUsername', { raw: body.username, msg: v.msg })
+    return NextResponse.json({ error: v.msg, field: 'username' }, { status: 400 })
+  }
   const username = v.normalized!
 
-  if (!ragioneSociale) return NextResponse.json({ error: 'Inserisci la ragione sociale' }, { status: 400 })
-  if (username === DEFAULT_ADMIN_USER) return NextResponse.json({ error: 'Username riservato allamministratore' }, { status: 400 })
+  if (!ragioneSociale) {
+    console.error('[clienti POST] 400 ragioneSociale vuota')
+    return NextResponse.json({ error: 'Inserisci la ragione sociale', field: 'name' }, { status: 400 })
+  }
+  if (username === DEFAULT_ADMIN_USER) {
+    return NextResponse.json({ error: 'Username riservato allamministratore', field: 'username' }, { status: 400 })
+  }
 
   const existing = await db.user.findUnique({ where: { username } })
-  if (existing) return NextResponse.json({ error: `Username ${username} gia esistente` }, { status: 400 })
+  if (existing) return NextResponse.json({ error: `Username ${username} gia esistente`, field: 'username' }, { status: 400 })
 
   const vp = validaPassword(password)
-  if (!vp.ok) return NextResponse.json({ error: vp.msg }, { status: 400 })
+  if (!vp.ok) {
+    console.error('[clienti POST] 400 validaPassword', { len: password.length, msg: vp.msg })
+    return NextResponse.json({ error: vp.msg, field: 'password' }, { status: 400 })
+  }
 
   await db.user.create({
     data: {
