@@ -8,6 +8,10 @@
  *
  * Autenticazione: Bearer CRON_SECRET (come /api/push/retry). Se assente, richiede
  * sessione admin (utile per test manuali).
+ *
+ * NOTA: Vercel chiama i cron job con una richiesta GET (non POST). Esponiamo
+ * entrambi i metodi verso la stessa logica, così funziona sia il cron automatico
+ * di produzione (GET) sia i test manuali (POST con Bearer).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -26,7 +30,8 @@ function giorniMancanti(data: Date, oggi: Date): number {
   return d1 - d0
 }
 
-export async function POST(req: NextRequest) {
+// Logica condivisa tra GET (cron Vercel) e POST (test manuali).
+async function runCheck(req: NextRequest): Promise<NextResponse> {
   const authHeader = req.headers.get('authorization')
   const providedSecret = authHeader?.replace('Bearer ', '')
   if (providedSecret && providedSecret === CRON_SECRET) {
@@ -86,6 +91,11 @@ export async function POST(req: NextRequest) {
       dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
     }
 
+    console.log(
+      `[CRON] scadenze notificate: ${notificate}/${scadenze.length} · ` +
+        dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ')
+    )
+
     return NextResponse.json({
       ok: true,
       controllate: scadenze.length,
@@ -96,4 +106,14 @@ export async function POST(req: NextRequest) {
     console.error('[SCADENZE] errore check:', err)
     return NextResponse.json({ error: 'Errore server', detail: String(err) }, { status: 500 })
   }
+}
+
+// Cron automatico di Vercel (richiesta GET).
+export async function GET(req: NextRequest) {
+  return runCheck(req)
+}
+
+// Test manuali (richiesta POST con Authorization: Bearer CRON_SECRET).
+export async function POST(req: NextRequest) {
+  return runCheck(req)
 }

@@ -441,8 +441,16 @@ export function TabGestioneClienti() {
                                               {canPreviewFile(f.nome) && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'nuovo', isPreferito: false })}><Eye className="h-3 w-3" /></Button>}
                                               <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3 w-3" /></Button>
 <Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
-{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number } }).scadenza && (
-                                                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium">⏰ {new Date((f as unknown as { scadenza: { dataScadenza: string } }).scadenza.dataScadenza).toLocaleDateString('it-IT')}</span>
+{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean } }).scadenza && (
+                                                (() => {
+                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; pagata?: boolean } }).scadenza
+                                                  const pagata = !!sc.pagata
+                                                  return (
+                                                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${pagata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                      {pagata ? '✅' : '⏰'} {new Date(sc.dataScadenza).toLocaleDateString('it-IT')}
+                                                    </span>
+                                                  )
+                                                })()
                                               )}
                                               <Button variant="outline" size="sm" className="text-amber-700 border-amber-300" onClick={() => openScadenza(f)}><CalendarClock className="h-3 w-3" /></Button>
                                               <AlertDialog>

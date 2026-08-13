@@ -459,13 +459,16 @@ export function ClienteArea() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <ul className="mt-1.5 space-y-1">
+              <p className="mt-1 text-xs text-amber-700">
+                Hai provveduto al pagamento? Clicca <span className="font-semibold">“Ho pagato”</span> per rimuovere la scadenza dal promemoria.
+              </p>
+              <ul className="mt-2 space-y-1.5">
                 {scadenze.map((s) => {
                   const giorni = Math.ceil((new Date(s.dataScadenza).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
                   const quando = giorni <= 0 ? 'oggi' : `tra ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`
                   const loading = scadenzaPagataLoading === s.id
                   return (
-                    <li key={s.id} className="text-sm text-amber-900 flex items-center justify-between gap-2">
+                    <li key={s.id} className="text-sm text-amber-900 flex flex-col gap-1.5 rounded-lg border border-amber-200 bg-white/60 p-2">
                       <span className="truncate flex items-center gap-1.5">
                         ⏰ {s.titolo}
                         <span className="font-medium text-amber-600 font-normal whitespace-nowrap">
@@ -475,11 +478,11 @@ export function ClienteArea() {
                       <button
                         onClick={() => handleScadenzaPagata(s)}
                         disabled={loading}
-                        className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2 py-1 border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
-                        title="Segna come pagato: la scadenza sparisce dal promemoria"
+                        className="self-end inline-flex items-center justify-center gap-1.5 text-xs font-bold rounded-full px-3 py-1.5 border border-emerald-400 text-emerald-800 bg-emerald-100 hover:bg-emerald-200 active:scale-[0.98] disabled:opacity-50 transition-all shadow-sm"
+                        title="Conferma il pagamento: la scadenza sparisce dal promemoria"
                       >
-                        {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                        Pagato
+                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        Ho pagato
                       </button>
                     </li>
                   )
