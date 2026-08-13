@@ -12,8 +12,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, logAudit } from '@/lib/auth'
+import { sendPushToUser } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
+
+// Giorni interi che mancano dalla data scadenza rispetto a oggi (>=0 = futura).
+function giorniMancanti(data: Date, oggi: Date): number {
+  const msAlGiorno = 24 * 60 * 60 * 1000
+  const d1 = Math.floor(data.getTime() / msAlGiorno)
+  const d0 = Math.floor(oggi.getTime() / msAlGiorno)
+  return d1 - d0
+}
 
 export async function GET(req: NextRequest) {
   const session = await getSession()
@@ -76,8 +85,38 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  // Notifica immediata se la scadenza è già nel periodo di preavviso.
+  // Così, quando l'admin imposta/modifica una scadenza imminente, il cliente
+  // riceve subito campanella + push senza dover aspettare il cron notturno.
+  const oggi = new Date()
+  const giorni = giorniMancanti(data, oggi)
+  const imminente = giorni <= anticipo && !scadenza.pagata
+  if (imminente) {
+    const quando = giorni <= 0 ? 'scade oggi' : `scade tra ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`
+    const text = `${titoloFinal}: ${quando} (${data.toLocaleDateString('it-IT')})`
+
+    await db.notification.create({
+      data: {
+        userId: user.id,
+        type: 'scadenza',
+        text,
+        detail: filePath,
+      },
+    })
+
+    await sendPushToUser(user.username, {
+      title: '⏰ Scadenza imminente',
+      body: text,
+      url: '/',
+      tag: 'pfc-scadenza-' + scadenza.id,
+    }).catch((e) => console.error('[SCADENZA] push errore:', e))
+
+    // Evita di rimandarla anche col cron notturno.
+    await db.scadenza.update({ where: { id: scadenza.id }, data: { notificata: true } })
+  }
+
   await logAudit(session.sub, 'IMPOSTA_SCADENZA', `${filePath} -> ${data.toISOString().slice(0, 10)}`)
-  return NextResponse.json({ ok: true, scadenza })
+  return NextResponse.json({ ok: true, scadenza, notificataImmediata: imminente })
 }
 
 export async function DELETE(req: NextRequest) {
