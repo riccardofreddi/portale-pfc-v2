@@ -38,3 +38,7 @@ npm-debug.log*
 next-env.d.ts
 .vercel
 .env*.local
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
