@@ -25,6 +25,7 @@ interface CartellaMeta { nome: string; nFiles: number; nNuovi: number }
 export function TabGestioneClienti() {
   const { setPreviewFile } = usePfcStore()
   const [clienti, setClienti] = useState<Cliente[]>([])
+  const [visibleCount, setVisibleCount] = useState(8)
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [newUsername, setNewUsername] = useState('')
@@ -492,11 +493,12 @@ export function TabGestioneClienti() {
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5 text-emerald-600" /> Clienti registrati ({clienti.length})</CardTitle></CardHeader>
         <CardContent>
           {clienti.length === 0 ? <p className="text-sm text-slate-500 text-center py-8">Nessun cliente registrato</p> : (
-            <div className="space-y-3">
-              {clienti.map((c) => (
+            <div className="space-y-2">
+              {clienti.slice(0, visibleCount).map((c) => (
                 <div key={c.username} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-900 truncate">{c.name}</p>
+                    <p className="text-xs text-slate-500 font-mono truncate">@{c.username}</p>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Edit className="h-4 w-4" /></Button>
@@ -510,6 +512,20 @@ export function TabGestioneClienti() {
                   </div>
                 </div>
               ))}
+              {clienti.length > visibleCount && (
+                <div className="pt-1">
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => setVisibleCount((v) => v + 8)}>
+                    Mostra altri ({Math.min(8, clienti.length - visibleCount)}) · {clienti.length - visibleCount} rimanenti
+                  </Button>
+                </div>
+              )}
+              {visibleCount < clienti.length && clienti.length > 8 && (
+                <div className="pt-1">
+                  <Button variant="ghost" size="sm" className="w-full text-slate-500" onClick={() => setVisibleCount(8)}>
+                    Comprimi lista
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
