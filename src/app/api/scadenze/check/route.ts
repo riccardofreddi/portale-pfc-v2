@@ -15,20 +15,13 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendPushToUser } from '@/lib/push'
+import { giorniMancanti, notifyScadenzaImminente } from '@/lib/scadenza-notify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const CRON_SECRET = process.env.CRON_SECRET
-
-function giorniMancanti(data: Date, oggi: Date): number {
-  const msAlGiorno = 24 * 60 * 60 * 1000
-  const d1 = Math.floor(data.getTime() / msAlGiorno)
-  const d0 = Math.floor(oggi.getTime() / msAlGiorno)
-  return d1 - d0
-}
 
 // Logica condivisa tra GET (cron Vercel) e POST (test manuali).
 async function runCheck(req: NextRequest): Promise<NextResponse> {
@@ -63,29 +56,18 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       const giorni = giorniMancanti(s.dataScadenza, oggi)
       if (giorni > s.anticipoGiorni) continue // ancora troppo presto
 
-      const quando =
-        giorni <= 0 ? 'scade oggi' : `scade tra ${giorni} ${giorni === 1 ? 'giorno' : 'giorni'}`
-      const text = `${s.titolo}: ${quando} (${s.dataScadenza.toLocaleDateString('it-IT')})`
-
-      // Notifica in campanella (tipo 'scadenza').
-      await db.notification.create({
-        data: {
-          userId: s.userId,
-          type: 'scadenza',
-          text,
-          detail: s.filePath,
-        },
+      const { notified } = await notifyScadenzaImminente({
+        scadenzaId: s.id,
+        userId: s.userId,
+        username: s.user.username,
+        titolo: s.titolo,
+        filePath: s.filePath,
+        dataScadenza: s.dataScadenza,
+        anticipoGiorni: s.anticipoGiorni,
+        pagata: s.pagata,
+        oggi,
       })
-
-      // Push (arriva anche se il client non è loggato: la gestisce il Service Worker).
-      await sendPushToUser(s.user.username, {
-        title: '⏰ Scadenza imminente',
-        body: text,
-        url: '/',
-        tag: 'pfc-scadenza-' + s.id,
-      }).catch((e) => console.error('[SCADENZE] push errore:', e))
-
-      await db.scadenza.update({ where: { id: s.id }, data: { notificata: true } })
+      if (!notified) continue
 
       notificate++
       dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })

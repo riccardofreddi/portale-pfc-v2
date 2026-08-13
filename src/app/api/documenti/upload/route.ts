@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { sendPushToUser } from '@/lib/push'
+import { notifyScadenzaImminente } from '@/lib/scadenza-notify'
 import { salvaBytes, listaOggetti, eliminaOggetto, caricaBytes, buildKey, DOCS_PREFIX, haConfigurazioneR2 } from '@/lib/r2'
 import { sanitizzaNomeFile, sanitizzaNomeCartella, MAX_FILE_SIZE_BYTES } from '@/lib/pfc-utils'
 
@@ -139,29 +140,42 @@ export async function POST(req: NextRequest) {
     const nCaricati = results.filter(
       (r) => r.status === 'caricato' || r.status === 'rinominato' || r.status === 'sostituito'
     )
+    let scadenzeNotificate = 0
     if (Object.keys(scadenzeInput).length > 0 && nCaricati.length > 0) {
       for (const r of nCaricati) {
         const spec = scadenzeInput[r.nome]
         if (!spec) continue
         const data = new Date(String(spec.data))
         if (isNaN(data.getTime())) continue
-        await db.scadenza.upsert({
+        const anticipo = Number.isFinite(Number(spec.anticipo)) ? Number(spec.anticipo) : 10
+        const scadenza = await db.scadenza.upsert({
           where: { filePath: r.key },
           create: {
             filePath: r.key,
             userId: cliente.id,
             titolo: r.nome,
             dataScadenza: data,
-            anticipoGiorni: Number.isFinite(Number(spec.anticipo)) ? Number(spec.anticipo) : 10,
+            anticipoGiorni: anticipo,
             notificata: false,
           },
           update: {
             titolo: r.nome,
             dataScadenza: data,
-            anticipoGiorni: Number.isFinite(Number(spec.anticipo)) ? Number(spec.anticipo) : 10,
+            anticipoGiorni: anticipo,
             notificata: false,
           },
         })
+        const { notified } = await notifyScadenzaImminente({
+          scadenzaId: scadenza.id,
+          userId: cliente.id,
+          username,
+          titolo: r.nome,
+          filePath: r.key,
+          dataScadenza: data,
+          anticipoGiorni: anticipo,
+          pagata: scadenza.pagata,
+        })
+        if (notified) scadenzeNotificate++
       }
     }
 
@@ -196,7 +210,7 @@ export async function POST(req: NextRequest) {
     }
 
     await logAudit(session.sub, 'UPLOAD_DOC', `${username}/${anno}/${cartella} (${results.length} file)`)
-    return NextResponse.json({ ok: true, results, pushSent })
+    return NextResponse.json({ ok: true, results, pushSent, scadenzeNotificate })
   } catch (err) {
     console.error('[upload] errore:', err)
     return NextResponse.json({ error: `Errore upload: ${String(err)}` }, { status: 500 })

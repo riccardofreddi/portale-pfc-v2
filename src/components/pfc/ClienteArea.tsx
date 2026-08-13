@@ -34,6 +34,7 @@ const NOTIF_ICONS: Record<string, string> = {
   avviso: '📢',
   richiesta_upload: '📤',
   upload_confermato: '✅',
+  scadenza: '⏰',
 }
 
 const NOTIF_COLORS: Record<string, { gradient: string; border: string; iconBg: string; text: string; label: string }> = {
@@ -42,6 +43,7 @@ const NOTIF_COLORS: Record<string, { gradient: string; border: string; iconBg: s
   avviso: { gradient: 'linear-gradient(135deg,#fef3c7,#fffbeb)', border: '#f59e0b', iconBg: '#f59e0b', text: '#92400e', label: 'AVVISO' },
   richiesta_upload: { gradient: 'linear-gradient(135deg,#fce7f3,#fdf2f8)', border: '#ec4899', iconBg: '#ec4899', text: '#9f1239', label: 'RICHIESTA' },
   upload_confermato: { gradient: 'linear-gradient(135deg,#ede9fe,#f5f3ff)', border: '#8b5cf6', iconBg: '#8b5cf6', text: '#6d28d9', label: 'RICEVUTO' },
+  scadenza: { gradient: 'linear-gradient(135deg,#fef3c7,#fffbeb)', border: '#d97706', iconBg: '#d97706', text: '#92400e', label: 'SCADENZA' },
 }
 
 const DEFAULT_NOTIF_COLOR = { gradient: '#f8fafc', border: '#94a3b8', iconBg: '#94a3b8', text: '#475569', label: 'NOTIFICA' }
@@ -188,6 +190,7 @@ export function ClienteArea() {
       }
       if (data.type === 'PUSH_RECEIVED' || data.type === 'BADGE_UPDATE') {
         loadNotifiche()
+        loadScadenze()
         // Se siamo GIÀ sulla tab Messaggi, ricarica l'elenco per vedere subito il
         // messaggio e mantenere i badge a zero (getState = valore corrente, niente closure stale).
         if (usePfcStore.getState().clienteTab === 'messaggi') {
@@ -271,6 +274,15 @@ export function ClienteArea() {
       setAnno(n.year)
       setCartella(n.folder)
       setClienteTab('archivio')
+    } else if (n.type === 'scadenza' && n.detail) {
+      const parts = n.detail.split('/')
+      const anno = parts[2]
+      const cartella = parts[3]
+      if (anno && cartella) {
+        setAnno(anno)
+        setCartella(cartella)
+        setClienteTab('archivio')
+      }
     } else if (n.type === 'messaggio' || n.type === 'richiesta_upload') {
       setClienteTab('messaggi')
     } else {
