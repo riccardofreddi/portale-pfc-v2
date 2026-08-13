@@ -110,46 +110,11 @@ async function restoreBadge() {
   } catch {}
 }
 
-// Chiede alle finestre APERTE se una di esse (visibile e loggata) gestirà la
-// notifica in-app (suono + toast). Se riceve PUSH_ACK con visible=true entro il
-// timeout, NON mostra la notifica di sistema (niente doppio suono).
-// In tutti gli altri casi — app chiusa, in background, pagina di login visibile
-// (cliente disconnesso) — mostra la notifica di sistema con suono.
-//
-// NOTA: source.visibilityState NON è affidabile nei messaggi SW in tutti i browser.
-// Quindi è il CLIENT a dichiarare la propria visibilità nel PUSH_ACK ({ visible: true }).
-const PUSH_ACK_TIMEOUT_MS = 600
-
-function askVisibleClients(clients, unreadCount, data) {
-  return new Promise((resolve) => {
-    let settled = false
-    let onMessage = () => {}
-    const finish = (handled) => {
-      if (settled) return
-      settled = true
-      self.removeEventListener('message', onMessage)
-      resolve(handled)
-    }
-    onMessage = (event) => {
-      // Il client dichiara esplicitamente se è visibile E loggato (visible: true)
-      if (event.data?.type === 'PUSH_ACK' && event.data?.visible === true) finish(true)
-    }
-    self.addEventListener('message', onMessage)
-    setTimeout(() => finish(false), PUSH_ACK_TIMEOUT_MS)
-
-    // Invia PUSH_RECEIVED a tutte le finestre aperte (anche login page, anche background)
-    // Il client risponderà PUSH_ACK solo se è visibile E l'utente è loggato
-    for (const client of clients) {
-      const isVisible = client.visibilityState === 'visible'
-      try {
-        client.postMessage({ type: 'PUSH_RECEIVED', unreadCount, ack: isVisible, data })
-      } catch {}
-    }
-
-    // Nessuna finestra aperta: mostra subito la notifica di sistema
-    if (clients.length === 0) finish(false)
-  })
-}
+// Nota: in passato il SW sopprimeva la notifica di sistema se una finestra
+// visibile rispondeva con PUSH_ACK, affidandosi al solo toast in-app. Quel
+// meccanismo era fragile (se il toast non scattava, l'utente non vedeva nulla):
+// ora la notifica di sistema viene mostrata SEMPRE, e il toast in-app è un
+// arricchimento gestito dal client su PUSH_RECEIVED.
 
 self.addEventListener('push', (event) => {
   let payload = { title: 'Portale PFC', body: '', url: '/', tag: 'pfc-notification', unreadCount: 0, data: {} }
@@ -168,12 +133,16 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      // Aggiornamento immediato badge UI sulle pagine aperte + conferma (PUSH_ACK)
-      // da parte di una finestra visibile che gestirà la notifica in-app.
+      // Aggiorna subito badge UI e avvisa le finestre aperte (che mostreranno
+      // anche il toast in-app). Questo NON sopprime più la notifica di sistema:
+      // la mostriamo SEMPRE, così è garantita la visibilità anche se il client
+      // non è visibile/loggato o se il toast in-app fallisce per qualsiasi motivo.
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-      const handledByPage = await askVisibleClients(clients, unreadCount, payload.data)
-
-      if (handledByPage) return
+      for (const client of clients) {
+        try {
+          client.postMessage({ type: 'PUSH_RECEIVED', unreadCount, ack: client.visibilityState === 'visible', data: payload.data })
+        } catch {}
+      }
 
       const options = {
         body: payload.body,
@@ -190,8 +159,7 @@ self.addEventListener('push', (event) => {
         ],
       }
 
-      // Portale chiuso, in background, o pagina di login visibile senza conferma:
-      // mostra la notifica di sistema
+      // Notifica di sistema: SEMPRE (pagina chiusa, in background, o aperta).
       await self.registration.showNotification(payload.title, options)
     })()
   )

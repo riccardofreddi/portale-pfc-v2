@@ -178,10 +178,9 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // Notifica push con la stessa logica dei messaggi privati:
-      //  - app chiusa / in background → notifica di sistema (Service Worker)
-      //  - app aperta e visibile → suono + toast in-app (PUSH_ACK sopprime
-      //    la notifica di sistema per evitare il doppio suono)
+      // Notifica push: il Service Worker mostra SEMPRE la notifica di sistema
+      // (race-safe, anche a pagina chiusa/in background). Quando la pagina è
+      // aperta e visibile, il client mostra inoltre un toast in-app + suono.
       // Il click sulla notifica apre l'Archivio sulla cartella esatta (?anno=&cartella=).
       // Invio inline PRIMA della risposta: su Vercel una promise non attesa muore
       // con la funzione, quindi l'invio va completato nell'arco di vita dell'handler.

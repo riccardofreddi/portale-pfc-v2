@@ -130,30 +130,31 @@ export function useNotificationBadge(enabled: boolean) {
     // aggiorna immediatamente badge e conteggio (senza aspettare il polling)
     const onSwMessage = (event: MessageEvent) => {
       if (event.data?.type === "PUSH_RECEIVED") {
-        // Avviso globale con pagina già aperta e visibile: la push porta
-        // data.avviso (nessuna notifica "non letta" in campanella), quindi il
-        // suono in-app + toast partono da qui, stessa logica degli avvisi privati.
-        if (event.data?.data?.avviso && isPageVisible()) {
-          const avvisoText = String(event.data.data.avviso?.text ?? "").slice(0, 100)
-          playNotificationSound()
-          toast(getNotifTitle("avviso"), {
-            description: avvisoText,
-            icon: getNotifIcon("avviso"),
-            duration: 6000,
-          })
-        }
-        // Conferma al Service Worker che questa pagina (loggata e visibile) gestirà la
-        // notifica in-app (suono + toast): il SW non mostrerà la notifica di sistema.
-        // IMPORTANTE: visible:true indica che questo client è loggato e visibile —
-        // il SW si fida di questa dichiarazione (non può leggerla direttamente).
-        if (event.data?.ack && isPageVisible()) {
-          const ack = { type: 'PUSH_ACK', visible: true }
-          if (navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage(ack)
-          } else {
-            navigator.serviceWorker.ready
-              .then((reg) => reg.active?.postMessage(ack))
-              .catch(() => {})
+        // Feedback in-app immediato (suono + toast) quando la pagina è visibile:
+        // parte all'istante, in parallelo al refresh del badge, così l'utente
+        // vede/ sente la notifica anche se il polling impiega qualche istante a
+        // rilevare la nuova notifica nel DB. La notifica di sistema è già mostrata
+        // dal Service Worker (race-safe), quindi non c'è rischio di "nulla arriva".
+        const data = event.data?.data as
+          | { avviso?: { text?: string; type?: string }; testo?: string; tipo?: string }
+          | undefined
+        if (isPageVisible()) {
+          if (data?.avviso) {
+            const avvisoText = String(data.avviso.text ?? "").slice(0, 100)
+            const avvisoType = String(data.avviso.type ?? "avviso")
+            playNotificationSound()
+            toast(getNotifTitle(avvisoType), {
+              description: avvisoText,
+              icon: getNotifIcon(avvisoType),
+              duration: 6000,
+            })
+          } else if (data?.testo) {
+            playNotificationSound()
+            toast(getNotifTitle(data.tipo ?? "documento_nuovo"), {
+              description: String(data.testo).slice(0, 100),
+              icon: getNotifIcon(data.tipo ?? "documento_nuovo"),
+              duration: 6000,
+            })
           }
         }
         checkAndUpdate()
