@@ -45,8 +45,9 @@ export async function POST(req: NextRequest) {
   if (!filePath || typeof filePath !== 'string') {
     return NextResponse.json({ error: 'filePath mancante' }, { status: 400 })
   }
-  const data = new Date(String(dataScadenza))
-  if (isNaN(data.getTime())) {
+  const dataInput = String(dataScadenza)
+  const data = new Date(dataInput)
+  if (isNaN(data.getTime()) || data.getFullYear() > 2100 || data.getFullYear() < 1900) {
     return NextResponse.json({ error: 'Data di scadenza non valida' }, { status: 400 })
   }
   const titoloFinal = String(titolo ?? '').trim() || filePath.split('/').pop() || 'Documento'
