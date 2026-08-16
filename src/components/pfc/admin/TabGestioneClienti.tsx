@@ -25,7 +25,7 @@ interface CartellaMeta { nome: string; nFiles: number; nNuovi: number }
 export function TabGestioneClienti() {
   const { setPreviewFile } = usePfcStore()
   const [clienti, setClienti] = useState<Cliente[]>([])
-  const [visibleCount, setVisibleCount] = useState(8)
+  const [searchClienti, setSearchClienti] = useState('')
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [newUsername, setNewUsername] = useState('')
@@ -489,117 +489,147 @@ export function TabGestioneClienti() {
         </CardContent>
       </Card>
 
-            <Card className="overflow-hidden">
+      <Card className="overflow-hidden">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="h-5 w-5 text-emerald-600" />
-            Clienti registrati
-            <span className="ml-1 text-sm font-medium text-slate-500">({clienti.length})</span>
-          </CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-5 w-5 text-emerald-600" />
+              Clienti registrati
+              <span className="ml-1 text-sm font-medium text-slate-500">
+                ({clienti.filter(c =>
+                  c.name.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                  c.username.toLowerCase().includes(searchClienti.toLowerCase())
+                ).length})
+              </span>
+            </CardTitle>
+
+            {/* Barra di ricerca */}
+            <div className="relative w-full sm:w-72">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <Input
+                value={searchClienti}
+                onChange={(e) => setSearchClienti(e.target.value)}
+                placeholder="Cerca cliente..."
+                className="pl-9 pr-9 h-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
+              />
+              {searchClienti && (
+                <button
+                  onClick={() => setSearchClienti('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  aria-label="Cancella ricerca"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
         </CardHeader>
+
         <CardContent>
           {clienti.length === 0 ? (
             <p className="text-sm text-slate-500 text-center py-8">Nessun cliente registrato</p>
           ) : (
-            <div className="space-y-2.5">
-              {clienti.slice(0, visibleCount).map((c) => {
-                const initials = c.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .slice(0, 2)
-                  .join('')
-                  .toUpperCase()
+            (() => {
+              const filtered = clienti.filter(
+                (c) =>
+                  c.name.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                  c.username.toLowerCase().includes(searchClienti.toLowerCase())
+              )
 
+              if (filtered.length === 0) {
                 return (
-                  <div
-                    key={c.username}
-                    className="group flex items-center gap-3 p-3 rounded-xl border border-slate-200/80 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm transition-all duration-200"
-                  >
-                    {/* Avatar */}
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
-                      {initials}
-                    </div>
+                  <p className="text-sm text-slate-500 text-center py-8">
+                    Nessun cliente trovato per “{searchClienti}”
+                  </p>
+                )
+              }
 
-                    {/* Info */}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-slate-900 truncate leading-tight">{c.name}</p>
-                      <p className="text-xs text-slate-500 font-mono truncate mt-0.5">@{c.username}</p>
-                    </div>
+              return (
+                <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+                  {filtered.map((c) => {
+                    const initials = c.name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase()
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(c)}
-                        className="h-8 w-8 p-0 text-slate-500 hover:text-emerald-700 hover:bg-emerald-100"
+                    return (
+                      <div
+                        key={c.username}
+                        className="group flex items-center gap-3 p-3 rounded-xl border border-slate-200/80 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm transition-all duration-200"
                       >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                        {/* Avatar */}
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                          {initials}
+                        </div>
 
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                        {/* Info */}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-slate-900 truncate leading-tight">{c.name}</p>
+                          <p className="text-xs text-slate-500 font-mono truncate mt-0.5">@{c.username}</p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => openEdit(c)}
+                            className="h-8 w-8 p-0 text-slate-500 hover:text-emerald-700 hover:bg-emerald-100"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Edit className="h-4 w-4" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Elimina cliente {c.name}?</AlertDialogTitle>
-                            <AlertDialogDescription>Operazione irreversibile.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annulla</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(c.username)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Elimina
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                )
-              })}
 
-              {clienti.length > visibleCount && (
-                <div className="pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setVisibleCount((v) => v + 8)}
-                  >
-                    Mostra altri ({Math.min(8, clienti.length - visibleCount)}) · {clienti.length - visibleCount} rimanenti
-                  </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Elimina cliente {c.name}?</AlertDialogTitle>
+                                <AlertDialogDescription>Operazione irreversibile.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(c.username)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Elimina
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              )}
-              {visibleCount < clienti.length && clienti.length > 8 && (
-                <div className="pt-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-slate-500"
-                    onClick={() => setVisibleCount(8)}
-                  >
-                    Comprimi lista
-                  </Button>
-                </div>
-              )}
-            </div>
+              )
+            })()
           )}
         </CardContent>
       </Card>
 
-
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent>
+          <DialogContent>
           <DialogHeader><DialogTitle>Modifica cliente</DialogTitle><DialogDescription>Lascia la password vuota per mantenerla.</DialogDescription></DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5"><Label>Ragione Sociale</Label><Input value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
