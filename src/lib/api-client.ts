@@ -27,10 +27,10 @@ export const api = {
     logout: () => apiFetch('/api/auth/logout', { method: 'POST' }),
   },
   clienti: {
-    list: () => apiFetch<{ clienti: Array<{ username: string; name: string; exemptMaintenance: boolean; createdAt: string }> }>('/api/clienti'),
-    create: (data: { username: string; name: string; password: string }) =>
+    list: () => apiFetch<{ clienti: Array<{ username: string; name: string; email?: string | null; exemptMaintenance: boolean; createdAt: string }> }>('/api/clienti'),
+    create: (data: { username: string; name: string; password: string; email?: string }) =>
       apiFetch('/api/clienti', { method: 'POST', body: JSON.stringify(data) }),
-    update: (data: { oldUsername: string; newUsername: string; newName: string; newPassword?: string }) =>
+    update: (data: { oldUsername: string; newUsername: string; newName: string; newPassword?: string; newEmail?: string }) =>
       apiFetch('/api/clienti', { method: 'PUT', body: JSON.stringify(data) }),
     delete: (username: string) =>
       apiFetch('/api/clienti', { method: 'DELETE', body: JSON.stringify({ username }) }),

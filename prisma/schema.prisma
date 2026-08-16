@@ -15,6 +15,7 @@ model User {
   id                String   @id @default(cuid())
   username          String   @unique
   name              String
+  email             String?  @unique
   passwordHash      String   @map("password_hash")
   role              String   @default("client") // "admin" | "client"
   exemptMaintenance Boolean  @default(false) @map("exempt_maintenance")
@@ -187,6 +188,7 @@ model Scadenza {
   notificata      Boolean  @default(false)
   pushInviata     Boolean  @default(false) @map("push_inviata")
   pagata          Boolean  @default(false)
+  emailInviata    Boolean  @default(false) @map("email_inviata")
   createdAt       DateTime @default(now()) @map("created_at")
 
   @@index([userId])

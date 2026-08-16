@@ -54,7 +54,7 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
         dataScadenza: { gte: inizioOggi },
         OR: [{ notificata: false }, { pushInviata: false }],
       },
-      include: { user: { select: { username: true, name: true } } },
+      include: { user: { select: { username: true, name: true, email: true } } },
     })
 
     let notificate = 0
@@ -75,6 +75,7 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
         anticipoGiorni: s.anticipoGiorni,
         pagata: s.pagata,
         oggi,
+        emailCliente: s.user.email,
       })
       if (!notified) continue
 

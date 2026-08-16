@@ -102,3 +102,14 @@ export function getInitials(name: string): string {
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('')
 }
+
+// Validazione email "buona enough" per un form aziendale.
+// L'email del cliente e' opzionale: se vuota ritorna ok:true (normalized: null).
+const EMAIL_REGEX = /^[^s@]+@[^s@]+.[^s@]+$/
+export function validaEmail(raw: string): { ok: boolean; normalized: string | null; msg: string } {
+  const email = String(raw ?? '').trim().toLowerCase()
+  if (!email) return { ok: true, normalized: null, msg: '' } // opzionale
+  if (email.length > 254) return { ok: false, normalized: null, msg: 'Email troppo lunga' }
+  if (!EMAIL_REGEX.test(email)) return { ok: false, normalized: null, msg: 'Inserisci un indirizzo email valido' }
+  return { ok: true, normalized: email, msg: '' }
+}

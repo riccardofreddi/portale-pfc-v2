@@ -76,9 +76,10 @@ export async function POST(req: NextRequest) {
       dataScadenza: data,
       anticipoGiorni: anticipo,
       // Reset completo: se l'admin cambia la data, il cliente deve ricevere
-      // di nuovo il promemoria (campanella + push) per la nuova scadenza.
+      // di nuovo il promemoria (campanella + push + email fallback) per la nuova scadenza.
       notificata: false,
       pushInviata: false,
+      emailInviata: false,
     },
   })
 
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
     anticipoGiorni: anticipo,
     pagata: scadenza.pagata,
     forceNotifica: true,
+    emailCliente: user.email,
   })
 
   await logAudit(session.sub, 'IMPOSTA_SCADENZA', `${filePath} -> ${data.toISOString().slice(0, 10)}`)

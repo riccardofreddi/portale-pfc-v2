@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, hashPassword, validaUsername, validaPassword, logAudit } from '@/lib/auth'
-import { DEFAULT_ADMIN_USER } from '@/lib/pfc-utils'
+import { DEFAULT_ADMIN_USER, validaEmail } from '@/lib/pfc-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +23,7 @@ export async function GET() {
     clienti: users.map((u) => ({
       username: u.username,
       name: u.name,
+      email: u.email,
       exemptMaintenance: u.exemptMaintenance,
       createdAt: u.createdAt,
     })),
@@ -52,6 +53,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Username riservato allamministratore', field: 'username' }, { status: 400 })
   }
 
+  // Email opzionale: se fornita deve essere valida e univoca.
+  const ve = validaEmail(String(body.email ?? ''))
+  if (!ve.ok) {
+    return NextResponse.json({ error: ve.msg, field: 'email' }, { status: 400 })
+  }
+  if (ve.normalized) {
+    const clashEmail = await db.user.findUnique({ where: { email: ve.normalized } })
+    if (clashEmail) return NextResponse.json({ error: 'Email gia associata a un altro cliente', field: 'email' }, { status: 400 })
+  }
+
   const existing = await db.user.findUnique({ where: { username } })
   if (existing) return NextResponse.json({ error: `Username ${username} gia esistente`, field: 'username' }, { status: 400 })
 
@@ -65,6 +76,7 @@ export async function POST(req: NextRequest) {
     data: {
       username,
       name: ragioneSociale,
+      email: ve.normalized,
       passwordHash: hashPassword(password),
       role: 'client',
     },
@@ -104,11 +116,12 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
-  const { oldUsername, newUsername, newName, newPassword } = body as {
+  const { oldUsername, newUsername, newName, newPassword, newEmail } = body as {
     oldUsername: string
     newUsername: string
     newName: string
     newPassword?: string
+    newEmail?: string
   }
 
   if (!oldUsername || !newUsername || !newName) {
@@ -131,6 +144,14 @@ export async function PUT(req: NextRequest) {
     if (clash) return NextResponse.json({ error: `Username ${nuovoUsername} gia esistente` }, { status: 400 })
   }
 
+  // Email opzionale: se fornita deve essere valida e univoca (escluso se stesso).
+  const ve = validaEmail(String(newEmail ?? ''))
+  if (!ve.ok) return NextResponse.json({ error: ve.msg, field: 'email' }, { status: 400 })
+  if (ve.normalized && ve.normalized !== target.email) {
+    const clashEmail = await db.user.findUnique({ where: { email: ve.normalized } })
+    if (clashEmail) return NextResponse.json({ error: 'Email gia associata a un altro cliente', field: 'email' }, { status: 400 })
+  }
+
   let newHash = target.passwordHash
   if (newPassword) {
     const vp = validaPassword(newPassword)
@@ -143,6 +164,7 @@ export async function PUT(req: NextRequest) {
     data: {
       username: nuovoUsername,
       name: newName,
+      email: ve.normalized,
       passwordHash: newHash,
     },
   })

@@ -165,6 +165,7 @@ export async function POST(req: NextRequest) {
             anticipoGiorni: anticipo,
             notificata: false,
             pushInviata: false,
+            emailInviata: false,
           },
         })
         const { notified } = await notifyScadenzaImminente({
@@ -176,6 +177,7 @@ export async function POST(req: NextRequest) {
           dataScadenza: data,
           anticipoGiorni: anticipo,
           pagata: scadenza.pagata,
+          emailCliente: cliente.email,
         })
         if (notified) scadenzeNotificate++
       }

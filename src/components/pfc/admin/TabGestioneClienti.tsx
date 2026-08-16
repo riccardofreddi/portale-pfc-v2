@@ -17,7 +17,7 @@ import { toast } from 'sonner'
 import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, EyeOff, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight, Edit2, CalendarClock } from 'lucide-react'
 import { formatBytes, ottieniIconaFile, canPreviewFile, formatDateShort, MAX_FILE_SIZE_MB } from '@/lib/pfc-utils'
 
-interface Cliente { username: string; name: string; exemptMaintenance: boolean; createdAt: string }
+interface Cliente { username: string; name: string; email?: string | null; exemptMaintenance: boolean; createdAt: string }
 interface CassettoFile { nome: string; key: string; size: number; sizeStr: string; lastModified: Date | null }
 interface ArchivioFile { nome: string; key: string; size: number; sizeStr: string; lastModified: Date | null }
 interface CartellaMeta { nome: string; nFiles: number; nNuovi: number }
@@ -29,12 +29,14 @@ export function TabGestioneClienti() {
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [newUsername, setNewUsername] = useState('')
+  const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<Cliente | null>(null)
   const [editName, setEditName] = useState('')
   const [editUsername, setEditUsername] = useState('')
+  const [editEmail, setEditEmail] = useState('')
   const [editPassword, setEditPassword] = useState('')
   const [showEditPassword, setShowEditPassword] = useState(false)
 
@@ -154,9 +156,9 @@ export function TabGestioneClienti() {
     }
     setCreating(true)
     try {
-      await api.clienti.create({ username: newUsername, name: newName, password: newPassword })
+      await api.clienti.create({ username: newUsername, name: newName, password: newPassword, email: newEmail.trim() || undefined })
       toast.success(`Cliente ${newName} registrato`)
-      setNewName(''); setNewUsername(''); setNewPassword('')
+      setNewName(''); setNewUsername(''); setNewEmail(''); setNewPassword('')
       await refresh()
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
     finally { setCreating(false) }
@@ -168,13 +170,13 @@ export function TabGestioneClienti() {
   }
 
   function openEdit(c: Cliente) {
-    setEditing(c); setEditName(c.name); setEditUsername(c.username); setEditPassword('')
+    setEditing(c); setEditName(c.name); setEditUsername(c.username); setEditEmail(c.email ?? ''); setEditPassword('')
   }
 
   async function handleSaveEdit() {
     if (!editing) return
     try {
-      await api.clienti.update({ oldUsername: editing.username, newUsername: editUsername, newName: editName, newPassword: editPassword || undefined })
+      await api.clienti.update({ oldUsername: editing.username, newUsername: editUsername, newName: editName, newPassword: editPassword || undefined, newEmail: editEmail.trim() || undefined })
       toast.success('Modifiche salvate'); setEditing(null); await refresh()
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
   }
@@ -363,6 +365,19 @@ export function TabGestioneClienti() {
             {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
+      </div>
+
+
+      {/* Email (opzionale) — fallback push via mail */}
+      <div className="space-y-1.5">
+        <Label className="text-slate-700">Email (opzionale)</Label>
+        <Input
+          type="email"
+          value={newEmail}
+          onChange={(e) => setNewEmail(e.target.value)}
+          placeholder="promemoria scadenze via email"
+          className="h-10 bg-slate-50/80 border-slate-200 focus-visible:ring-emerald-500/40"
+        />
       </div>
 
       {/* Bottone */}
@@ -679,6 +694,7 @@ export function TabGestioneClienti() {
           <div className="space-y-3 py-2">
             <div className="space-y-1.5"><Label>Ragione Sociale</Label><Input value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
             <div className="space-y-1.5"><Label>Username</Label><Input value={editUsername} onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} maxLength={20} /></div>
+            <div className="space-y-1.5"><Label>Email (opzionale)</Label><Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="promemoria via email" /></div>
             <div className="space-y-1.5">
               <Label>Nuova password (opzionale)</Label>
               <div className="relative">
