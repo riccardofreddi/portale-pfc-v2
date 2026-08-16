@@ -306,38 +306,83 @@ export function TabGestioneClienti() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><UserPlus className="h-5 w-5 text-emerald-600" /> Nuovo Cliente</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
-          <div className="space-y-1.5"><Label>Ragione Sociale</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="es. Rossi Mario S.r.l." /></div>
-          <div className="space-y-1.5"><Label>Username</Label><Input value={newUsername} onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} placeholder="min 3 lettere/numeri (es. rossi)" maxLength={20} /></div>
-          <div className="space-y-1.5">
-            <Label>Password</Label>
-            <div className="relative">
-              <Input
-                type={showNewPassword ? 'text' : 'password'}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Min 4 caratteri"
-                className="pr-10 text-base sm:text-sm"
-                minLength={4}
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1"
-                aria-label={showNewPassword ? 'Nascondi password' : 'Mostra password'}
-                tabIndex={-1}
-              >
-                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-          <Button onClick={handleCreate} disabled={creating || !newName || newUsername.length < 3 || newPassword.length < 4} className="bg-emerald-700 hover:bg-emerald-800 text-white">
-            {creating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />} Registra
-          </Button>
-        </CardContent>
-      </Card>
+      <Card className="overflow-hidden shadow-card hover:shadow-card-hover transition-shadow duration-200">
+        <CardHeader className="pb-4">
+    <CardTitle className="text-base flex items-center gap-2.5">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+        <UserPlus className="h-4 w-4" />
+      </div>
+      Nuovo Cliente
+    </CardTitle>
+  </CardHeader>
+
+  <CardContent>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+      {/* Ragione Sociale */}
+      <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+        <Label className="text-slate-700">Ragione Sociale</Label>
+        <Input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="es. Rossi Mario S.r.l."
+          className="h-10 bg-slate-50/80 border-slate-200 focus-visible:ring-emerald-500/40"
+        />
+      </div>
+
+      {/* Username */}
+      <div className="space-y-1.5">
+        <Label className="text-slate-700">Username</Label>
+        <Input
+          value={newUsername}
+          onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+          placeholder="min 3 lettere/numeri"
+          maxLength={20}
+          className="h-10 bg-slate-50/80 border-slate-200 focus-visible:ring-emerald-500/40"
+        />
+      </div>
+
+      {/* Password */}
+      <div className="space-y-1.5">
+        <Label className="text-slate-700">Password</Label>
+        <div className="relative">
+          <Input
+            type={showNewPassword ? 'text' : 'password'}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Min 4 caratteri"
+            className="h-10 pr-10 bg-slate-50/80 border-slate-200 focus-visible:ring-emerald-500/40 text-base sm:text-sm"
+            minLength={4}
+          />
+          <button
+            type="button"
+            onClick={() => setShowNewPassword(!showNewPassword)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1"
+            aria-label={showNewPassword ? 'Nascondi password' : 'Mostra password'}
+            tabIndex={-1}
+          >
+            {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Bottone */}
+      <div className="sm:col-span-2 lg:col-span-1">
+        <Button
+          onClick={handleCreate}
+          disabled={creating || !newName || newUsername.length < 3 || newPassword.length < 4}
+          className="w-full h-10 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md transition-all"
+        >
+          {creating ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <UserPlus className="h-4 w-4 mr-2" />
+          )}
+          Registra
+        </Button>
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><FolderOpen className="h-5 w-5 text-emerald-600" /> Archivio Cliente</CardTitle></CardHeader>
@@ -803,5 +848,6 @@ export function TabGestioneClienti() {
         </DialogContent>
       </Dialog>
     </div>
+
   )
 }
