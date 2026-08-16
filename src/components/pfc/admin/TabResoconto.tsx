@@ -544,7 +544,7 @@ export function TabResoconto() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-sm text-slate-900">{label}</p>
                         <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                          @{l.username}
+                          {l.username}
                         </span>
                         {isNew && (
                           <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
