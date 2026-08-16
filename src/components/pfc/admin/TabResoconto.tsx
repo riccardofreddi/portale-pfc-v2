@@ -80,6 +80,9 @@ export function TabResoconto() {
   const [filtroAzione, setFiltroAzione] = useState<string>('tutte')
   const [filtroClienteLog, setFiltroClienteLog] = useState<string>('tutti')
 
+  const [newLogIds, setNewLogIds] = useState<Set<string>>(new Set())
+  const prevLogIdsRef = useRef<Set<string>>(new Set())
+
   async function refresh() {
     setLoading(true)
     try {
@@ -90,32 +93,67 @@ export function TabResoconto() {
   }
 
   // Aggiornamento "quasi-realtime" del SOLO log attività: mentre la tab è aperta
-  // viene riletto ogni 5 s (e al focus/ritorno sulla pagina). Non tocca i dati
+  // viene riletto ogni 2 s (e al focus/ritorno sulla pagina). Non tocca i dati
   // pesanti (stats/resoconto/diagnostica) e non mostra lo spinner di caricamento.
   const pollingRef = useRef(false)
+
   async function refreshLogs() {
     if (pollingRef.current) return
     pollingRef.current = true
     try {
       const l = await api.audit.list(500)
-      setLogs(l.logs)
+      const incoming = l.logs
+
+      // Individua i log nuovi rispetto al ciclo precedente
+      const incomingIds = new Set(incoming.map((x) => x.id))
+      const reallyNew = incoming
+        .filter((x) => prevLogIdsRef.current.size > 0 && !prevLogIdsRef.current.has(x.id))
+        .map((x) => x.id)
+
+      if (reallyNew.length > 0) {
+        setNewLogIds((prev) => {
+          const next = new Set(prev)
+          reallyNew.forEach((id) => next.add(id))
+          return next
+        })
+
+        // Dopo 4 secondi togli l'evidenziazione
+        setTimeout(() => {
+          setNewLogIds((prev) => {
+            const next = new Set(prev)
+            reallyNew.forEach((id) => next.delete(id))
+            return next
+          })
+        }, 4000)
+      }
+
+      prevLogIdsRef.current = incomingIds
+      setLogs(incoming)
     } catch {
-      // Poll silenzioso: nessun toast, al giro successivo si riprova
+      // Poll silenzioso
     } finally {
       pollingRef.current = false
     }
   }
 
   useEffect(() => {
-    // setTimeout(0): evita il setState sincrono nel body dell'effect
-    // (regola react-hooks/set-state-in-effect)
-    const initial = setTimeout(() => { refresh() }, 0)
-    const poll = () => { if (document.visibilityState === 'visible') refreshLogs() }
-    const interval = setInterval(poll, 5000)
-    const onVisibility = () => { if (document.visibilityState === 'visible') refreshLogs() }
+    const initial = setTimeout(() => {
+      refresh()
+    }, 0)
+
+    // Quasi real-time: ogni 2 secondi se la tab è visibile
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refreshLogs()
+    }, 2000)
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refreshLogs()
+    }
     const onFocus = () => refreshLogs()
+
     document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('focus', onFocus)
+
     return () => {
       clearTimeout(initial)
       clearInterval(interval)
@@ -123,6 +161,7 @@ export function TabResoconto() {
       window.removeEventListener('focus', onFocus)
     }
   }, [])
+
 
   async function toggleExempt(username: string, currentExempt: boolean) {
     const newExempt = !currentExempt
@@ -487,11 +526,17 @@ export function TabResoconto() {
                 const icon = ACTION_ICONS[l.action] ?? '✏️'
                 const label = ACTION_LABELS[l.action] ?? l.action
                 const borderColor = ACTION_BORDER[l.action] ?? '#94a3b8'
+                const isNew = newLogIds.has(l.id)
 
                 return (
                   <div
                     key={l.id}
-                    className="flex items-center gap-3 bg-white border border-slate-200 border-l-4 p-3 rounded-lg hover:shadow-sm transition-shadow"
+                    className={[
+                      'flex items-center gap-3 bg-white border border-slate-200 border-l-4 p-3 rounded-lg transition-all duration-300',
+                      isNew
+                        ? 'ring-2 ring-emerald-300 bg-emerald-50/60 shadow-sm scale-[1.01]'
+                        : 'hover:shadow-sm',
+                    ].join(' ')}
                     style={{ borderLeftColor: borderColor }}
                   >
                     <span className="text-xl flex-shrink-0">{icon}</span>
@@ -501,6 +546,11 @@ export function TabResoconto() {
                         <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                           @{l.username}
                         </span>
+                        {isNew && (
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                            Nuovo
+                          </span>
+                        )}
                       </div>
                       {l.detail && (
                         <p className="text-xs text-slate-500 truncate mt-0.5">{l.detail}</p>
@@ -512,6 +562,7 @@ export function TabResoconto() {
                   </div>
                 )
               })}
+
             </div>
           )}
         </CardContent>
