@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
@@ -20,6 +19,52 @@ interface StatsCliente {
   anni: { anno: string; cartelle: { cartella: string; nFiles: number; sizeBytes: number; files: ResocontoFile[] }[] }[]
 }
 interface AuditLog { id: string; ts: string; username: string; action: string; detail: string }
+const ACTION_ICONS: Record<string, string> = {
+  DOWNLOAD_DOC: '📥',
+  DOWNLOAD_CASSETTO: '💼',
+  UPLOAD_CASSETTO: '📤',
+  LOGIN_SUCCESS: '🔑',
+  LOGOUT: '🚪',
+  LETTO_MESSAGGI: '💬',
+  LOGIN_FAILED: '❌',
+  UPLOAD_RISPOSTA: '📤',
+  RINOMINA_FILE: '✏️',
+  ELIMINA_FILE_CASSETTO: '🗑️',
+  SCARICA_ARCHIVIO: '📦',
+  ANTEPRIMA: '👁️',
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  DOWNLOAD_DOC: 'Download documento',
+  DOWNLOAD_CASSETTO: 'Download cassetto',
+  UPLOAD_CASSETTO: 'Upload cassetto',
+  LOGIN_SUCCESS: 'Accesso',
+  LOGOUT: 'Logout',
+  LETTO_MESSAGGI: 'Messaggi letti',
+  LOGIN_FAILED: 'Login fallito',
+  UPLOAD_RISPOSTA: 'Risposta inviata',
+  RINOMINA_FILE: 'Rinomina file',
+  ELIMINA_FILE_CASSETTO: 'Elimina file cassetto',
+  SCARICA_ARCHIVIO: 'Scarica archivio',
+  ANTEPRIMA: 'Anteprima',
+}
+
+const ACTION_BORDER: Record<string, string> = {
+  LOGIN_SUCCESS: '#16a34a',
+  LOGIN_FAILED: '#dc2626',
+  LOGOUT: '#64748b',
+  DOWNLOAD_DOC: '#3b82f6',
+  DOWNLOAD_CASSETTO: '#3b82f6',
+  UPLOAD_CASSETTO: '#10b981',
+  UPLOAD_RISPOSTA: '#10b981',
+  LETTO_MESSAGGI: '#0ea5e9',
+  RINOMINA_FILE: '#f59e0b',
+  ELIMINA_FILE_CASSETTO: '#dc2626',
+  SCARICA_ARCHIVIO: '#8b5cf6',
+  ANTEPRIMA: '#94a3b8',
+}
+
+
 
 export function TabResoconto() {
   const { setPreviewFile } = usePfcStore()
@@ -434,12 +479,39 @@ export function TabResoconto() {
           </div>
         </CardHeader>
         <CardContent>
-          {logsFiltrate.length === 0 ? <p className="text-sm text-slate-500 text-center py-6">Nessuna attivita</p> : (
-            <div className="max-h-96 overflow-y-auto border border-slate-200 rounded">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 sticky top-0"><tr><th className="text-left p-2 font-medium text-slate-600">Data</th><th className="text-left p-2 font-medium text-slate-600">Utente</th><th className="text-left p-2 font-medium text-slate-600">Azione</th><th className="text-left p-2 font-medium text-slate-600 hidden md:table-cell">Dettaglio</th></tr></thead>
-                <tbody>{logsFiltrate.map((l) => (<tr key={l.id} className="border-t border-slate-100 hover:bg-slate-50"><td className="p-2 text-xs text-slate-500 whitespace-nowrap">{formatDateAudit(l.ts)}</td><td className="p-2 font-mono text-xs">{l.username}</td><td className="p-2"><Badge variant="outline" className="text-xs">{l.action}</Badge></td><td className="p-2 text-xs text-slate-600 hidden md:table-cell max-w-xs truncate">{l.detail}</td></tr>))}</tbody>
-              </table>
+          {logsFiltrate.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-6">Nessuna attività</p>
+          ) : (
+            <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+              {logsFiltrate.map((l) => {
+                const icon = ACTION_ICONS[l.action] ?? '✏️'
+                const label = ACTION_LABELS[l.action] ?? l.action
+                const borderColor = ACTION_BORDER[l.action] ?? '#94a3b8'
+
+                return (
+                  <div
+                    key={l.id}
+                    className="flex items-center gap-3 bg-white border border-slate-200 border-l-4 p-3 rounded-lg hover:shadow-sm transition-shadow"
+                    style={{ borderLeftColor: borderColor }}
+                  >
+                    <span className="text-xl flex-shrink-0">{icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm text-slate-900">{label}</p>
+                        <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                          @{l.username}
+                        </span>
+                      </div>
+                      {l.detail && (
+                        <p className="text-xs text-slate-500 truncate mt-0.5">{l.detail}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap">
+                      {formatDateAudit(l.ts)}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           )}
         </CardContent>
