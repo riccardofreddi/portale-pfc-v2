@@ -114,19 +114,19 @@ export async function notifyScadenzaImminente(params: {
   if (pushSent === 0 && emailCliente && !stato?.emailInviata) {
     emailSent = await sendEmail({
       to: emailCliente,
-      subject: 'Promemoria scadenza – Studio Commerciale PFC',
+      subject: 'Promemoria scadenza',
       text:
         `Gentile cliente,\n\n` +
         `Le ricordiamo che risulta in scadenza il documento:\n  ${params.titolo}\n` +
         `${text}\n\n` +
         `Può consultarlo nell'area riservata del portale.\n\n` +
-        `Cordiali saluti,\nStudio Commerciale PFC`,
+        `Cordiali saluti,\nLo Studio`,
       html:
         `<p>Gentile cliente,</p>` +
         `<p>Le ricordiamo che risulta in scadenza il documento <strong>${params.titolo}</strong>.</p>` +
         `<p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` +
         `<p>Può consultarlo nell'area riservata del portale.</p>` +
-        `<p>Cordiali saluti,<br><strong>Studio Commerciale PFC</strong></p>`,
+        `<p>Cordiali saluti,<br><strong>Lo Studio</strong></p>`,
     })
   }
 
