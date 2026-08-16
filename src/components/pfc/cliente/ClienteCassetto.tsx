@@ -218,113 +218,125 @@ export function ClienteCassetto() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {files.map((f) => {
-            const accent = getColorForFile(f.nome)
-            const label = getLabelForFile(f.nome)
-            const ext = f.nome.split('.').pop()?.toUpperCase() ?? ''
-            const canPreview = canPreviewFile(f.nome)
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  {files.map((f) => {
+    const accent = getColorForFile(f.nome)
+    const label = getLabelForFile(f.nome)
+    const ext = f.nome.split('.').pop()?.toUpperCase() ?? ''
+    const canPreview = canPreviewFile(f.nome)
 
-            return (
-              <Card
-                key={f.key}
-                className="overflow-hidden border border-slate-200/80 shadow-card hover:shadow-card-hover transition-all duration-200"
+    return (
+      <div
+        key={f.key}
+        className="group relative bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden"
+      >
+        {/* Accento laterale sottile */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1"
+          style={{ background: accent }}
+        />
+
+        <div className="p-4 pl-5">
+          {/* Header */}
+          <div className="flex items-start gap-3 mb-3.5">
+            <div
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl shadow-sm"
+              style={{
+                background: `linear-gradient(135deg, ${accent}22, ${accent}10)`,
+                color: accent,
+              }}
+            >
+              <FileText className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="font-semibold text-[15px] text-slate-900 truncate leading-snug">
+                {label}
+              </p>
+              <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                <span
+                  className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
+                  style={{ background: `${accent}15`, color: accent }}
+                >
+                  {ext}
+                </span>
+                <span>{f.sizeStr}</span>
+                {f.lastModified && (
+                  <span className="hidden sm:inline text-slate-400">
+                    · {formatDateShort(f.lastModified)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Azioni */}
+          <div className="flex items-center gap-1.5">
+            {canPreview && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 flex-1 text-xs font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
+                onClick={() => setPreviewFile({ ...f, stato: 'visto', isPreferito: false })}
               >
-                {/* Barra colore in alto */}
-                <div className="h-1 w-full" style={{ background: accent }} />
-
-                <CardContent className="p-4">
-                  {/* Header file */}
-                  <div className="flex items-start gap-3 mb-4">
-                    <div
-                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: `${accent}18`, color: accent }}
-                    >
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-slate-900 truncate leading-tight">{label}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                        <span>{f.sizeStr}</span>
-                        <span
-                          className="rounded-md px-1.5 py-0.5 text-[10px] font-bold"
-                          style={{ background: `${accent}18`, color: accent }}
-                        >
-                          {ext}
-                        </span>
-                        {f.lastModified && (
-                          <span className="hidden sm:inline">· {formatDateShort(f.lastModified)}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Azioni - touch friendly */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {canPreview && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-10 text-xs font-medium"
-                        onClick={() => setPreviewFile({ ...f, stato: 'visto', isPreferito: false })}
-                      >
-                        <Eye className="h-3.5 w-3.5 mr-1.5" />
-                        Anteprima
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-10 text-xs font-medium"
-                      onClick={() => handleDownload(f.key, f.nome)}
-                    >
-                      <Download className="h-3.5 w-3.5 mr-1.5" />
-                      Scarica
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-10 text-xs font-medium"
-                      onClick={() => openRename(f)}
-                    >
-                      <Edit className="h-3.5 w-3.5 mr-1.5" />
-                      Rinomina
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-10 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                          Elimina
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Eliminare definitivamente {f.nome}?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Operazione irreversibile. Il file verrà eliminato definitivamente e non sarà più recuperabile.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annulla</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(f.key, f.nome)}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            Elimina
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+                <Eye className="h-3.5 w-3.5 mr-1.5" />
+                Anteprima
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 flex-1 text-xs font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50"
+              onClick={() => handleDownload(f.key, f.nome)}
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              Scarica
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 w-9 p-0 text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              onClick={() => openRename(f)}
+              title="Rinomina"
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                  title="Elimina"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Eliminare definitivamente {f.nome}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Operazione irreversibile. Il file verrà eliminato definitivamente e non sarà più recuperabile.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => handleDelete(f.key, f.nome)}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Elimina
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
+      </div>
+    )
+  })}
+</div>
+
       )}
 
       {/* Dialog Upload */}
