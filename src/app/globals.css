@@ -44,43 +44,76 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  /* Radius più moderno */
+  --radius: 0.75rem; /* 12px base */
+
+  /* Background & testo */
+  --background: oklch(0.985 0.002 247); /* slate-50 leggero */
   --foreground: oklch(0.145 0 0);
+
+  /* Card */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
+
+  /* Popover */
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+
+  /* Primary → Emerald */
+  --primary: oklch(0.596 0.145 163.2); /* emerald-600 approx */
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+
+  /* Secondary & muted */
+  --secondary: oklch(0.97 0.005 247);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
+  --muted: oklch(0.97 0.005 247);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+
+  /* Accent */
+  --accent: oklch(0.97 0.005 247);
   --accent-foreground: oklch(0.205 0 0);
+
+  /* Destructive */
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+
+  /* Border & input */
+  --border: oklch(0.91 0.01 247);
+  --input: oklch(0.91 0.01 247);
+  --ring: oklch(0.596 0.145 163.2); /* stesso del primary */
+
+  /* Chart (lasciati invariati) */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
+
+  /* Sidebar */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.596 0.145 163.2);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent: oklch(0.97 0.005 247);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-border: oklch(0.91 0.01 247);
+  --sidebar-ring: oklch(0.596 0.145 163.2);
+}
+
+/* ===== Utility extra per il design system ===== */
+@layer utilities {
+  .shadow-card {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  }
+  .shadow-card-hover {
+    box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.06), 0 2px 6px -2px rgb(0 0 0 / 0.04);
+  }
+  .ring-focus {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:ring-offset-2;
+  }
 }
 
 /* ===== OTTIMIZZAZIONI MOBILE ===== */
 @media (max-width: 640px) {
-  /* Previene lo zoom automatico di iOS Safari al focus sugli input */
   input, select, textarea {
     font-size: 16px !important;
   }
