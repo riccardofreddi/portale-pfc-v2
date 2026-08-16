@@ -32,9 +32,9 @@ export function AdminConsole() {
           <p className="text-sm text-slate-500 mt-1">Gestisci clienti, documenti, comunicazioni e monitora lo stato del sistema.</p>
         </div>
 
-        {/* Tabs - scrollable su mobile */}
-        <div className="border-b-2 border-slate-200 mb-5 sm:mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
-          <nav className="flex gap-1 min-w-max" aria-label="Tabs">
+        {/* Tabs */}
+        <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
+          <nav className="flex gap-1.5 min-w-max p-1 bg-slate-100/80 rounded-xl" aria-label="Tabs">
             {TABS.map((t) => {
               const Icon = t.icon
               const active = adminTab === t.id
@@ -43,13 +43,13 @@ export function AdminConsole() {
                   key={t.id}
                   onClick={() => setAdminTab(t.id)}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-3 sm:px-4 sm:py-3.5 text-xs sm:text-sm font-semibold border-b-[3px] transition-all whitespace-nowrap flex-shrink-0',
+                    'flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium rounded-lg transition-all whitespace-nowrap flex-shrink-0',
                     active
-                      ? 'border-emerald-500 text-emerald-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                      ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-slate-200/80'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/60'
                   )}
                 >
-                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <Icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-emerald-600' : 'text-slate-400')} />
                   <span>{t.label}</span>
                 </button>
               )
