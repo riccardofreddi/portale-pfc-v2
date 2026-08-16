@@ -166,35 +166,55 @@ export function ClienteCassetto() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-            <Briefcase className="h-5 w-5 text-emerald-600" />
+          <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+              <Briefcase className="h-4 w-4" />
+            </div>
             Cassetto Digitale
           </h3>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5 sm:mt-1">
-            {files.length} {files.length === 1 ? 'documento' : 'documenti'} archiviati · Accesso rapido ai tuoi documenti essenziali
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 ml-10 sm:ml-0">
+            {files.length} {files.length === 1 ? 'documento' : 'documenti'} · Accesso rapido ai tuoi file essenziali
           </p>
         </div>
-        <Button onClick={() => setUploadOpen(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white w-full sm:w-auto min-h-[40px]">
-          <UploadCloud className="h-4 w-4 mr-2" /> Aggiungi documento
+        <Button
+          onClick={() => setUploadOpen(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto h-10 shadow-sm hover:shadow-md transition-all"
+        >
+          <UploadCloud className="h-4 w-4 mr-2" />
+          Aggiungi documento
         </Button>
       </div>
 
-      <Card className="bg-blue-50/50 border-blue-200">
-        <CardContent className="py-3.5 px-4 text-sm text-slate-700">
-          <p className="font-semibold mb-0.5 text-xs sm:text-sm">Cos'è il Cassetto Digitale?</p>
-          <p className="text-xs text-slate-600">Uno spazio sicuro per i documenti che usi spesso (QR P.IVA, visure, identità...). Sempre disponibile con un click, senza cercare tra le cartelle.</p>
-        </CardContent>
-      </Card>
+      {/* Info box */}
+      <div className="rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50 to-white px-4 py-3.5">
+        <p className="text-sm font-semibold text-slate-800 mb-0.5">Cos’è il Cassetto Digitale?</p>
+        <p className="text-xs text-slate-600 leading-relaxed">
+          Uno spazio sicuro per i documenti che usi spesso (QR P.IVA, visure, identità…). Sempre disponibili con un tap, senza cercare tra le cartelle.
+        </p>
+      </div>
 
+      {/* Empty state */}
       {files.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Briefcase className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-700 font-medium mb-1">Cassetto ancora vuoto</p>
-            <p className="text-sm text-slate-500">Carica QR P.IVA, visura, documento d'identità e altri file che usi spesso.</p>
+        <Card className="shadow-card">
+          <CardContent className="py-14 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+              <Briefcase className="h-7 w-7 text-slate-400" />
+            </div>
+            <p className="text-slate-800 font-semibold mb-1">Cassetto ancora vuoto</p>
+            <p className="text-sm text-slate-500 max-w-xs mx-auto mb-5">
+              Carica QR P.IVA, visura, documento d’identità e altri file che usi spesso.
+            </p>
+            <Button
+              onClick={() => setUploadOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white h-10"
+            >
+              <UploadCloud className="h-4 w-4 mr-2" />
+              Aggiungi il primo documento
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -204,51 +224,88 @@ export function ClienteCassetto() {
             const label = getLabelForFile(f.nome)
             const ext = f.nome.split('.').pop()?.toUpperCase() ?? ''
             const canPreview = canPreviewFile(f.nome)
+
             return (
               <Card
                 key={f.key}
-                className="border-t-4 hover:shadow-md transition-all"
-                style={{ borderTopColor: accent }}
+                className="overflow-hidden border border-slate-200/80 shadow-card hover:shadow-card-hover transition-all duration-200"
               >
-                <CardContent className="p-3.5 sm:p-4">
-                  <div className="flex items-center gap-3 mb-3">
+                {/* Barra colore in alto */}
+                <div className="h-1 w-full" style={{ background: accent }} />
+
+                <CardContent className="p-4">
+                  {/* Header file */}
+                  <div className="flex items-start gap-3 mb-4">
                     <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${accent}15`, color: accent }}
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl"
+                      style={{ background: `${accent}18`, color: accent }}
                     >
                       <FileText className="h-5 w-5" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm text-slate-900 truncate">{label}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {f.sizeStr} · <span className="px-1.5 py-0.5 rounded font-bold text-xs" style={{ background: `${accent}18`, color: accent }}>{ext}</span>
-                        {f.lastModified && <span className="ml-2 hidden sm:inline">· {formatDateShort(f.lastModified)}</span>}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-900 truncate leading-tight">{label}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                        <span>{f.sizeStr}</span>
+                        <span
+                          className="rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+                          style={{ background: `${accent}18`, color: accent }}
+                        >
+                          {ext}
+                        </span>
+                        {f.lastModified && (
+                          <span className="hidden sm:inline">· {formatDateShort(f.lastModified)}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5">
+
+                  {/* Azioni - touch friendly */}
+                  <div className="grid grid-cols-2 gap-2">
                     {canPreview && (
-                      <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 text-xs" onClick={() => setPreviewFile({ ...f, stato: 'visto', isPreferito: false })}>
-                        <Eye className="h-3.5 w-3.5 mr-1" /> Anteprima
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-10 text-xs font-medium"
+                        onClick={() => setPreviewFile({ ...f, stato: 'visto', isPreferito: false })}
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        Anteprima
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 text-xs" onClick={() => handleDownload(f.key, f.nome)}>
-                      <Download className="h-3.5 w-3.5 mr-1" /> Scarica
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-10 text-xs font-medium"
+                      onClick={() => handleDownload(f.key, f.nome)}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      Scarica
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 text-xs" onClick={() => openRename(f)}>
-                      <Edit className="h-3.5 w-3.5 mr-1" /> Rinomina
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-10 text-xs font-medium"
+                      onClick={() => openRename(f)}
+                    >
+                      <Edit className="h-3.5 w-3.5 mr-1.5" />
+                      Rinomina
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 text-xs text-red-600 hover:bg-red-50">
-                          <Trash2 className="h-3.5 w-3.5 mr-1" /> Elimina
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-10 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                          Elimina
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Eliminare definitivamente {f.nome}?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Operazione irreversibile. Il file verra eliminato definitivamente e non sara piu recuperabile.
+                            Operazione irreversibile. Il file verrà eliminato definitivamente e non sarà più recuperabile.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -270,6 +327,7 @@ export function ClienteCassetto() {
         </div>
       )}
 
+      {/* Dialog Upload */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
         <DialogContent>
           <DialogHeader>
@@ -280,7 +338,9 @@ export function ClienteCassetto() {
             <div className="space-y-2">
               <Label>Tipo documento</Label>
               <Select value={tipoSel} onValueChange={(v) => setTipoSel(v ?? '')}>
-                <SelectTrigger><SelectValue placeholder="Seleziona tipo..." /></SelectTrigger>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Seleziona tipo..." />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="QR Code P.IVA">QR Code P.IVA</SelectItem>
                   <SelectItem value="Certificato P.IVA">Certificato P.IVA</SelectItem>
@@ -294,6 +354,7 @@ export function ClienteCassetto() {
               <Label>File (max {MAX_FILE_SIZE_MB}MB)</Label>
               <Input
                 type="file"
+                className="h-10"
                 onChange={(e) => setFileSel(e.target.files?.[0] ?? null)}
               />
               {fileSel && (
@@ -308,26 +369,36 @@ export function ClienteCassetto() {
             <Button
               onClick={handleUpload}
               disabled={uploading || !tipoSel || !fileSel}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Salvataggio...</> : <>Salva nel cassetto</>}
+              {uploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Salvataggio...
+                </>
+              ) : (
+                'Salva nel cassetto'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Dialog Rinomina */}
       <Dialog open={!!renameKey} onOpenChange={(o) => !o && setRenameKey(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rinomina documento</DialogTitle>
-            <DialogDescription>Inserisci il nuovo nome (l'estensione viene mantenuta automaticamente).</DialogDescription>
+            <DialogDescription>
+              Inserisci il nuovo nome (l’estensione viene mantenuta automaticamente).
+            </DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <Input
               value={renameName}
               onChange={(e) => setRenameName(e.target.value)}
               placeholder="Nuovo nome"
-              autoFocus
+              className="h-10"
             />
           </div>
           <DialogFooter>
@@ -335,10 +406,10 @@ export function ClienteCassetto() {
             <Button
               onClick={handleRenameConfirm}
               disabled={renaming || !renameName.trim()}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {renaming ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Edit className="h-4 w-4 mr-2" />}
-              Conferma
+              {renaming ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Salva
             </Button>
           </DialogFooter>
         </DialogContent>
