@@ -228,11 +228,14 @@ export function ClienteCassetto() {
     return (
       <div
         key={f.key}
-        className="group relative bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden"
+        className="group relative bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden
+                   transition-all duration-300 ease-out
+                   hover:shadow-lg hover:border-slate-300 hover:-translate-y-0.5
+                   active:translate-y-0 active:shadow-md"
       >
-        {/* Accento laterale sottile */}
+        {/* Accento laterale con animazione */}
         <div
-          className="absolute left-0 top-0 bottom-0 w-1"
+          className="absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 ease-out group-hover:w-1.5"
           style={{ background: accent }}
         />
 
@@ -240,22 +243,24 @@ export function ClienteCassetto() {
           {/* Header */}
           <div className="flex items-start gap-3 mb-3.5">
             <div
-              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl shadow-sm"
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl shadow-sm
+                         transition-transform duration-300 ease-out group-hover:scale-105"
               style={{
                 background: `linear-gradient(135deg, ${accent}22, ${accent}10)`,
                 color: accent,
               }}
             >
-              <FileText className="h-5 w-5" />
+              <FileText className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
             </div>
 
             <div className="min-w-0 flex-1 pt-0.5">
-              <p className="font-semibold text-[15px] text-slate-900 truncate leading-snug">
+              <p className="font-semibold text-[15px] text-slate-900 truncate leading-snug transition-colors duration-200 group-hover:text-slate-950">
                 {label}
               </p>
               <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
                 <span
-                  className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
+                  className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide
+                             transition-all duration-200"
                   style={{ background: `${accent}15`, color: accent }}
                 >
                   {ext}
@@ -270,13 +275,17 @@ export function ClienteCassetto() {
             </div>
           </div>
 
+
           {/* Azioni */}
           <div className="flex items-center gap-1.5">
             {canPreview && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-9 flex-1 text-xs font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
+                className="h-9 flex-1 text-xs font-medium text-slate-600
+                           transition-all duration-200
+                           hover:text-emerald-700 hover:bg-emerald-50 hover:scale-[1.02]
+                           active:scale-[0.98]"
                 onClick={() => setPreviewFile({ ...f, stato: 'visto', isPreferito: false })}
               >
                 <Eye className="h-3.5 w-3.5 mr-1.5" />
@@ -286,7 +295,10 @@ export function ClienteCassetto() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 flex-1 text-xs font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50"
+              className="h-9 flex-1 text-xs font-medium text-slate-600
+                         transition-all duration-200
+                         hover:text-blue-700 hover:bg-blue-50 hover:scale-[1.02]
+                         active:scale-[0.98]"
               onClick={() => handleDownload(f.key, f.nome)}
             >
               <Download className="h-3.5 w-3.5 mr-1.5" />
@@ -295,7 +307,10 @@ export function ClienteCassetto() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 w-9 p-0 text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              className="h-9 w-9 p-0 text-slate-400
+                         transition-all duration-200
+                         hover:text-slate-700 hover:bg-slate-100 hover:scale-110
+                         active:scale-95"
               onClick={() => openRename(f)}
               title="Rinomina"
             >
@@ -306,7 +321,10 @@ export function ClienteCassetto() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-9 w-9 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                  className="h-9 w-9 p-0 text-slate-400
+                             transition-all duration-200
+                             hover:text-red-600 hover:bg-red-50 hover:scale-110
+                             active:scale-95"
                   title="Elimina"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
