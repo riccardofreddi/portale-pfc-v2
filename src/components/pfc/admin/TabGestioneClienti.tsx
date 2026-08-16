@@ -558,7 +558,8 @@ export function TabGestioneClienti() {
               <span className="ml-1 text-sm font-medium text-slate-500">
                 ({clienti.filter(c =>
                   c.name.toLowerCase().includes(searchClienti.toLowerCase()) ||
-                  c.username.toLowerCase().includes(searchClienti.toLowerCase())
+                  c.username.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                  (c.email ?? '').toLowerCase().includes(searchClienti.toLowerCase())
                 ).length})
               </span>
             </CardTitle>
@@ -603,7 +604,8 @@ export function TabGestioneClienti() {
               const filtered = clienti.filter(
                 (c) =>
                   c.name.toLowerCase().includes(searchClienti.toLowerCase()) ||
-                  c.username.toLowerCase().includes(searchClienti.toLowerCase())
+                  c.username.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                  (c.email ?? '').toLowerCase().includes(searchClienti.toLowerCase())
               )
 
               if (filtered.length === 0) {
@@ -637,7 +639,10 @@ export function TabGestioneClienti() {
                         {/* Info */}
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-slate-900 truncate leading-tight">{c.name}</p>
-                          <p className="text-xs text-slate-500 font-mono truncate mt-0.5">@{c.username}</p>
+                          {c.email && (
+                            <p className="text-xs text-slate-500 truncate mt-0.5">{c.email}</p>
+                          )}
+                          <p className="text-xs text-slate-400 truncate mt-0.5 font-mono">{c.username}</p>
                         </div>
 
                         {/* Actions */}
