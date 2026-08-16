@@ -489,39 +489,105 @@ export function TabGestioneClienti() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-5 w-5 text-emerald-600" /> Clienti registrati ({clienti.length})</CardTitle></CardHeader>
+            <Card className="overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="h-5 w-5 text-emerald-600" />
+            Clienti registrati
+            <span className="ml-1 text-sm font-medium text-slate-500">({clienti.length})</span>
+          </CardTitle>
+        </CardHeader>
         <CardContent>
-          {clienti.length === 0 ? <p className="text-sm text-slate-500 text-center py-8">Nessun cliente registrato</p> : (
-            <div className="space-y-2">
-              {clienti.slice(0, visibleCount).map((c) => (
-                <div key={c.username} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-slate-900 truncate">{c.name}</p>
-                    <p className="text-xs text-slate-500 font-mono truncate">@{c.username}</p>
+          {clienti.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-8">Nessun cliente registrato</p>
+          ) : (
+            <div className="space-y-2.5">
+              {clienti.slice(0, visibleCount).map((c) => {
+                const initials = c.name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase()
+
+                return (
+                  <div
+                    key={c.username}
+                    className="group flex items-center gap-3 p-3 rounded-xl border border-slate-200/80 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm transition-all duration-200"
+                  >
+                    {/* Avatar */}
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                      {initials}
+                    </div>
+
+                    {/* Info */}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-900 truncate leading-tight">{c.name}</p>
+                      <p className="text-xs text-slate-500 font-mono truncate mt-0.5">@{c.username}</p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEdit(c)}
+                        className="h-8 w-8 p-0 text-slate-500 hover:text-emerald-700 hover:bg-emerald-100"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Elimina cliente {c.name}?</AlertDialogTitle>
+                            <AlertDialogDescription>Operazione irreversibile.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annulla</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(c.username)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Elimina
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><Edit className="h-4 w-4" /></Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader><AlertDialogTitle>Elimina cliente {c.name}?</AlertDialogTitle><AlertDialogDescription>Operazione irreversibile.</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(c.username)} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
+
               {clienti.length > visibleCount && (
                 <div className="pt-1">
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => setVisibleCount((v) => v + 8)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setVisibleCount((v) => v + 8)}
+                  >
                     Mostra altri ({Math.min(8, clienti.length - visibleCount)}) · {clienti.length - visibleCount} rimanenti
                   </Button>
                 </div>
               )}
               {visibleCount < clienti.length && clienti.length > 8 && (
                 <div className="pt-1">
-                  <Button variant="ghost" size="sm" className="w-full text-slate-500" onClick={() => setVisibleCount(8)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-slate-500"
+                    onClick={() => setVisibleCount(8)}
+                  >
                     Comprimi lista
                   </Button>
                 </div>
@@ -530,6 +596,7 @@ export function TabGestioneClienti() {
           )}
         </CardContent>
       </Card>
+
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
