@@ -471,24 +471,37 @@ export function ClienteArchivio() {
                     key={c.nome}
                     onClick={() => handleCartellaClick(c.nome)}
                     className={cn(
-                      'anim-folder-enter p-3.5 sm:p-4 rounded-xl border text-left transition-all duration-200 group',
+                      'anim-folder-enter p-3.5 sm:p-4 rounded-xl border text-left transition-all duration-300 group',
                       active
-                        ? 'glass-card border-emerald-400/60 shadow-[0_4px_16px_rgba(5,150,105,0.12)] ring-1 ring-emerald-200/60'
+                        ? 'folder-card-active'
                         : 'bg-white/80 border-slate-200/80 hover:border-emerald-300/80 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)]'
                     )}
                     style={{ animationDelay: `${idx * 60}ms` }}
                   >
-                    <div className="flex items-center gap-2.5 mb-1">
-                      <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0', active ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-500')}>
-                        <FolderOpen className="h-4.5 w-4.5" />
+                    <div className="flex items-center gap-2.5 mb-1.5">
+                      <div className={cn(
+                        'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all duration-300 flex-shrink-0',
+                        active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-500'
+                      )}>
+                        {active ? <FolderOpen className="h-5 w-5" /> : <Folder className="h-4.5 w-4.5" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 text-sm sm:text-base truncate">{c.nome}</span>
-                          {c.nNuovi > 0 && <span className="flex-shrink-0 bg-red-500 text-white text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full shadow-sm">+{c.nNuovi} nuovi</span>}
+                          <span className={cn('font-bold text-sm sm:text-base truncate transition-colors duration-300', active ? 'text-white' : 'text-slate-900')}>{c.nome}</span>
+                          {c.nNuovi > 0 && (
+                            <span className={cn(
+                              'flex-shrink-0 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full transition-colors duration-300',
+                              active ? 'bg-white/25 text-white' : 'bg-red-500 text-white shadow-sm'
+                            )}>+{c.nNuovi} nuovi</span>
+                          )}
                         </div>
-                        <span className="text-[11px] sm:text-xs text-slate-500">{c.nFiles} documento{c.nFiles !== 1 ? 'i' : ''}</span>
+                        <span className={cn('text-[11px] sm:text-xs transition-colors duration-300', active ? 'text-white/70' : 'text-slate-500')}>{c.nFiles} documento{c.nFiles !== 1 ? 'i' : ''}</span>
                       </div>
+                      {active && (
+                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                          <ChevronRight className="h-3.5 w-3.5 text-white" />
+                        </div>
+                      )}
                     </div>
                     <div className="folder-progress">
                       <div className="folder-progress-fill" style={{ width: `${pct}%` }} />

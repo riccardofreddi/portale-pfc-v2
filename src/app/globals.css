@@ -281,6 +281,30 @@
   overflow: hidden;
   margin-top: 8px;
 }
+
+/* ===== FOLDER CARDS — Active state (dramatic) ===== */
+.folder-card-active {
+  background: linear-gradient(135deg, #059669 0%, #10b981 60%, #34d399 100%) !important;
+  border-color: transparent !important;
+  box-shadow:
+    0 6px 24px -4px rgba(5, 150, 105, 0.4),
+    0 2px 8px -2px rgba(5, 150, 105, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px) scale(1.015);
+}
+.folder-card-active:hover {
+  box-shadow:
+    0 8px 28px -4px rgba(5, 150, 105, 0.45),
+    0 4px 12px -2px rgba(5, 150, 105, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-3px) scale(1.015);
+}
+.folder-card-active .folder-progress {
+  background: rgba(255, 255, 255, 0.2);
+}
+.folder-card-active .folder-progress-fill {
+  background: rgba(255, 255, 255, 0.75);
+}
 .folder-progress-fill {
   height: 100%;
   border-radius: 2px;
