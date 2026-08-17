@@ -364,7 +364,7 @@ export function ClienteArchivio() {
           </button>
         )}
         {searchQuery.trim().length >= 2 && (
-        <div className="space-y-3 anim-fade-in">
+        <div className="mt-4 space-y-3 anim-fade-in">
           {searchResults.length === 0 && !searching ? (
             <Card className="border-0 shadow-none bg-transparent"><CardContent className="py-12 text-center">
               <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
