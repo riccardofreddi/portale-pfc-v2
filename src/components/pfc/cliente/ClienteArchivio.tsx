@@ -475,10 +475,7 @@ export function ClienteArchivio() {
                         <div className="flex items-center gap-2">
                           <span className={cn('font-bold text-sm sm:text-base truncate transition-colors duration-300', active ? 'text-white' : 'text-slate-900')}>{c.nome}</span>
                           {c.nNuovi > 0 && (
-                            <span className={cn(
-                              'flex-shrink-0 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full transition-colors duration-300',
-                              active ? 'bg-white/25 text-white' : 'bg-red-500 text-white shadow-sm'
-                            )}>+{c.nNuovi} nuovi</span>
+                            <span className="flex-shrink-0 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white shadow-sm">+{c.nNuovi} {c.nNuovi === 1 ? 'nuovo' : 'nuovi'}</span>
                           )}
                         </div>
                         <span className={cn('text-[11px] sm:text-xs transition-colors duration-300', active ? 'text-white/70' : 'text-slate-500')}>{c.nFiles} documento{c.nFiles !== 1 ? 'i' : ''}</span>
