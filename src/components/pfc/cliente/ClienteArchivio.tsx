@@ -377,7 +377,7 @@ export function ClienteArchivio() {
             <>
               <div className="flex items-center gap-2 px-1">
                 <Search className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="text-xs font-semibold text-emerald-700">{searchResults.length} risultato{searchResults.length !== 1 ? 'i' : ''} per &quot;{searchQuery}&quot;</span>
+                <span className="text-xs font-semibold text-emerald-700">{`${searchResults.length} ${searchResults.length === 1 ? 'risultato' : 'risultati'}`} per &quot;{searchQuery}&quot;</span>
               </div>
               <div className="space-y-1.5">
                 {searchResults.map((r, idx) => {
