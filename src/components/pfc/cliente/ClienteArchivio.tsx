@@ -452,7 +452,6 @@ export function ClienteArchivio() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
               {cartelle.map((c, idx) => {
                 const active = cartellaSelezionata === c.nome
-                const pct = c.nFiles > 0 ? Math.round(((c.nFiles - c.nNuovi) / c.nFiles) * 100) : 100
                 return (
                   <button
                     key={c.nome}
@@ -489,9 +488,6 @@ export function ClienteArchivio() {
                           <ChevronRight className="h-3.5 w-3.5 text-white" />
                         </div>
                       )}
-                    </div>
-                    <div className="folder-progress">
-                      <div className="folder-progress-fill" style={{ width: `${pct}%` }} />
                     </div>
                   </button>
                 )

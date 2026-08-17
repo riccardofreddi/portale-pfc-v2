@@ -263,15 +263,6 @@
   opacity: 1;
 }
 
-/* Folder progress bar */
-.folder-progress {
-  height: 3px;
-  border-radius: 2px;
-  background: #e2e8f0;
-  overflow: hidden;
-  margin-top: 8px;
-}
-
 /* ===== FOLDER CARDS — Active state (dramatic) ===== */
 .folder-card-active {
   background: linear-gradient(135deg, #059669 0%, #10b981 60%, #34d399 100%) !important;
@@ -288,18 +279,6 @@
     0 4px 12px -2px rgba(5, 150, 105, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
   transform: translateY(-3px) scale(1.015);
-}
-.folder-card-active .folder-progress {
-  background: rgba(255, 255, 255, 0.2);
-}
-.folder-card-active .folder-progress-fill {
-  background: rgba(255, 255, 255, 0.75);
-}
-.folder-progress-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #10b981, #059669);
-  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ===== FILE CARDS 2.0 — State system ===== */
