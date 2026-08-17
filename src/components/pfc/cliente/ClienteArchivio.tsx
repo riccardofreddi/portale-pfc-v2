@@ -14,10 +14,10 @@ import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 10
 const STATO_CONFIG: Record<string, { icon: string; label: string; dotClass: string }> = {
-  preferito: { icon: 'â­', label: 'Preferito', dotClass: 'status-dot-downloaded' },
-  nuovo: { icon: 'ðŸ”´', label: 'Nuovo', dotClass: 'status-dot-new' },
-  visto: { icon: 'ðŸ”µ', label: 'Visto', dotClass: 'status-dot-seen' },
-  scaricato: { icon: 'ðŸŸ¢', label: 'Scaricato', dotClass: 'status-dot-downloaded' },
+  preferito: { icon: '⭐', label: 'Preferito', dotClass: 'status-dot-downloaded' },
+  nuovo: { icon: '🔴', label: 'Nuovo', dotClass: 'status-dot-new' },
+  visto: { icon: '🔵', label: 'Visto', dotClass: 'status-dot-seen' },
+  scaricato: { icon: '🞢', label: 'Scaricato', dotClass: 'status-dot-downloaded' },
 }
 
 function fileBorderClass(filename: string): string {
@@ -399,7 +399,7 @@ export function ClienteArchivio() {
                           <span className={statoCfg.dotClass} title={statoCfg.label} />
                           <p className="font-medium text-slate-900 truncate text-xs sm:text-sm">{r.nome}</p>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 pl-[18px]">{r.anno} Â· {r.cartella} Â· {r.sizeStr}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 pl-[18px]">{r.anno} · {r.cartella} · {r.sizeStr}</p>
                       </div>
                       <div className="file-actions flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                         {canPreview && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50" onClick={() => setPreviewFile({ ...r, size: 0, lastModified: null } as unknown as FileItem)}><Eye className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline text-xs">Anteprima</span></Button>}
@@ -492,7 +492,7 @@ export function ClienteArchivio() {
                 {!loadingFiles && files.length > 0 && (
                   <div className="ml-auto flex items-center gap-2">
                     <span className="text-[11px] text-slate-400 font-medium tabular-nums">
-                      {files.length} doc Â· {formatBytes(files.reduce((s, f) => s + f.size, 0))}
+                      {files.length} doc · {formatBytes(files.reduce((s, f) => s + f.size, 0))}
                       {files.filter(f => f.stato === 'nuovo').length > 0 && (
                         <span className="ml-1.5 inline-flex items-center gap-1 text-red-500 font-semibold">
                           <span className="status-dot-new" style={{ width: '6px', height: '6px' }} />
@@ -552,7 +552,7 @@ export function ClienteArchivio() {
                               <span className={statoCfg.dotClass} title={statoCfg.label} />
                               <p className="font-medium text-slate-900 truncate text-xs sm:text-sm">{f.nome}</p>
                             </div>
-                            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 pl-[18px]">{f.sizeStr}{f.lastModified && <span className="ml-1.5">Â· {formatDateShort(f.lastModified)}</span>}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 pl-[18px]">{f.sizeStr}{f.lastModified && <span className="ml-1.5">· {formatDateShort(f.lastModified)}</span>}</p>
                           </div>
                           <div className="file-actions flex items-center gap-1 flex-shrink-0">
                             {canPreview && (
@@ -601,7 +601,7 @@ export function ClienteArchivio() {
                           {zipping ? 'Creazione ZIP...' : `Scarica ZIP`}
                         </Button>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/10 rounded-xl" onClick={clearSelected}>
-                          âœ•
+                          ✕
                         </Button>
                       </div>
                     </div>
