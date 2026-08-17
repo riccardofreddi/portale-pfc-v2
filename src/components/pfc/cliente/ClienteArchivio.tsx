@@ -53,7 +53,7 @@ export function clearArchivioGlobalCache() {
 }
 
 export function ClienteArchivio() {
-  const { user, annoSelezionato, cartellaSelezionata, setAnno, setCartella, setPreviewFile, selectedFiles, toggleSelected, clearSelected } = usePfcStore()
+  const { user, annoSelezionato, cartellaSelezionata, setAnno, setCartella, previewFile, setPreviewFile, selectedFiles, toggleSelected, clearSelected } = usePfcStore()
   const [anni, setAnni] = useState<string[]>([])
   const [cartelle, setCartelle] = useState<CartellaMeta[]>([])
   const [files, setFiles] = useState<FileItem[]>([])
@@ -388,10 +388,17 @@ export function ClienteArchivio() {
                   const icon = ottieniIconaFile(r.nome)
                   const statoCfg = STATO_CONFIG[r.stato]
                   const canPreview = canPreviewFile(r.nome)
+                  const isPreviewing = previewFile?.key === r.key
+                  const ext = (r.nome.split('.').pop() ?? '').toUpperCase()
                   return (
                     <div
                       key={r.key}
-                      className={cn('anim-file-enter file-card flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl', fileBorderClass(r.nome))}
+                      className={cn(
+                        'anim-file-enter file-card flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl',
+                        fileBorderClass(r.nome),
+                        isPreviewing && 'file-card-previewing',
+                        !isPreviewing && r.stato === 'nuovo' && 'file-card-nuovo'
+                      )}
                       style={{ animationDelay: `${idx * 40}ms` }}
                     >
                       <button onClick={(e) => { e.stopPropagation(); handleTogglePreferitoSearch(r.key) }} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded-lg transition-colors">
@@ -399,11 +406,20 @@ export function ClienteArchivio() {
                       </button>
                       <div className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold tracking-wide" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <span className={statoCfg.dotClass} title={statoCfg.label} />
                           <p className="font-medium text-slate-900 truncate text-xs sm:text-sm">{r.nome}</p>
+                          <span className="file-ext-badge" style={{ background: icon.bg, color: icon.fg }}>{ext}</span>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 pl-[18px]">{r.anno} · {r.cartella} · {r.sizeStr}</p>
+                        <div className="flex items-center gap-2 mt-0.5 pl-[18px]">
+                          <span className="text-[10px] sm:text-xs text-slate-400">{r.anno} · {r.cartella} · {r.sizeStr}</span>
+                          {isPreviewing && (
+                            <span className="previewing-badge ml-auto">
+                              <Eye className="h-3 w-3" />
+                              <span className="hidden sm:inline">Anteprima</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="file-actions flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                         {canPreview && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50" onClick={() => setPreviewFile({ ...r, size: 0, lastModified: null } as unknown as FileItem)}><Eye className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline text-xs">Anteprima</span></Button>}
@@ -538,23 +554,41 @@ export function ClienteArchivio() {
                       const icon = ottieniIconaFile(f.nome)
                       const statoCfg = STATO_CONFIG[f.stato]
                       const canPreview = canPreviewFile(f.nome)
+                      const isPreviewing = previewFile?.key === f.key
+                      const isSelected = selectedFiles.has(f.key)
+                      const ext = (f.nome.split('.').pop() ?? '').toUpperCase()
                       return (
                         <div
                           key={f.key}
-                          className={cn('file-card anim-file-enter flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl', fileBorderClass(f.nome))}
+                          className={cn(
+                            'file-card anim-file-enter flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl',
+                            fileBorderClass(f.nome),
+                            isPreviewing && 'file-card-previewing',
+                            isSelected && !isPreviewing && 'file-card-selected',
+                            !isPreviewing && f.stato === 'nuovo' && 'file-card-nuovo'
+                          )}
                           style={{ animationDelay: `${idx * 40}ms` }}
                         >
-                          <Checkbox checked={selectedFiles.has(f.key)} onCheckedChange={() => toggleSelected(f.key)} className="flex-shrink-0" />
+                          <Checkbox checked={isSelected} onCheckedChange={() => toggleSelected(f.key)} className="flex-shrink-0" />
                           <button onClick={(e) => handleTogglePreferito(f.key, e)} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded-lg transition-colors">
                             {f.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500 star-animated" /> : <StarOff className="h-4 w-4 text-slate-300 hover:text-amber-400 transition-colors" />}
                           </button>
                           <div className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold tracking-wide" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
                               <span className={statoCfg.dotClass} title={statoCfg.label} />
                               <p className="font-medium text-slate-900 truncate text-xs sm:text-sm">{f.nome}</p>
+                              <span className="file-ext-badge" style={{ background: icon.bg, color: icon.fg }}>{ext}</span>
                             </div>
-                            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 pl-[18px]">{f.sizeStr}{f.lastModified && <span className="ml-1.5">· {formatDateShort(f.lastModified)}</span>}</p>
+                            <div className="flex items-center gap-2 mt-0.5 pl-[18px]">
+                              <span className="text-[10px] sm:text-xs text-slate-400">{f.sizeStr}{f.lastModified && <span className="ml-1.5">· {formatDateShort(f.lastModified)}</span>}</span>
+                              {isPreviewing && (
+                                <span className="previewing-badge ml-auto">
+                                  <Eye className="h-3 w-3" />
+                                  <span className="hidden sm:inline">Anteprima</span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="file-actions flex items-center gap-1 flex-shrink-0">
                             {canPreview && (

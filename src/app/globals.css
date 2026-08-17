@@ -253,13 +253,15 @@
 
 /* File card hover lift */
 .file-card {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.15s ease;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.18s ease,
+              background 0.25s ease;
+  position: relative;
 }
 .file-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.07), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
 }
 
 /* Contextual actions: show on hover (desktop) */
@@ -284,5 +286,82 @@
   border-radius: 2px;
   background: linear-gradient(90deg, #10b981, #059669);
   transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ===== FILE CARDS 2.0 — State system ===== */
+
+/* Card being previewed — the "you are here" state */
+.file-card-previewing {
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf9 30%, #ffffff 70%) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  border-left-width: 4px !important;
+  border-left-color: #059669 !important;
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.12),
+    0 4px 20px -2px rgba(16, 185, 129, 0.1),
+    0 1px 3px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+  z-index: 2;
+}
+.file-card-previewing:hover {
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.18),
+    0 8px 28px -4px rgba(16, 185, 129, 0.14),
+    0 2px 6px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+/* Card selected via checkbox */
+.file-card-selected {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 40%) !important;
+  border-color: rgba(16, 185, 129, 0.2) !important;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.08);
+}
+
+/* New file — subtle warm left tint */
+.file-card-nuovo {
+  background: linear-gradient(90deg, rgba(254, 242, 242, 0.5) 0%, rgba(255, 255, 255, 1) 20%);
+}
+
+/* File extension badge — instant visual anchor per type */
+.file-ext-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 5px;
+  line-height: 1.5;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+.file-card:hover .file-ext-badge {
+  opacity: 1;
+}
+
+/* "Anteprima" indicator badge */
+.previewing-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: #d1fae5;
+  color: #047857;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  animation: badgePop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes badgePop {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.file-card-previewing .file-actions {
+  opacity: 1;
 }
 
