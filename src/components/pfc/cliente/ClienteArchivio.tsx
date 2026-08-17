@@ -20,18 +20,6 @@ const STATO_CONFIG: Record<string, { icon: string; label: string; dotClass: stri
   scaricato: { icon: '🞢', label: 'Scaricato', dotClass: 'status-dot-downloaded' },
 }
 
-function fileBorderClass(filename: string): string {
-  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
-  if (ext === 'pdf') return 'file-border-pdf'
-  if (['jpg', 'jpeg', 'png', 'svg'].includes(ext)) return 'file-border-img'
-  if (['doc', 'docx', 'odt'].includes(ext)) return 'file-border-doc'
-  if (['xls', 'xlsx'].includes(ext)) return 'file-border-xls'
-  if (ext === 'csv') return 'file-border-csv'
-  if (['zip', 'rar'].includes(ext)) return 'file-border-zip'
-  if (ext === 'txt') return 'file-border-txt'
-  return 'file-border-default'
-}
-
 interface CartellaMeta { nome: string; nFiles: number; nNuovi: number }
 interface SearchResult {
   nome: string; key: string; anno: string; cartella: string; sizeStr: string;
@@ -395,7 +383,6 @@ export function ClienteArchivio() {
                       key={r.key}
                       className={cn(
                         'anim-file-enter file-card flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl',
-                        fileBorderClass(r.nome),
                         isPreviewing && 'file-card-previewing',
                         !isPreviewing && r.stato === 'nuovo' && 'file-card-nuovo'
                       )}
@@ -575,7 +562,6 @@ export function ClienteArchivio() {
                           key={f.key}
                           className={cn(
                             'file-card anim-file-enter flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl',
-                            fileBorderClass(f.nome),
                             isPreviewing && 'file-card-previewing',
                             isSelected && !isPreviewing && 'file-card-selected',
                             !isPreviewing && f.stato === 'nuovo' && 'file-card-nuovo'
