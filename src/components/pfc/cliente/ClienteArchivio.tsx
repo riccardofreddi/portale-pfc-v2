@@ -507,7 +507,7 @@ export function ClienteArchivio() {
                       {files.filter(f => f.stato === 'nuovo').length > 0 && (
                         <span className="ml-1.5 inline-flex items-center gap-1 text-red-500 font-semibold">
                           <span className="status-dot-new" style={{ width: '6px', height: '6px' }} />
-                          {files.filter(f => f.stato === 'nuovo').length} nuovi
+                          {(() => { const n = files.filter(f => f.stato === 'nuovo').length; return `${n} ${n === 1 ? 'nuovo' : 'nuovi'}`; })()}
                         </span>
                       )}
                     </span>
