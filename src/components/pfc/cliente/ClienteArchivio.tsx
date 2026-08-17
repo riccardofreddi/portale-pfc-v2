@@ -363,7 +363,9 @@ export function ClienteArchivio() {
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        {searchQuery.trim().length >= 2 && (
+      </div>
+
+      {searchQuery.trim().length >= 2 && (
         <div className="mt-4 space-y-3">
           {searching && searchResults.length === 0 ? (
             <div className="flex items-center gap-2 px-1 text-slate-400">
@@ -381,7 +383,7 @@ export function ClienteArchivio() {
           ) : (
             <div key={searchQuery} className="space-y-3 anim-fade-in">
               <p className="text-xs font-semibold text-emerald-700 px-1">{`${searchResults.length} ${searchResults.length === 1 ? 'risultato' : 'risultati'}`} per &quot;{searchQuery}&quot;</p>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 px-1">
                 {searchResults.map((r, idx) => {
                   const icon = ottieniIconaFile(r.nome)
                   const statoCfg = STATO_CONFIG[r.stato]
@@ -415,8 +417,6 @@ export function ClienteArchivio() {
           )}
         </div>
       )}
-
-      </div>
 
       {searchQuery.trim().length < 2 && (
         <>
