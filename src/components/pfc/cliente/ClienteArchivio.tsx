@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { usePfcStore, type FileItem } from '@/store/pfc'
@@ -13,11 +13,23 @@ import { FolderOpen, Folder, Download, Eye, Star, StarOff, Package, Loader2, Che
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 10
-const STATO_CONFIG: Record<string, { icon: string; label: string }> = {
-  preferito: { icon: '⭐', label: 'Preferito' },
-  nuovo: { icon: '🔴', label: 'Nuovo' },
-  visto: { icon: '🔵', label: 'Visto' },
-  scaricato: { icon: '🟢', label: 'Scaricato' },
+const STATO_CONFIG: Record<string, { icon: string; label: string; dotClass: string }> = {
+  preferito: { icon: 'â­', label: 'Preferito', dotClass: 'status-dot-downloaded' },
+  nuovo: { icon: 'ðŸ”´', label: 'Nuovo', dotClass: 'status-dot-new' },
+  visto: { icon: 'ðŸ”µ', label: 'Visto', dotClass: 'status-dot-seen' },
+  scaricato: { icon: 'ðŸŸ¢', label: 'Scaricato', dotClass: 'status-dot-downloaded' },
+}
+
+function fileBorderClass(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+  if (ext === 'pdf') return 'file-border-pdf'
+  if (['jpg', 'jpeg', 'png', 'svg'].includes(ext)) return 'file-border-img'
+  if (['doc', 'docx', 'odt'].includes(ext)) return 'file-border-doc'
+  if (['xls', 'xlsx'].includes(ext)) return 'file-border-xls'
+  if (ext === 'csv') return 'file-border-csv'
+  if (['zip', 'rar'].includes(ext)) return 'file-border-zip'
+  if (ext === 'txt') return 'file-border-txt'
+  return 'file-border-default'
 }
 
 interface CartellaMeta { nome: string; nFiles: number; nNuovi: number }
@@ -26,7 +38,6 @@ interface SearchResult {
   stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'; isPreferito: boolean;
 }
 
-// Cache globale per la sessione (azzerata automaticamente al cambio utente)
 const globalCache = {
   owner: null as string | null,
   anni: null as string[] | null,
@@ -52,27 +63,19 @@ export function ClienteArchivio() {
   const [page, setPage] = useState(1)
   const [r2Error, setR2Error] = useState(false)
   const [zipping, setZipping] = useState(false)
-
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const searchTimer = useRef<NodeJS.Timeout | null>(null)
 
-  // Ultima cartella già caricata da INIT / click UI: usata dall'effect di
-  // "navigazione esterna" per evitare ricariche doppie (formato `anno::cartella`).
   const lastFolderNavRef = useRef<string>('')
 
   const username = user?.username ?? ''
 
-  // ─── RICERCA ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current)
     if (searchQuery.trim().length < 2) {
-      // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
-      setTimeout(() => {
-        setSearchResults([])
-        setSearching(false)
-      }, 0)
+      setTimeout(() => { setSearchResults([]); setSearching(false) }, 0)
       return
     }
     setTimeout(() => setSearching(true), 0)
@@ -86,80 +89,58 @@ export function ClienteArchivio() {
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
   }, [searchQuery, username])
 
-  // ─── LOAD FILES per cartella (con cache) ────────────────────────────────────
   const loadFiles = useCallback(async (anno: string, cartella: string, force = false) => {
     const cacheKey = `${anno}::${cartella}`
     if (!force && globalCache.owner === username && globalCache.files[cacheKey]) {
-      setFiles(globalCache.files[cacheKey])
-      setPage(1)
-      clearSelected()
-      return
+      setFiles(globalCache.files[cacheKey]); setPage(1); clearSelected(); return
     }
     setLoadingFiles(true)
     try {
       const r = await api.documenti.list({ username, anno, cartella })
       const data = (r.files ?? []) as unknown as FileItem[]
-      if (globalCache.owner === username) {
-        globalCache.files[cacheKey] = data
-      }
-      setFiles(data)
-      setPage(1)
-      clearSelected()
+      if (globalCache.owner === username) globalCache.files[cacheKey] = data
+      setFiles(data); setPage(1); clearSelected()
     } catch { toast.error('Errore caricamento file') }
     finally { setLoadingFiles(false) }
   }, [username, clearSelected])
 
-  // ─── LOAD CARTELLE per anno (con cache) ─────────────────────────────────────
   const loadCartelle = useCallback(async (anno: string, cartellaTarget?: string | null, force = false) => {
     if (!force && globalCache.owner === username && globalCache.cartelle[anno]) {
       const carts = globalCache.cartelle[anno]
       setCartelle(carts)
       const target = cartellaTarget ?? (carts.length > 0 ? carts[0].nome : null)
-      if (target) {
-        lastFolderNavRef.current = `${anno}::${target}`
-        setCartella(target)
-        await loadFiles(anno, target)
-      } else {
-        setCartella(null)
-        setFiles([])
-      }
+      if (target) { lastFolderNavRef.current = `${anno}::${target}`; setCartella(target); await loadFiles(anno, target) }
+      else { setCartella(null); setFiles([]) }
       return
     }
     setLoadingCartelle(true)
     try {
       const r = await api.documenti.list({ username, anno })
       const carts = (r.cartelle ?? []) as unknown as CartellaMeta[]
-      if (globalCache.owner === username) {
-        globalCache.cartelle[anno] = carts
-      }
+      if (globalCache.owner === username) globalCache.cartelle[anno] = carts
       setCartelle(carts)
       const target = cartellaTarget ?? (carts.length > 0 ? carts[0].nome : null)
-      if (target) {
-        lastFolderNavRef.current = `${anno}::${target}`
-        setCartella(target)
-        await loadFiles(anno, target, force)
-      } else {
-        setCartella(null)
-        setFiles([])
-      }
+      if (target) { lastFolderNavRef.current = `${anno}::${target}`; setCartella(target); await loadFiles(anno, target, force) }
+      else { setCartella(null); setFiles([]) }
     } catch { toast.error('Errore caricamento cartelle') }
     finally { setLoadingCartelle(false) }
   }, [username, setCartella, loadFiles])
 
-  // ─── INIT: carica anni (una volta sola per utente) ─────────────────────────
+  useEffect(() => {
+    if (!username || !annoSelezionato || !cartellaSelezionata) return
+    api.notifiche.segnaLette(['documento_nuovo'], annoSelezionato, cartellaSelezionata)
+      .then(() => window.dispatchEvent(new Event('pfc-documenti-visti')))
+      .catch(() => {})
+  }, [username, annoSelezionato, cartellaSelezionata])
+
   useEffect(() => {
     if (!username) return
-
-    // Resetta la cache globale se l'utente e cambiato rispetto a quello memorizzato
     if (globalCache.owner !== username) {
       globalCache.owner = username
       globalCache.anni = null
       globalCache.cartelle = {}
       globalCache.files = {}
     }
-
-    // Apertura da notifica push (?tab=archivio&anno=...&cartella=...): usa come
-    // anno/cartella iniziali quelli indicati nella URL, altrimenti lo store.
     let urlAnno: string | null = null
     let urlCartella: string | null = null
     try {
@@ -167,31 +148,20 @@ export function ClienteArchivio() {
       urlAnno = params.get('anno')
       urlCartella = params.get('cartella')
     } catch {}
-
-    // Se gia in cache per l'utente corrente, applica subito senza spinner
     if (globalCache.owner === username && globalCache.anni !== null) {
       const anniData = globalCache.anni
-      // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
       setTimeout(() => {
-        setAnni(anniData)
-        setLoading(false)
+        setAnni(anniData); setLoading(false)
         if (anniData.length > 0) {
           const anno = urlAnno ?? annoSelezionato ?? anniData[0]
           if (urlAnno) setAnno(urlAnno)
           else if (!annoSelezionato) setAnno(anno)
           loadCartelle(anno, urlCartella ?? cartellaSelezionata)
         }
-        // La cache può essere vecchia (es. nuovo file caricato dall'admin mentre
-        // l'app era in background o su un'altra tab): ricarica con forza per
-        // mostrare subito il badge "+N" e i nuovi documenti, senza spinner.
-        setTimeout(() => {
-          window.dispatchEvent(new Event('pfc-archivio-refresh'))
-        }, 400)
+        setTimeout(() => window.dispatchEvent(new Event('pfc-archivio-refresh')), 400)
       }, 0)
       return
     }
-
-    // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
     setTimeout(() => setLoading(true), 0)
     api.documenti.list({ username })
       .then(async (r) => {
@@ -210,14 +180,9 @@ export function ClienteArchivio() {
       })
       .catch(() => toast.error('Errore caricamento anni'))
       .finally(() => setLoading(false))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username])
 
-  // ─── NAVIGAZIONE ESTERNA (notifica push / ?anno=&cartella= da URL o
-  // OPEN_TAB del Service Worker) ────────────────────────────────────────────────
-  // Quando anno e cartella arrivano dallo store senza passare dai pulsanti UI,
-  // carica direttamente quella cartella. lastFolderNavRef (già valorizzato da
-  // INIT / handleAnnoClick / handleCartellaClick) evita ricariche doppie.
   useEffect(() => {
     if (!username || !annoSelezionato || !cartellaSelezionata) return
     const cacheKey = `${annoSelezionato}::${cartellaSelezionata}`
@@ -225,36 +190,19 @@ export function ClienteArchivio() {
     lastFolderNavRef.current = cacheKey
     if (globalCache.owner === username && globalCache.files[cacheKey]) {
       const cached = globalCache.files[cacheKey]
-      // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
-      setTimeout(() => {
-        setFiles(cached)
-        setPage(1)
-        clearSelected()
-      }, 0)
+      setTimeout(() => { setFiles(cached); setPage(1); clearSelected() }, 0)
       return
     }
     setTimeout(() => loadFiles(annoSelezionato, cartellaSelezionata), 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, annoSelezionato, cartellaSelezionata, loadFiles])
 
-  // ─── REFRESH LIVE (push documento ricevuta con app già a video) ──────────────
-  // ClienteArea dispatches 'pfc-archivio-refresh' quando arriva una notifica
-  // documento / badge update mentre siamo sulla tab Archivio: ricarica cartelle
-  // (badge +N) e file della cartella aperta BYPASSANDO la cache, così il nuovo
-  // documento compare subito senza dover ricaricare la pagina.
   useEffect(() => {
-    const onRefresh = () => {
-      if (!annoSelezionato) return
-      loadCartelle(annoSelezionato, cartellaSelezionata, true)
-    }
+    const onRefresh = () => { if (!annoSelezionato) return; loadCartelle(annoSelezionato, cartellaSelezionata, true) }
     window.addEventListener('pfc-archivio-refresh', onRefresh)
     return () => window.removeEventListener('pfc-archivio-refresh', onRefresh)
   }, [annoSelezionato, cartellaSelezionata, loadCartelle])
 
-  // ─── MARCA FILE VISTO/SCARICATO dall'esterno (PreviewModal) ────────────────
-  // Quando il cliente apre l'anteprima o scarica dalla modale, ClienteArchivio
-  // aggiorna subito lo stato locale dei file e il badge "+N" della cartella,
-  // senza aspettare il prossimo fetch.
   useEffect(() => {
     const onDocumentoVisto = (e: Event) => {
       const detail = (e as CustomEvent<{ key?: string; stato?: 'visto' | 'scaricato' }>).detail
@@ -266,25 +214,9 @@ export function ClienteArchivio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, annoSelezionato, cartellaSelezionata])
 
-  // ─── SEGNA NOTIFICHE COME LETTE AUTOMATICAMENTE AL VIEW DELLA CARTELLA ──────
-  // Quando l'utente visualizza una cartella specifica, segna le relative notifiche
-  // di nuovo documento come lette sul server e aggiorna i badge della UI in tempo reale.
-  useEffect(() => {
-    if (!username || !annoSelezionato || !cartellaSelezionata) return
-    api.notifiche.segnaLette(['documento_nuovo'], annoSelezionato, cartellaSelezionata)
-      .then(() => {
-        window.dispatchEvent(new Event('pfc-documenti-visti'))
-      })
-      .catch(() => {})
-  }, [username, annoSelezionato, cartellaSelezionata])
-
-  // ─── HANDLERS cambio anno/cartella (istantanei se in cache) ─────────────────
   function handleAnnoClick(anno: string) {
     if (anno === annoSelezionato) return
-    setAnno(anno)          // azzera cartellaSelezionata nello store
-    setFiles([])
-    setCartelle(globalCache.cartelle[anno] ?? [])
-    loadCartelle(anno)
+    setAnno(anno); setFiles([]); setCartelle(globalCache.cartelle[anno] ?? []); loadCartelle(anno)
   }
 
   function handleCartellaClick(cartella: string) {
@@ -294,20 +226,13 @@ export function ClienteArchivio() {
     if (annoSelezionato) loadFiles(annoSelezionato, cartella)
   }
 
-  // Ricalcola il badge "+N" della cartella corrente (stato locale + cache).
-  // Usato quando un file passa da "nuovo" a "visto"/"scaricato".
   function aggiornaBadgeCartella(nNuovi: number) {
     if (!annoSelezionato || !cartellaSelezionata) return
     setCartelle((prev) => prev.map((c) => (c.nome === cartellaSelezionata ? { ...c, nNuovi } : c)))
     const cached = globalCache.cartelle[annoSelezionato]
-    if (cached) {
-      globalCache.cartelle[annoSelezionato] = cached.map((c) => (c.nome === cartellaSelezionata ? { ...c, nNuovi } : c))
-    }
+    if (cached) globalCache.cartelle[annoSelezionato] = cached.map((c) => (c.nome === cartellaSelezionata ? { ...c, nNuovi } : c))
   }
 
-  // Aggiorna lo stato locale di un file (visto/scaricato), ricalcola il badge
-  // "+N" della cartella corrente e aggiorna la cache. Chiamata dal download
-  // diretto e da PreviewModal (evento 'pfc-documento-visto').
   function marcaFileLetto(key: string, stato: 'visto' | 'scaricato') {
     const nuovoStato = (f: FileItem): FileItem['stato'] => {
       if (f.key !== key) return f.stato
@@ -319,26 +244,18 @@ export function ClienteArchivio() {
     aggiornaBadgeCartella(nextFiles.filter((f) => f.stato === 'nuovo').length)
     if (annoSelezionato && cartellaSelezionata) {
       const cacheKey = `${annoSelezionato}::${cartellaSelezionata}`
-      if (globalCache.files[cacheKey]) {
-        globalCache.files[cacheKey] = globalCache.files[cacheKey].map((f) => ({ ...f, stato: nuovoStato(f) }))
-      }
+      if (globalCache.files[cacheKey]) globalCache.files[cacheKey] = globalCache.files[cacheKey].map((f) => ({ ...f, stato: nuovoStato(f) }))
     }
   }
 
-  // ─── PREFERITI ──────────────────────────────────────────────────────────────
   async function handleTogglePreferito(filePath: string, e: React.MouseEvent) {
     e.stopPropagation()
     try {
       const r = await api.preferiti.toggle(filePath)
       setFiles((fs) => fs.map((f) => f.key === filePath ? { ...f, isPreferito: r.isPreferito, stato: r.isPreferito ? 'preferito' : 'nuovo' } : f))
-      // aggiorna anche cache
       if (annoSelezionato && cartellaSelezionata) {
         const cacheKey = `${annoSelezionato}::${cartellaSelezionata}`
-        if (globalCache.files[cacheKey]) {
-          globalCache.files[cacheKey] = globalCache.files[cacheKey].map((f) =>
-            f.key === filePath ? { ...f, isPreferito: r.isPreferito, stato: r.isPreferito ? 'preferito' : 'nuovo' } : f
-          )
-        }
+        if (globalCache.files[cacheKey]) globalCache.files[cacheKey] = globalCache.files[cacheKey].map((f) => f.key === filePath ? { ...f, isPreferito: r.isPreferito, stato: r.isPreferito ? 'preferito' : 'nuovo' } : f)
       }
       toast.success(r.isPreferito ? 'Aggiunto ai preferiti' : 'Rimosso dai preferiti')
     } catch { toast.error('Errore') }
@@ -352,7 +269,6 @@ export function ClienteArchivio() {
     } catch { toast.error('Errore') }
   }
 
-  // ─── DOWNLOAD ───────────────────────────────────────────────────────────────
   async function handleDownload(key: string, nome: string) {
     try {
       const res = await fetch(`/api/documenti/download?key=${encodeURIComponent(key)}`)
@@ -364,8 +280,6 @@ export function ClienteArchivio() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
       marcaFileLetto(key, 'scaricato')
-      // Il server ha già segnato lette le notifiche documento_nuovo: aggiorna
-      // subito campanella e pannello notifiche (niente attesa del polling di 5s).
       window.dispatchEvent(new Event('pfc-documenti-visti'))
       toast.success(`Download: ${nome}`)
     } catch { toast.error('Errore download') }
@@ -388,8 +302,6 @@ export function ClienteArchivio() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
       toast.success(`ZIP scaricato: ${zipName} (${keys.length} file, ${formatBytes(blob.size)})`, { id: toastId })
-      // Il server ha registrato i file scaricati (pallino verde) e segnato le
-      // notifiche documento_nuovo come lette: aggiorna subito i badge e la lista.
       window.dispatchEvent(new Event('pfc-documenti-visti'))
       window.dispatchEvent(new Event('pfc-archivio-refresh'))
     } catch (err) {
@@ -397,22 +309,35 @@ export function ClienteArchivio() {
     } finally { setZipping(false) }
   }
 
-  // ─── RENDER GUARDS ──────────────────────────────────────────────────────────
   if (r2Error) return (
-    <Card><CardContent className="py-12 text-center">
-      <AlertCircle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
-      <p className="text-slate-700 font-medium mb-1">Cloudflare R2 non configurato</p>
-      <p className="text-sm text-slate-500">Lo studio deve ancora configurare lo storage dei documenti.</p>
+    <Card className="border-0 shadow-none bg-transparent"><CardContent className="py-16 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+        <AlertCircle className="h-8 w-8 text-amber-500" />
+      </div>
+      <p className="text-slate-800 font-semibold text-base mb-1">Storage non configurato</p>
+      <p className="text-sm text-slate-500 max-w-xs mx-auto">Lo studio deve ancora configurare l'archivio documenti. Contattalo per maggiori informazioni.</p>
     </CardContent></Card>
   )
 
-  if (loading) return (<div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>)
+  if (loading) return (
+    <div className="space-y-4 py-2">
+      <div className="skeleton-shimmer h-10 w-full" />
+      <div className="flex gap-2">
+        {[1,2,3].map(i => <div key={i} className="skeleton-shimmer h-9 w-16 rounded-lg" />)}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {[1,2,3].map(i => <div key={i} className="skeleton-shimmer h-24 rounded-xl" />)}
+      </div>
+    </div>
+  )
 
   if (anni.length === 0) return (
-    <Card><CardContent className="py-12 text-center">
-      <Inbox className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-      <p className="text-slate-700 font-medium mb-1">Nessun documento disponibile</p>
-      <p className="text-sm text-slate-500">Lo studio carichera presto i tuoi documenti.</p>
+    <Card className="border-0 shadow-none bg-transparent"><CardContent className="py-16 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+        <Inbox className="h-8 w-8 text-slate-400" />
+      </div>
+      <p className="text-slate-800 font-semibold text-base mb-1">Nessun documento ancora</p>
+      <p className="text-sm text-slate-500 max-w-xs mx-auto">Lo studio sta preparando il tuo archivio. Riceverai una notifica appena saranno disponibili.</p>
     </CardContent></Card>
   )
 
@@ -423,57 +348,62 @@ export function ClienteArchivio() {
 
   return (
     <div className="space-y-4">
-      {/* SEARCHBAR */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+      <div className="relative group">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
         <Input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Cerca nei documenti..."
-          className="pl-9 pr-10 h-10 text-base sm:text-sm"
+          className="pl-9 pr-10 h-10 text-base sm:text-sm bg-white border-slate-200 focus:border-emerald-400 focus:ring-emerald-400/20 transition-all rounded-xl"
         />
-        {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />}
+        {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-emerald-500" />}
         {searchQuery && !searching && (
-          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors" aria-label="Pulisci ricerca">
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-      </div>
-
-      {/* RISULTATI RICERCA */}
-      {searchQuery.trim().length >= 2 && (
-        <div className="space-y-3">
+        {searchQuery.trim().length >= 2 && (
+        <div className="space-y-3 anim-fade-in">
           {searchResults.length === 0 && !searching ? (
-            <Card><CardContent className="py-8 text-center text-slate-500">
-              <p className="font-medium">🔍 Nessun documento trovato per &quot;{searchQuery}&quot;</p>
+            <Card className="border-0 shadow-none bg-transparent"><CardContent className="py-12 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <Search className="h-7 w-7 text-slate-400" />
+              </div>
+              <p className="text-slate-700 font-semibold text-sm mb-0.5">Nessun risultato</p>
+              <p className="text-xs text-slate-400">Nessun documento corrisponde a &quot;{searchQuery}&quot;</p>
             </CardContent></Card>
           ) : (
             <>
-              <div className="bg-emerald-50 border border-emerald-300 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-emerald-800 font-semibold">
-                🔍 {searchResults.length} risultati per &quot;{searchQuery}&quot;
+              <div className="flex items-center gap-2 px-1">
+                <Search className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="text-xs font-semibold text-emerald-700">{searchResults.length} risultato{searchResults.length !== 1 ? 'i' : ''} per &quot;{searchQuery}&quot;</span>
               </div>
-              <div className="space-y-2">
-                {searchResults.map((r) => {
+              <div className="space-y-1.5">
+                {searchResults.map((r, idx) => {
                   const icon = ottieniIconaFile(r.nome)
                   const statoCfg = STATO_CONFIG[r.stato]
                   const canPreview = canPreviewFile(r.nome)
                   return (
-                    <div key={r.key} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 transition-all">
-                      <button onClick={(e) => { e.stopPropagation(); handleTogglePreferitoSearch(r.key) }} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded">
-                        {r.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500" /> : <StarOff className="h-4 w-4 text-slate-300" />}
+                    <div
+                      key={r.key}
+                      className={cn('anim-file-enter file-card flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl', fileBorderClass(r.nome))}
+                      style={{ animationDelay: `${idx * 40}ms` }}
+                    >
+                      <button onClick={(e) => { e.stopPropagation(); handleTogglePreferitoSearch(r.key) }} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded-lg transition-colors">
+                        {r.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500 star-animated" /> : <StarOff className="h-4 w-4 text-slate-300 hover:text-amber-400 transition-colors" />}
                       </button>
-                      <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-base sm:text-xl" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
+                      <div className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold tracking-wide" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                          <span className="text-sm sm:text-base leading-none">{statoCfg.icon}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={statoCfg.dotClass} title={statoCfg.label} />
                           <p className="font-medium text-slate-900 truncate text-xs sm:text-sm">{r.nome}</p>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-slate-500 truncate">{r.anno} · {r.cartella} · {r.sizeStr}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 pl-[18px]">{r.anno} Â· {r.cartella} Â· {r.sizeStr}</p>
                       </div>
-                      <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
-                        {canPreview && <Button variant="outline" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-auto sm:px-2" onClick={() => setPreviewFile({ ...r, size: 0, lastModified: null } as unknown as FileItem)}><Eye className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Anteprima</span></Button>}
-                        <Button variant="outline" size="sm" className="h-7 w-7 p-0 sm:h-8 sm:w-auto sm:px-2" onClick={() => handleDownload(r.key, r.nome)}><Download className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Scarica</span></Button>
+                      <div className="file-actions flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                        {canPreview && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50" onClick={() => setPreviewFile({ ...r, size: 0, lastModified: null } as unknown as FileItem)}><Eye className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline text-xs">Anteprima</span></Button>}
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50" onClick={() => handleDownload(r.key, r.nome)}><Download className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline text-xs">Scarica</span></Button>
                       </div>
                     </div>
                   )
@@ -484,143 +414,202 @@ export function ClienteArchivio() {
         </div>
       )}
 
-      {/* VISTA ARCHIVIO NORMALE */}
+      </div>
+
       {searchQuery.trim().length < 2 && (
         <>
-          {/* ANNI */}
-          <div className="flex flex-wrap gap-2">
-            {anni.map((a) => (
-              <button
-                key={a}
-                onClick={() => handleAnnoClick(a)}
-                className={cn(
-                  'px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium border transition-colors',
-                  annoSelezionato === a
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'
-                )}
-              >
-                {a}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex-shrink-0">Archivio</span>
+            <ChevronRight className="h-3 w-3 text-slate-300 flex-shrink-0" />
+            <div className="flex flex-wrap gap-1.5">
+              {anni.map((a) => (
+                <button
+                  key={a}
+                  onClick={() => handleAnnoClick(a)}
+                  className={cn(
+                    'px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200',
+                    annoSelezionato === a
+                      ? 'bg-emerald-600 text-white shadow-[0_2px_8px_rgba(5,150,105,0.3)]'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50/50'
+                  )}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* CARTELLE — mostra subito quelle in cache, poi eventuale spinner solo se rete */}
           {loadingCartelle ? (
-            <div className="flex items-center gap-2 py-2 text-slate-400 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" /> Caricamento cartelle...
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[1,2,3].map(i => <div key={i} className="skeleton-shimmer h-[88px] rounded-xl" />)}
             </div>
-          ) : cartelle.length > 1 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-              {cartelle.map((c) => {
+          ) : cartelle.length > 1 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+              {cartelle.map((c, idx) => {
                 const active = cartellaSelezionata === c.nome
+                const pct = c.nFiles > 0 ? Math.round(((c.nFiles - c.nNuovi) / c.nFiles) * 100) : 100
                 return (
                   <button
                     key={c.nome}
                     onClick={() => handleCartellaClick(c.nome)}
                     className={cn(
-                      'p-3 sm:p-4 rounded-xl border text-left transition-all',
+                      'anim-folder-enter p-3.5 sm:p-4 rounded-xl border text-left transition-all duration-200 group',
                       active
-                        ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-white shadow-md ring-2 ring-emerald-100'
-                        : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm'
+                        ? 'glass-card border-emerald-400/60 shadow-[0_4px_16px_rgba(5,150,105,0.12)] ring-1 ring-emerald-200/60'
+                        : 'bg-white/80 border-slate-200/80 hover:border-emerald-300/80 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)]'
                     )}
+                    style={{ animationDelay: `${idx * 60}ms` }}
                   >
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <FolderOpen className={cn('h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0', active ? 'text-emerald-600' : 'text-slate-400')} />
-                      <span className="font-bold text-slate-900 text-sm sm:text-base">{c.nome}</span>
-                      {c.nNuovi > 0 && <span className="bg-red-100 text-red-700 text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full">+{c.nNuovi}</span>}
+                    <div className="flex items-center gap-2.5 mb-1">
+                      <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0', active ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-500')}>
+                        <FolderOpen className="h-4.5 w-4.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 text-sm sm:text-base truncate">{c.nome}</span>
+                          {c.nNuovi > 0 && <span className="flex-shrink-0 bg-red-500 text-white text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full shadow-sm">+{c.nNuovi} nuovi</span>}
+                        </div>
+                        <span className="text-[11px] sm:text-xs text-slate-500">{c.nFiles} documento{c.nFiles !== 1 ? 'i' : ''}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] sm:text-xs text-slate-500">{c.nFiles} file</span>
-                      {active && <span className="text-[10px] sm:text-xs font-semibold text-emerald-700 bg-emerald-100 rounded px-1.5 py-0.5">Aperta</span>}
+                    <div className="folder-progress">
+                      <div className="folder-progress-fill" style={{ width: `${pct}%` }} />
                     </div>
                   </button>
                 )
               })}
-            </div>
-          )}
+              </div>
+            ) : cartelle.length === 1 && !annoSelezionato ? null : null}
 
-          {/* FILE LIST */}
           {annoSelezionato && cartellaSelezionata && (
             <>
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="bg-gradient-to-r from-emerald-600 to-emerald-800 text-white text-xs sm:text-sm font-bold px-2 py-1 sm:px-3 rounded">{cartellaSelezionata}</span>
-                  {!loadingFiles && <span className="text-xs sm:text-sm text-slate-500">{files.length} file · {formatBytes(files.reduce((s, f) => s + f.size, 0))}</span>}
-                </div>
-                <div className="flex items-center gap-2">
-                  {selectedFiles.size > 0 ? (
-                    <Button size="sm" className="h-7 text-xs" onClick={() => handleDownloadZip(Array.from(selectedFiles), `selezionati.zip`)}>
-                      <Package className="h-3 w-3 mr-1" /> ZIP ({selectedFiles.size})
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Archivio</span>
+                <ChevronRight className="h-3 w-3 text-slate-300" />
+                <span className="text-xs font-semibold text-emerald-600">{annoSelezionato}</span>
+                <ChevronRight className="h-3 w-3 text-slate-300" />
+                <span className="text-xs font-semibold text-slate-800">{cartellaSelezionata}</span>
+                {!loadingFiles && files.length > 0 && (
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-[11px] text-slate-400 font-medium tabular-nums">
+                      {files.length} doc Â· {formatBytes(files.reduce((s, f) => s + f.size, 0))}
+                      {files.filter(f => f.stato === 'nuovo').length > 0 && (
+                        <span className="ml-1.5 inline-flex items-center gap-1 text-red-500 font-semibold">
+                          <span className="status-dot-new" style={{ width: '6px', height: '6px' }} />
+                          {files.filter(f => f.stato === 'nuovo').length} nuovi
+                        </span>
+                      )}
+                    </span>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 text-[11px]" onClick={() => handleDownloadZip(files.map((f) => f.key), `archivio.zip`)} disabled={zipping}>
+                      <Package className="h-3 w-3 mr-1" />{zipping ? '...' : 'ZIP tutti'}
                     </Button>
-                  ) : files.length > 0 && !loadingFiles && (
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleDownloadZip(files.map((f) => f.key), `archivio.zip`)}>
-                      <Package className="h-3 w-3 mr-1" /> ZIP tutti
-                    </Button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
-              {!loadingFiles && (
-                <div className="text-[10px] sm:text-xs text-slate-500 flex items-center gap-2 sm:gap-3">
-                  <span>🔴 Nuovo</span><span>🔵 Visto</span><span>🟢 Scaricato</span><span>⭐ Preferiti</span>
+              {!loadingFiles && files.length > 0 && (
+                <div className="flex items-center gap-3 sm:gap-4 px-1">
+                  <span className="flex items-center gap-1.5 text-[11px] text-slate-400"><span className="status-dot-new" /><span className="font-medium">Nuovo</span></span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-slate-400"><span className="status-dot-seen" /><span className="font-medium">Visto</span></span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-slate-400"><span className="status-dot-downloaded" /><span className="font-medium">Scaricato</span></span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-slate-400"><Star className="h-3 w-3 text-amber-400 fill-amber-400" /><span className="font-medium">Preferito</span></span>
                 </div>
               )}
 
               {loadingFiles ? (
-                <div className="flex items-center gap-2 py-4 text-slate-400 text-sm justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Caricamento file...
+                <div className="space-y-2">
+                  {[1,2,3,4,5].map(i => <div key={i} className="skeleton-shimmer h-14 rounded-xl" />)}
                 </div>
               ) : files.length === 0 ? (
-                <Card><CardContent className="py-12 text-center text-slate-500"><Folder className="h-10 w-10 mx-auto mb-2 text-slate-300" />Cartella vuota</CardContent></Card>
+                <Card className="border-0 shadow-none bg-transparent"><CardContent className="py-12 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                    <Folder className="h-7 w-7 text-slate-400" />
+                  </div>
+                  <p className="text-slate-700 font-semibold text-sm mb-0.5">Cartella vuota</p>
+                  <p className="text-xs text-slate-400">Nessun documento in questa cartella.</p>
+                </CardContent></Card>
               ) : (
                 <>
                   <div className="space-y-1.5">
-                    {pageFiles.map((f) => {
+
+                    {pageFiles.map((f, idx) => {
                       const icon = ottieniIconaFile(f.nome)
                       const statoCfg = STATO_CONFIG[f.stato]
                       const canPreview = canPreviewFile(f.nome)
                       return (
-                        <div key={f.key} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white border border-slate-200 rounded-lg hover:border-emerald-300 transition-all">
+                        <div
+                          key={f.key}
+                          className={cn('file-card anim-file-enter flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-xl', fileBorderClass(f.nome))}
+                          style={{ animationDelay: `${idx * 40}ms` }}
+                        >
                           <Checkbox checked={selectedFiles.has(f.key)} onCheckedChange={() => toggleSelected(f.key)} className="flex-shrink-0" />
-                          <button onClick={(e) => handleTogglePreferito(f.key, e)} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded">
-                            {f.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500" /> : <StarOff className="h-4 w-4 text-slate-300" />}
+                          <button onClick={(e) => handleTogglePreferito(f.key, e)} className="flex-shrink-0 p-1 hover:bg-amber-50 rounded-lg transition-colors">
+                            {f.isPreferito ? <Star className="h-4 w-4 text-amber-500 fill-amber-500 star-animated" /> : <StarOff className="h-4 w-4 text-slate-300 hover:text-amber-400 transition-colors" />}
                           </button>
-                          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-base sm:text-xl" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
+                          <div className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold tracking-wide" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 sm:gap-2">
-                              <span className="text-sm sm:text-base leading-none">{statoCfg.icon}</span>
+                            <div className="flex items-center gap-2">
+                              <span className={statoCfg.dotClass} title={statoCfg.label} />
                               <p className="font-medium text-slate-900 truncate text-xs sm:text-sm">{f.nome}</p>
                             </div>
-                            <p className="text-[10px] sm:text-xs text-slate-500">{f.sizeStr}{f.lastModified && <span className="ml-2">· {formatDateShort(f.lastModified)}</span>}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 pl-[18px]">{f.sizeStr}{f.lastModified && <span className="ml-1.5">Â· {formatDateShort(f.lastModified)}</span>}</p>
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="file-actions flex items-center gap-1 flex-shrink-0">
                             {canPreview && (
-                              <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5" onClick={() => { setPreviewFile(f); setFiles((fs) => fs.map((x) => x.key === f.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x)) }}>
-                                <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5 sm:mr-1" /><span className="hidden sm:inline">Anteprima</span>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50" onClick={() => { setPreviewFile(f); setFiles((fs) => fs.map((x) => x.key === f.key && x.stato !== 'scaricato' && x.stato !== 'preferito' ? { ...x, stato: 'visto' } : x)) }}>
+                                <Eye className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline text-xs">Anteprima</span>
                               </Button>
                             )}
-                            <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5" onClick={() => handleDownload(f.key, f.nome)}>
-                              <Download className="h-4 w-4 sm:h-3.5 sm:w-3.5 sm:mr-1" /><span className="hidden sm:inline">Scarica</span>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-2.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50" onClick={() => handleDownload(f.key, f.nome)}>
+                              <Download className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline text-xs">Scarica</span>
                             </Button>
                           </div>
                         </div>
                       )
                     })}
                   </div>
+                </>
+              )}
+
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-between">
-                      <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="h-7 text-xs"><ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prec</Button>
-                      <span className="text-xs text-slate-600">Pag {page} di {totalPages}</span>
-                      <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className="h-7 text-xs">Succ <ChevronRight className="h-3.5 w-3.5 ml-1" /></Button>
+                    <div className="flex items-center justify-center gap-2 pt-2">
+                      <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="h-8 text-xs rounded-lg">
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                          <button key={p} onClick={() => setPage(p)} className={cn('w-8 h-8 rounded-lg text-xs font-semibold transition-all', page === p ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100')}>
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                      <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className="h-8 text-xs rounded-lg">
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {selectedFiles.size > 0 && (
+                    <div className="anim-slide-up fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-40">
+                      <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl text-white pl-4 pr-2 py-2 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
+                        <span className="text-sm font-medium">
+                          <span className="tabular-nums font-bold">{selectedFiles.size}</span> selezionat{selectedFiles.size === 1 ? 'o' : 'i'}
+                        </span>
+                        <div className="w-px h-5 bg-white/20" />
+                        <Button size="sm" className="h-8 text-xs bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-semibold shadow-sm" onClick={() => handleDownloadZip(Array.from(selectedFiles), `selezionati.zip`)} disabled={zipping}>
+                          <Package className="h-3.5 w-3.5 mr-1.5" />
+                          {zipping ? 'Creazione ZIP...' : `Scarica ZIP`}
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/10 rounded-xl" onClick={clearSelected}>
+                          âœ•
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </>
               )}
             </>
           )}
-        </>
-      )}
     </div>
   )
 }
