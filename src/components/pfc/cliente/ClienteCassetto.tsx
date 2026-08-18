@@ -211,7 +211,7 @@ export function ClienteCassetto() {
           <div>
             <p className="text-sm font-semibold text-slate-800">Cos’è il Cassetto Digitale?</p>
             <p className="text-xs text-slate-600 leading-relaxed mt-0.5">
-              Spazio sicuro per QR P.IVA, visure, identità e IBAN. Un tap e li hai subito, senza cercare tra le cartelle.
+              È il tuo spazio sicuro per QR P.IVA, visure, identità e IBAN. Carica un documento qui sopra e lo ritrovi subito, senza cercarlo tra le cartelle.
             </p>
           </div>
         </div>
