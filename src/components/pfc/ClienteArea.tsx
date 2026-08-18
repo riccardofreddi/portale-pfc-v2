@@ -518,15 +518,11 @@ export function ClienteArea() {
           </div>
         )}
 
-        {/* Tab navigation — stile premium mobile-first */}
+        {/* Tab navigation — Premium glassmorphism with wow effect */}
         <div className="mb-5 sm:mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50/40 p-1.5 shadow-inner ring-1 ring-slate-200/70">
-            {/* alone soft */}
-            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-300/20 blur-2xl" />
-            <div className="pointer-events-none absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-teal-200/20 blur-2xl" />
-
+          <div className="cliente-tabs-container">
             <nav
-              className="relative flex gap-1.5 overflow-x-auto scrollbar-hide min-w-0 pb-0.5"
+              className="relative flex gap-1.5 overflow-x-auto scrollbar-hide min-w-0"
               aria-label="Tabs"
             >
               {TABS.map((t) => {
@@ -539,23 +535,12 @@ export function ClienteArea() {
                     key={t.id}
                     onClick={() => setClienteTab(t.id)}
                     className={cn(
-                      'group relative flex items-center gap-2.5 px-3.5 sm:px-4 py-2.5 sm:py-3',
-                      'text-xs sm:text-sm font-semibold rounded-xl transition-all duration-300 ease-out',
-                      'whitespace-nowrap flex-shrink-0 min-h-[48px]',
-                      active
-                        ? 'bg-white text-emerald-800 shadow-md shadow-emerald-900/10 ring-1 ring-emerald-200/80 scale-[1.02]'
-                        : 'text-slate-500 hover:text-slate-800 hover:bg-white/70 active:scale-[0.98]'
+                      'cliente-tab-btn',
+                      active && 'cliente-tab-btn-active'
                     )}
                   >
                     {/* Icona in badge */}
-                    <span
-                      className={cn(
-                        'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-all duration-300',
-                        active
-                          ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-600/30'
-                          : 'bg-slate-200/70 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-700'
-                      )}
-                    >
+                    <span className="cliente-tab-icon">
                       <Icon className="h-4 w-4" />
                     </span>
 
@@ -563,23 +548,13 @@ export function ClienteArea() {
 
                     {/* Badge messaggi non letti */}
                     {badge > 0 && (
-                      <span
-                        className={cn(
-                          'ml-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5',
-                          'text-[10px] font-extrabold leading-none text-white shadow-sm',
-                          active
-                            ? 'bg-red-500 ring-2 ring-white'
-                            : 'bg-red-500 animate-pulse'
-                        )}
-                      >
+                      <span className={cn('cliente-tab-badge', active ? 'cliente-tab-badge-active' : 'cliente-tab-badge-pulse')}>
                         {badge}
                       </span>
                     )}
 
-                    {/* Indicatore attivo in basso */}
-                    {active && (
-                      <span className="absolute bottom-1 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500" />
-                    )}
+                    {/* Indicatore attivo animato in basso */}
+                    {active && <span className="cliente-tab-indicator" />}
                   </button>
                 )
               })}
