@@ -209,9 +209,8 @@ export function ClienteCassetto() {
             <FileText className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-800">Cos’è il Cassetto Digitale?</p>
-            <p className="text-xs text-slate-600 leading-relaxed mt-0.5">
-              È il tuo spazio sicuro per QR P.IVA, visure, identità e IBAN. Carica un documento qui sopra e lo ritrovi subito, senza cercarlo tra le cartelle.
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Carica i tuoi documenti essenziali e li ritrovi sempre qui.
             </p>
           </div>
         </div>
