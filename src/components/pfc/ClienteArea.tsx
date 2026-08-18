@@ -522,7 +522,7 @@ export function ClienteArea() {
         <div className="mb-5 sm:mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="cliente-tabs-container">
             <nav
-              className="relative flex gap-1.5 overflow-x-auto scrollbar-hide min-w-0 px-2 py-2"
+              className="relative flex gap-1.5 overflow-x-auto scrollbar-hide min-w-0 px-2 py-1.5"
               aria-label="Tabs"
             >
               {TABS.map((t) => {
