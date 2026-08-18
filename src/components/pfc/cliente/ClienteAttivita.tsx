@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { formatDateAudit } from '@/lib/pfc-utils'
-import { ClipboardList, Inbox, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { ClipboardList, Inbox, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface AuditLog {
   id: string
@@ -116,11 +116,28 @@ export function ClienteAttivita() {
     }
   }, [user])
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-12">
-      <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-    </div>
-  )
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <div className="skeleton-shimmer h-6 w-40 rounded" />
+          <div className="skeleton-shimmer h-4 w-64 mt-2 rounded" />
+        </div>
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-center gap-3 bg-white border border-slate-200 border-l-4 p-3 rounded-lg">
+              <div className="skeleton-shimmer h-6 w-6 rounded" />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="skeleton-shimmer h-3.5 w-32 rounded" />
+                <div className="skeleton-shimmer h-3 w-48 rounded" />
+              </div>
+              <div className="skeleton-shimmer h-3 w-16 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   const total = logs.length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))

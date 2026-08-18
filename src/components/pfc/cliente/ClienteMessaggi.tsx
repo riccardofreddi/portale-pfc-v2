@@ -116,7 +116,28 @@ export function ClienteMessaggi() {
     }
   }
 
-  if (loading) return (<div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>)
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="skeleton-shimmer h-6 w-48 rounded" />
+          <div className="skeleton-shimmer h-8 w-32 rounded-lg" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-lg p-4 border border-slate-200 bg-white space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="skeleton-shimmer h-4 w-24 rounded" />
+                <div className="skeleton-shimmer h-3 w-28 rounded" />
+              </div>
+              <div className="skeleton-shimmer h-3 w-full rounded" />
+              <div className="skeleton-shimmer h-3 w-3/4 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
   const username = user?.username ?? ''
   const visibili = messaggi.filter((m) => {
     const archived = m.archivedByClient?.includes(username) ?? false
