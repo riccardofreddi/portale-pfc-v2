@@ -125,7 +125,7 @@ export async function setSessionCookie(jwt: string) {
 
 export async function clearSessionCookie() {
   const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE, '', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'none', path: '/', maxAge: 0 })
+  cookieStore.delete(SESSION_COOKIE)
 }
 
 export async function verificaBloccoLogin(username: string): Promise<number> {
