@@ -30,6 +30,7 @@ model User {
   auditLogs       AuditLog[]
   archivedMsgs    MessageArchive[]
   pushSubs        PushSubscription[]
+  fcmTokens       FcmToken[]
   scadenze        Scadenza[]
 
   @@map("users")
@@ -47,6 +48,22 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+// Token FCM dei device nativi (app v3 / Capacitor). Separato da PushSubscription:
+// i clienti v2 continuano a usare la Web Push, i clienti v3 usano FCM. Non tocca
+// nulla di esistente. Se Firebase non e' configurato, questa tabella resta vuota.
+model FcmToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  device    String?  // es. "Android", "iOS" — solo info, opzionale
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("fcm_tokens")
 }
 
 model Message {

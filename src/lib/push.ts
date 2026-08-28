@@ -7,6 +7,7 @@ import https from 'node:https'
 import { webcrypto } from 'crypto'
 import { db } from './db'
 import { listFilesInCartella, haConfigurazioneR2 } from './r2'
+import { sendFcmToUser } from './fcm'
 
 // Polyfill crypto per Node.js runtime su Vercel (web-push ne ha bisogno)
 const globalWithCrypto = globalThis as unknown as { crypto?: Crypto }
@@ -184,6 +185,18 @@ export async function sendPushToUser(
       }).catch(() => {})
     }
 
+    // Invio FCM (app nativa v3) — additivo e silente se non configurato.
+    try {
+      await sendFcmToUser(user.id, {
+        title: payload.title,
+        body: payload.body,
+        url: payload.url,
+        data: payload.data,
+      })
+    } catch (fcmErr) {
+      console.error('[PUSH] sendPushToUser FCM errore (ignorato):', fcmErr)
+    }
+
     console.log(
       `[PUSH] sendPushToUser completato: ${success}/${subs.length} successi in ${Date.now() - startMs}ms`
     )
@@ -259,6 +272,21 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
       await db.pushSubscription.deleteMany({
         where: { endpoint: { in: staleEndpoints } },
       }).catch(() => {})
+    }
+
+    // Invio FCM (app nativa v3) — additivo e silente se non configurato.
+    try {
+      const userIds = [...new Set(subs.map((s) => s.userId))]
+      for (const uid of userIds) {
+        await sendFcmToUser(uid, {
+          title: payload.title,
+          body: payload.body,
+          url: payload.url,
+          data: payload.data,
+        })
+      }
+    } catch (fcmErr) {
+      console.error('[PUSH] sendPushToAll FCM errore (ignorato):', fcmErr)
     }
 
     console.log(
