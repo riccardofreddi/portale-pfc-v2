@@ -117,7 +117,7 @@ export async function setSessionCookie(jwt: string) {
   cookieStore.set(SESSION_COOKIE, jwt, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'none',
     path: '/',
     maxAge: SESSION_TTL_SECONDS,
   })
