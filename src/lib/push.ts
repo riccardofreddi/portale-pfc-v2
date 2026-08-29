@@ -110,8 +110,6 @@ export async function sendPushToUser(
   payload: PushPayload
 ): Promise<number> {
   try {
-    ensureConfigured()
-
     const startMs = Date.now()
 
     const user = await db.user.findUnique({
@@ -120,87 +118,89 @@ export async function sendPushToUser(
     })
     if (!user) return 0
 
-    // Query in parallelo (serverless: meno roundtrip, meno latenza): subscription,
-    // conteggio non lette e ID ultima notifica per badge e azioni "segna letto".
-    const [subs, unreadCount, latestUnread] = await Promise.all([
-      db.pushSubscription.findMany({ where: { userId: user.id } }),
-      db.notification.count({ where: { userId: user.id, read: false } }),
-      db.notification.findFirst({
-        where: { userId: user.id, read: false },
-        orderBy: { ts: 'desc' },
-        select: { id: true },
-      }),
-    ])
-    if (subs.length === 0) return 0
-
-    const body = JSON.stringify({
-      title: payload.title,
-      body: payload.body,
-      url: payload.url ?? '/',
-      tag: payload.tag ?? 'pfc-notification',
-      icon: payload.icon ?? '/icon.png',
-      badge: payload.badge ?? '/icon.png',
-      notifId: latestUnread?.id,
-      unreadCount,
-      data: payload.data ?? {},
-    })
-
-    console.log('[PUSH] Tentativo di invio a', subs.length, 'subs per', username)
-
-    const results = await Promise.allSettled(
-      subs.map((s) =>
-        sendPushWithRetry(toSubscription(s), body, {
-          TTL: 60 * 60 * 24,
-          urgency: 'high',
-        })
-      )
-    )
-
-    let success = 0
-    const staleEndpoints: string[] = []
-
-    results.forEach((r, i) => {
-      if (r.status === 'fulfilled') {
-        success++
-        console.log('[PUSH] Invio OK per endpoint', i, '-', subs[i].endpoint.substring(0, 60) + '...')
-      } else {
-        const err = r.reason as { statusCode?: number; message?: string; body?: unknown; headers?: unknown; code?: string }
-        console.error('[PUSH] Invio FALLITO per endpoint', i, '- status:', err?.statusCode, '- code:', err?.code, '- message:', err?.message, '- body:', JSON.stringify(err?.body)?.substring(0, 300), '- headers:', JSON.stringify(err?.headers)?.substring(0, 300))
-        // 404/410 = subscription rimossa dal dispositivo; 401/403 = subscription orfana o
-        // creata con chiavi VAPID diverse. In ogni caso non è più consegnabile: va ripulita.
-        if (
-          err?.statusCode === 404 ||
-          err?.statusCode === 410 ||
-          err?.statusCode === 401 ||
-          err?.statusCode === 403
-        ) {
-          staleEndpoints.push(subs[i].endpoint)
-        }
-      }
-    })
-
-    if (staleEndpoints.length > 0) {
-      await db.pushSubscription.deleteMany({
-        where: { endpoint: { in: staleEndpoints } },
-      }).catch(() => {})
-    }
-
-    // Invio FCM (app nativa v3) — additivo e silente se non configurato.
+    // 1) Invio FCM (app nativa v3) — SEMPRE, prima di tutto e indipendente da VAPID
+    let fcmSent = 0
     try {
-      await sendFcmToUser(user.id, {
+      fcmSent = await sendFcmToUser(user.id, {
         title: payload.title,
         body: payload.body,
         url: payload.url,
         data: payload.data,
+        tag: payload.tag,
       })
     } catch (fcmErr) {
-      console.error('[PUSH] sendPushToUser FCM errore (ignorato):', fcmErr)
+      console.error('[PUSH] FCM errore (ignorato):', fcmErr)
     }
 
+    // 2) Invio Web Push (PWA / desktop) — solo se VAPID configurato e subs presenti
+    let webSent = 0
+    try {
+      ensureConfigured()
+
+      const [subs, unreadCount, latestUnread] = await Promise.all([
+        db.pushSubscription.findMany({ where: { userId: user.id } }),
+        db.notification.count({ where: { userId: user.id, read: false } }),
+        db.notification.findFirst({
+          where: { userId: user.id, read: false },
+          orderBy: { ts: 'desc' },
+          select: { id: true },
+        }),
+      ])
+
+      if (subs.length > 0) {
+        const body = JSON.stringify({
+          title: payload.title,
+          body: payload.body,
+          url: payload.url ?? '/',
+          tag: payload.tag ?? 'pfc-notification',
+          icon: payload.icon ?? '/icon.png',
+          badge: payload.badge ?? '/icon.png',
+          notifId: latestUnread?.id,
+          unreadCount,
+          data: payload.data ?? {},
+        })
+
+        const results = await Promise.allSettled(
+          subs.map((s) =>
+            sendPushWithRetry(toSubscription(s), body, {
+              TTL: 60 * 60 * 24,
+              urgency: 'high',
+            })
+          )
+        )
+
+        const staleEndpoints: string[] = []
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled') {
+            webSent++
+          } else {
+            const err = r.reason as { statusCode?: number }
+            if (
+              err?.statusCode === 404 ||
+              err?.statusCode === 410 ||
+              err?.statusCode === 401 ||
+              err?.statusCode === 403
+            ) {
+              staleEndpoints.push(subs[i].endpoint)
+            }
+          }
+        })
+
+        if (staleEndpoints.length > 0) {
+          await db.pushSubscription.deleteMany({
+            where: { endpoint: { in: staleEndpoints } },
+          }).catch(() => {})
+        }
+      }
+    } catch (webErr) {
+      console.error('[PUSH] Web push non inviabile (VAPID?):', webErr)
+    }
+
+    const total = fcmSent + webSent
     console.log(
-      `[PUSH] sendPushToUser completato: ${success}/${subs.length} successi in ${Date.now() - startMs}ms`
+      `[PUSH] user=${username} fcm=${fcmSent} web=${webSent} in ${Date.now() - startMs}ms`
     )
-    return success
+    return total
   } catch (err) {
     console.error('[PUSH] sendPushToUser errore:', err)
     return 0

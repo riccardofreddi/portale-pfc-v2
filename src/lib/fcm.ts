@@ -94,10 +94,12 @@ export async function sendFcmToUser(
       tokens.map((token) =>
         messaging.send({
           token,
-          // Inviamo solo DATA: Android NON sequestrerà la notifica.
-          // L'app riceverà i dati sia in foreground che in background.
+          notification: { title: payload.title, body: payload.body },
           data: {
             url: payload.url ?? '/',
+            // Duplichiamo title/body nel data payload: quando l'app è in
+            // foreground il plugin Capacitor consegna spesso solo il `data` a
+            // pushNotificationReceived.
             title: payload.title,
             body: payload.body,
             ...Object.fromEntries(
@@ -106,6 +108,12 @@ export async function sendFcmToUser(
           },
           android: {
             priority: 'high',
+            notification: {
+              channelId: 'pfc-scadenze',
+              sound: 'default',
+              defaultVibrateTimings: true,
+              notificationPriority: 'PRIORITY_MAX',
+            },
           },
           apns: {
             payload: {
@@ -113,7 +121,6 @@ export async function sendFcmToUser(
                 alert: { title: payload.title, body: payload.body },
                 sound: 'default',
                 badge: 1,
-                'content-available': 1,
               },
             },
           },
