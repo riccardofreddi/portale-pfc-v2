@@ -58,6 +58,14 @@ export interface FcmPayload {
   data?: Record<string, unknown>
 }
 
+/** Ritorna true se il modulo FCM è configurato lato server (env FIREBASE_* presenti). */
+export function isFcmEnabled(): boolean {
+  const projectId = process.env.FIREBASE_PROJECT_ID
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY
+  return Boolean(projectId && clientEmail && privateKey)
+}
+
 /** Ritorna i token FCM ancora validi per un utente (tabella fcm_tokens). */
 export async function getUserFcmTokens(userId: string): Promise<string[]> {
   const rows = await db.fcmToken.findMany({
