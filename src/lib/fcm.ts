@@ -110,9 +110,11 @@ export async function sendFcmToUser(
           android: {
             priority: 'high',
             notification: {
-              channelId: 'pfc-scadenze',
-              sound: 'default',
+              channelId: 'pfc-alerts-v2',
+              defaultSound: true,
               defaultVibrateTimings: true,
+              visibility: 'public',
+              notificationPriority: 'PRIORITY_MAX',
             },
           },
           apns: {

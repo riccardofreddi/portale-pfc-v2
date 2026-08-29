@@ -216,6 +216,29 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
     const subs = await db.pushSubscription.findMany({
       include: { user: { select: { id: true } } },
     })
+
+    // Invio FCM (app nativa v3) — anche se non ci sono web push subscriptions.
+    try {
+      const fcmUserRows = await db.fcmToken.findMany({
+        select: { userId: true },
+        distinct: ['userId'],
+      })
+      const fcmUserIds = fcmUserRows.map((u) => u.userId)
+      const subUserIds = subs.map((s) => s.userId)
+      const allUserIds = [...new Set([...fcmUserIds, ...subUserIds])]
+      
+      for (const uid of allUserIds) {
+        await sendFcmToUser(uid, {
+          title: payload.title,
+          body: payload.body,
+          url: payload.url,
+          data: payload.data,
+        })
+      }
+    } catch (fcmErr) {
+      console.error('[PUSH] sendPushToAll FCM errore (ignorato):', fcmErr)
+    }
+
     if (subs.length === 0) return 0
 
     // Conta le notifiche non lette per ciascun utente (per il badge)
@@ -274,21 +297,8 @@ export async function sendPushToAll(payload: PushPayload): Promise<number> {
       }).catch(() => {})
     }
 
-    // Invio FCM (app nativa v3) — additivo e silente se non configurato.
-    try {
-      const userIds = [...new Set(subs.map((s) => s.userId))]
-      for (const uid of userIds) {
-        await sendFcmToUser(uid, {
-          title: payload.title,
-          body: payload.body,
-          url: payload.url,
-          data: payload.data,
-        })
-      }
-    } catch (fcmErr) {
-      console.error('[PUSH] sendPushToAll FCM errore (ignorato):', fcmErr)
-    }
-
+    // Rimuovi vecchio invio FCM (spostato sopra)
+    
     console.log(
       `[PUSH] sendPushToAll completato: ${success}/${subs.length} successi in ${Date.now() - startMs}ms`
     )
