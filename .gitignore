@@ -42,3 +42,8 @@ next-env.d.ts
 # TypeScript build cache
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# FCM local secrets (non committare)
+.env.vercel
+_fcm_pk.txt
+
