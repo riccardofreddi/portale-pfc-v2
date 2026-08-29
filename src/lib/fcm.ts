@@ -114,7 +114,7 @@ export async function sendFcmToUser(
               defaultSound: true,
               defaultVibrateTimings: true,
               visibility: 'public',
-              notificationPriority: 'PRIORITY_MAX',
+              priority: 'max',
             },
           },
           apns: {
