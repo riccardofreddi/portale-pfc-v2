@@ -94,6 +94,7 @@ export async function sendFcmToUser(
       tokens.map((token) =>
         messaging.send({
           token,
+          notification: { title: payload.title, body: payload.body },
           data: {
             url: payload.url ?? '/',
             title: payload.title,
