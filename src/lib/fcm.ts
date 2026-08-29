@@ -97,11 +97,37 @@ export async function sendFcmToUser(
           notification: { title: payload.title, body: payload.body },
           data: {
             url: payload.url ?? '/',
+            // Duplichiamo title/body nel data payload: quando l'app è in
+            // foreground il plugin Capacitor consegna spesso solo il `data` a
+            // pushNotificationReceived.
+            title: payload.title,
+            body: payload.body,
             ...Object.fromEntries(
               Object.entries(payload.data ?? {}).map(([k, v]) => [k, String(v)])
             ),
           },
-          android: { priority: 'high' },
+          android: {
+            priority: 'high',
+            notification: {
+              channelId: 'pfc-notifications',
+              priority: 'high',
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              color: '#059669',
+              tag: 'pfc-notification',
+              visibility: 'public',
+            },
+          },
+          apns: {
+            payload: {
+              aps: {
+                alert: { title: payload.title, body: payload.body },
+                sound: 'default',
+                badge: 1,
+                'content-available': 1,
+              },
+            },
+          },
         })
       )
     )
