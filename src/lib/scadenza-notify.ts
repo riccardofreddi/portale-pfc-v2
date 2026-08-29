@@ -109,9 +109,13 @@ export async function notifyScadenzaImminente(params: {
   // tutte fallite) e il cliente ha un'email, gli mandiamo una mail di cortesia.
   // Parte AL MASSIMO UNA VOLTA per scadenza (emailInviata), così non spamiamo
   // il giorno dopo se il cron ritenta la push.
+  // Email fallback solo negli ultimi 2 giorni prima della scadenza
+  const giorniMancanti_ = giorniMancanti(params.dataScadenza, oggi)
+  const critico = giorniMancanti_ <= 2
+
   let emailSent = false
   const emailCliente = params.emailCliente?.trim().toLowerCase() || null
-  if (pushSent === 0 && emailCliente && !stato?.emailInviata) {
+  if (pushSent === 0 && critico && emailCliente && !stato?.emailInviata) {
     emailSent = await sendEmail({
       to: emailCliente,
       subject: 'Promemoria scadenza',
