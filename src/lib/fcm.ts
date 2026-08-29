@@ -112,7 +112,6 @@ export async function sendFcmToUser(
               channelId: 'pfc-scadenze',
               sound: 'default',
               defaultVibrateTimings: true,
-              notificationPriority: 'PRIORITY_MAX',
             },
           },
           apns: {
