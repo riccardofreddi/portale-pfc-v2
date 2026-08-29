@@ -4,6 +4,11 @@ import type { NextRequest } from 'next/server'
 const ALLOWED = [
   'https://portale-pfc-v3.vercel.app',
   'http://localhost:3000',
+  // Origine della WebView Capacitor (androidScheme: 'https') su app nativa Android
+  'https://localhost',
+  // Origine della WebView Capacitor su app nativa iOS
+  'capacitor://localhost',
+  'http://localhost',
 ]
 
 export function middleware(req: NextRequest) {
