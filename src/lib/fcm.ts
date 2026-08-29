@@ -94,6 +94,8 @@ export async function sendFcmToUser(
       tokens.map((token) =>
         messaging.send({
           token,
+          // Inviamo solo DATA: Android NON sequestrerà la notifica.
+          // L'app riceverà i dati sia in foreground che in background.
           data: {
             url: payload.url ?? '/',
             title: payload.title,
@@ -104,11 +106,6 @@ export async function sendFcmToUser(
           },
           android: {
             priority: 'high',
-            notification: {
-              title: payload.title,
-              body: payload.body,
-              channelId: 'pfc-notifications',
-            },
           },
           apns: {
             payload: {
