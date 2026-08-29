@@ -56,6 +56,7 @@ export interface FcmPayload {
   body: string
   url?: string
   data?: Record<string, unknown>
+  tag?: string
 }
 
 /** Ritorna true se il modulo FCM è configurato lato server (env FIREBASE_* presenti). */
