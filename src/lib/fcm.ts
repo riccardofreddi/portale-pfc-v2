@@ -95,7 +95,10 @@ export async function sendFcmToUser(
       tokens.map((token) =>
         messaging.send({
           token,
-          // notification: { title: payload.title, body: payload.body },
+          notification: {
+            title: payload.title,
+            body: payload.body,
+          },
           data: {
             url: payload.url ?? '/',
             // Duplichiamo title/body nel data payload: quando l'app è in
@@ -109,14 +112,14 @@ export async function sendFcmToUser(
           },
           android: {
             priority: 'high',
-            // notification: {
-            //   channelId: 'pfc-alerts-v2',
-            //   defaultSound: true,
-            //   defaultVibrateTimings: true,
-            //   visibility: 'public',
-            //   priority: 'max',
-            //   clickAction: 'FCM_PLUGIN_ACTIVITY',
-            // },
+            notification: {
+              channelId: 'pfc-alerts-v2',
+              defaultSound: true,
+              defaultVibrateTimings: true,
+              visibility: 'public',
+              priority: 'max',
+              clickAction: 'FCM_PLUGIN_ACTIVITY',
+            },
           },
           apns: {
             payload: {
