@@ -79,6 +79,8 @@ export function TabResoconto() {
   const [zippingAll, setZippingAll] = useState(false)
   const [filtroAzione, setFiltroAzione] = useState<string>('tutte')
   const [filtroClienteLog, setFiltroClienteLog] = useState<string>('tutti')
+  // v-push: stato telefoni collegati per cliente (pillola verde/rossa accanto a Esente)
+  const [telefoniClienti, setTelefoniClienti] = useState<Record<string, { telefoni: number; dispositivo: string | null; ultimoAggiornamento: string | null }>>({})
 
   const [newLogIds, setNewLogIds] = useState<Set<string>>(new Set())
   const prevLogIdsRef = useRef<Set<string>>(new Set())
@@ -86,8 +88,8 @@ export function TabResoconto() {
   async function refresh() {
     setLoading(true)
     try {
-      const [d, r, l, s] = await Promise.all([api.sistema.diagnostica(), api.resoconto(), api.audit.list(500), fetch('/api/resoconto/stats').then(res => res.json()).catch(() => null)])
-      setDiagnostica(d); setStats((r.stats ?? []) as unknown as StatsCliente[]); setLogs(l.logs); if (s) setAdvancedStats(s)
+      const [d, r, l, s, t] = await Promise.all([api.sistema.diagnostica(), api.resoconto(), api.audit.list(500), fetch('/api/resoconto/stats').then(res => res.json()).catch(() => null), fetch('/api/push/fcm/admin').then(res => res.json()).catch(() => null)])
+      setDiagnostica(d); setStats((r.stats ?? []) as unknown as StatsCliente[]); setLogs(l.logs); if (s) setAdvancedStats(s); if (t?.clienti) setTelefoniClienti(t.clienti)
     } catch { toast.error('Errore caricamento resoconto') }
     finally { setLoading(false) }
   }
@@ -187,6 +189,49 @@ export function TabResoconto() {
         c.username === username ? { ...c, exemptMaintenance: currentExempt } : c
       ))
       toast.error('Errore aggiornamento esente')
+    }
+  }
+
+  // v-push: invia una notifica FCM di prova a TUTTI i telefoni del cliente.
+  // Se arriva la notifica sul telefono, il canale push funziona da capo a fondo.
+  async function pushProva(username: string, name: string) {
+    try {
+      const res = await fetch('/api/push/fcm/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        toast.success(`Push di prova inviata a ${name} (${data.inviati} ${data.inviati === 1 ? 'telefono' : 'telefoni'})`)
+      } else {
+        toast.warning(data.msg || `Nessun telefono collegato per ${name}`)
+      }
+    } catch {
+      toast.error(`Errore invio push di prova a ${name}`)
+    }
+  }
+
+  // v-push: "Riattiva" per i clienti con 0 telefoni. Il server non puo' richiamare
+  // un telefono di cui non ha l'indirizzo: l'unica riparazione vera e' che il
+  // cliente apra l'app (la v4.51 si ricollega da sola). Qui gli mandiamo una
+  // email di cortesia con l'istruzione; se l'email non c'e', il messaggio
+  // dice esattamente cosa dirgli a voce.
+  async function riattivaCliente(username: string, name: string) {
+    try {
+      const res = await fetch('/api/push/fcm/admin/riattiva', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        toast.success(`Email di riattivazione inviata a ${name}: quando apre l'app il telefono si ricollega da solo`)
+      } else {
+        toast.warning(data.msg || `Nessuna email per ${name}: chiamalo e digli di aprire l'app per 10 secondi`)
+      }
+    } catch {
+      toast.error(`Errore invio email a ${name}`)
     }
   }
 
@@ -391,6 +436,52 @@ export function TabResoconto() {
                         <p className="font-semibold text-slate-900 truncate">{c.name}</p>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-slate-500 flex-shrink-0">
+                        {(() => {
+                          const info = telefoniClienti[c.username]
+                          // Se l'endpoint non ha risposto (es. patch non ancora
+                          // deployata) la pillola NON compare: niente dati falsi.
+                          if (!info) return null
+                          const n = info.telefoni
+                          return n > 0 ? (
+                            <span
+                              className="px-2.5 py-1 rounded-md text-sm font-semibold bg-emerald-100 border border-emerald-500 text-emerald-800"
+                              title={`Telefono collegato: ${info?.dispositivo ?? 'dispositivo'} · aggiornato ${info?.ultimoAggiornamento ? formatDateAudit(info.ultimoAggiornamento) : '?'}`}
+                            >
+                              {n === 1 ? '1 telefono' : `${n} telefoni`}
+                            </span>
+                          ) : (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); riattivaCliente(c.username, c.name) }}
+                              className="px-2.5 py-1 rounded-md text-sm font-medium bg-amber-50 border border-amber-200 text-amber-700 cursor-pointer hover:bg-amber-100 transition-colors"
+                              title={`Nessun telefono collegato: clicca qui per riattivarlo — manda l'email a ${c.name} con l'istruzione (aprire l'app 10 secondi, poi si ricollega da solo)`}
+                            >
+                              0 telefoni ⚠
+                            </span>
+                          )
+                        })()}
+                        {telefoniClienti[c.username]?.telefoni === 0 ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); riattivaCliente(c.username, c.name) }}
+                            className="h-7 px-2.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                            title={`Telefono scollegato: invia a ${c.name} l'email con l'istruzione per ricollegarlo (aprire l'app 10 secondi)`}
+                          >
+                            Riattiva
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); pushProva(c.username, c.name) }}
+                            className="h-7 px-2.5 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                            title={`Invia una notifica di prova a ${c.name}`}
+                          >
+                            Push di prova
+                          </Button>
+                        )}
                         {c.exemptMaintenance ? (
                           <span
                             role="button"

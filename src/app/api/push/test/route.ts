@@ -2,7 +2,6 @@
 import { getSession } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { sendPushToUser } from '@/lib/push'
-import webpush from 'web-push'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -64,18 +63,13 @@ export async function POST() {
 }
 
 export async function GET() {
-  const publicKey = process.env.VAPID_PUBLIC_KEY
-  const privateKey = process.env.VAPID_PRIVATE_KEY
-  const subject = process.env.VAPID_SUBJECT
-  const nextPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-
-  return NextResponse.json({
-    envVars: {
-      VAPID_PUBLIC_KEY: publicKey ? { len: publicKey.length, first10: publicKey.substring(0, 10), last10: publicKey.substring(publicKey.length - 10) } : 'MISSING',
-      VAPID_PRIVATE_KEY: privateKey ? { len: privateKey.length, first10: privateKey.substring(0, 10) } : 'MISSING',
-      VAPID_SUBJECT: subject || 'MISSING',
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY: nextPublicKey ? { len: nextPublicKey.length, first10: nextPublicKey.substring(0, 10) } : 'MISSING',
-    },
-    keysMatch: publicKey === nextPublicKey,
-  })
+  // GET RIMOSSO (igiene di sicurezza): prima rispondeva SENZA login con
+  // i frammenti (first10/last10) di VAPID_PRIVATE_KEY e la configurazione
+  // del vecchio Web Push v2. Chiunque poteva leggerlo dal browser.
+  // Il client web usa SOLO il POST (api-client.ts: test -> method POST),
+  // quindi questa modifica non rompe nulla. Il POST resta intatto.
+  return NextResponse.json(
+    { error: 'Metodo non consentito (solo POST)' },
+    { status: 405 },
+  )
 }
