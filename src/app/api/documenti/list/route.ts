@@ -126,6 +126,9 @@ export async function GET(req: NextRequest) {
             dataScadenza: scadenzaMap.get(f.key)!.dataScadenza,
             anticipoGiorni: scadenzaMap.get(f.key)!.anticipoGiorni,
             pagata: scadenzaMap.get(f.key)!.pagata,
+            notificata: scadenzaMap.get(f.key)!.notificata,
+            pushInviata: scadenzaMap.get(f.key)!.pushInviata,
+            emailInviata: scadenzaMap.get(f.key)!.emailInviata,
           }
         : null,
     }))
@@ -149,6 +152,9 @@ export async function GET(req: NextRequest) {
             dataScadenza: scadenzaMapAdmin.get(f.key)!.dataScadenza,
             anticipoGiorni: scadenzaMapAdmin.get(f.key)!.anticipoGiorni,
             pagata: scadenzaMapAdmin.get(f.key)!.pagata,
+            notificata: scadenzaMapAdmin.get(f.key)!.notificata,
+            pushInviata: scadenzaMapAdmin.get(f.key)!.pushInviata,
+            emailInviata: scadenzaMapAdmin.get(f.key)!.emailInviata,
           }
         : null,
     }))

@@ -51,7 +51,7 @@ export function TabGestioneClienti() {
   const [deleteBulkTarget, setDeleteBulkTarget] = useState<{ anno: string; cartella?: string } | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
   const [renameNewName, setRenameNewName] = useState('')
-  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean } | null>(null)
+  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null>(null)
   const [scadenzaData, setScadenzaData] = useState('')
   const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
   const [scadenzaSaving, setScadenzaSaving] = useState(false)
@@ -229,7 +229,7 @@ export function TabGestioneClienti() {
 
   function openScadenza(f: { key: string; nome: string }) {
     // Se il file ha già una scadenza (passata dalla lista), precompila i campi.
-    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean } }).scadenza
+    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } }).scadenza
     let dataIniziale = ''
     let anticipoIniziale = 10
     if (scad) {
@@ -240,7 +240,7 @@ export function TabGestioneClienti() {
       }
       anticipoIniziale = scad.anticipoGiorni
     }
-    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false })
+    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false, notificata: scad?.notificata ?? false, pushInviata: scad?.pushInviata ?? false, emailInviata: scad?.emailInviata ?? false })
     setScadenzaData(dataIniziale)
     setScadenzaAnticipo(String(anticipoIniziale))
   }
@@ -817,6 +817,36 @@ export function TabGestioneClienti() {
                 <Input type="number" min={1} max={365} value={scadenzaAnticipo} onChange={(e) => setScadenzaAnticipo(e.target.value)} />
               </div>
             </div>
+            {/* Stato notifica: pillola verde = push arrivata sul telefono del cliente.
+                Legge i flag scritti dal motore scadenza-notify (pushInviata = consegnata davvero). */}
+            {scadenzaTarget?.had && (() => {
+              const consegnata = scadenzaTarget.pushInviata === true
+              const avviata = scadenzaTarget.notificata === true
+              return (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Label className="text-slate-600">Stato notifica</Label>
+                    {consegnata ? (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">✅ Push consegnata</span>
+                    ) : avviata ? (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">⏳ In attesa di consegna</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600">Non ancora avviata</span>
+                    )}
+                    {scadenzaTarget.emailInviata === true && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-sky-100 text-sky-700">📧 Email di cortesia inviata</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 pl-0.5">
+                    {consegnata
+                      ? 'La notifica push è arrivata sul telefono del cliente.'
+                      : avviata
+                        ? 'Il sveglione riprova la consegna ogni mattina verso le 8:00.'
+                        : 'La notifica partirà quando la scadenza entra nei giorni di preavviso.'}
+                  </p>
+                </div>
+              )
+            })()}
             {scadenzaTarget?.had && (
               <div className="flex items-center gap-2 text-sm">
                 <Label className="text-slate-600">Stato pagamento</Label>
