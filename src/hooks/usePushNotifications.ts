@@ -38,6 +38,15 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 // falso "Notifiche attive".
 const VAPID_KEY_STORAGE = 'pfc_vapid_key'
 
+// v4.54 (anti-doppione): indirizzo (endpoint) dell'ultima iscrizione di QUESTO
+// browser. Se il browser "perde" la subscription (dati del sito puliti, service
+// worker ricreato, profilo toccato) il server resta con la vecchia riga: alla
+// riattivazione nasce una riga nuova e quella vecchia, se ancora viva, fa
+// arrivare OGNI notifica DUE volte (due righe vive = due fumetti). All'attivazione
+// cancelliamo anche l'eventuale vecchio indirizzo salvato qui, diverso da quello
+// attuale, cosi' il server non resta mai con doppioni dello stesso browser.
+const VAPID_ENDPOINT_STORAGE = 'pfc_vapid_endpoint'
+
 export interface PushState {
   supported: boolean
   permission: NotificationPermission
@@ -128,6 +137,18 @@ export function usePushNotifications(enabled: boolean = true): PushState {
         await api.push.unsubscribe(oldEndpoint).catch(() => {})
       }
 
+      // 4-bis. v4.54 (anti-doppione): se in locale e' salvato un VECCHIO indirizzo
+      // diverso da quello attuale, cancelliamolo anche dal server: copre il caso
+      // "il browser ha perso la subscription ma il server ha ancora la riga".
+      try {
+        const storedEndpoint = localStorage.getItem(VAPID_ENDPOINT_STORAGE)
+        if (storedEndpoint && storedEndpoint !== (existing?.endpoint ?? null)) {
+          await api.push.unsubscribe(storedEndpoint).catch(() => {})
+        }
+      } catch {
+        // storage non disponibile: non blocca l'attivazione
+      }
+
       // 5. Subscribe
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -144,9 +165,11 @@ export function usePushNotifications(enabled: boolean = true): PushState {
         },
       })
 
-      // 7. Salva l'impronta della chiave VAPID per le verifiche successive
+      // 7. Salva l'impronta della chiave VAPID e l'indirizzo di QUESTA iscrizione
+      // (serve alla pulizia anti-doppione delle attivazioni successive)
       try {
         localStorage.setItem(VAPID_KEY_STORAGE, publicKey)
+        localStorage.setItem(VAPID_ENDPOINT_STORAGE, subJson.endpoint!)
       } catch {
         // storage non disponibile: non blocca l'attivazione
       }
@@ -169,6 +192,7 @@ export function usePushNotifications(enabled: boolean = true): PushState {
       }
       try {
         localStorage.removeItem(VAPID_KEY_STORAGE)
+        localStorage.removeItem(VAPID_ENDPOINT_STORAGE)
       } catch {
         // ignore
       }
