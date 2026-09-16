@@ -56,6 +56,8 @@ export function TabGestioneClienti() {
   const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
   const [scadenzaSaving, setScadenzaSaving] = useState(false)
   const [openCassetto, setOpenCassetto] = useState(false)
+  // Lista "Clienti registrati": parte CHIUSA, si apre al click sulla testata (nicchia la pagina).
+  const [openRegistrati, setOpenRegistrati] = useState(false)
 
   const [uploadTipo, setUploadTipo] = useState('')
   const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -145,6 +147,12 @@ export function TabGestioneClienti() {
     setOpenAnno(null)
     setOpenCartella(null)
     setOpenCassetto(false)
+  }
+
+  // Chiudendo la lista si azzera anche la ricerca: il conteggio in testata torna il totale reale.
+  function handleOpenRegistrati(o: boolean) {
+    setOpenRegistrati(o)
+    if (!o) setSearchClienti('')
   }
 
   async function handleCreate() {
@@ -549,54 +557,58 @@ export function TabGestioneClienti() {
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-5 w-5 text-emerald-600" />
-              Clienti registrati
-              <span className="ml-1 text-sm font-medium text-slate-500">
-                ({clienti.filter(c =>
-                  c.name.toLowerCase().includes(searchClienti.toLowerCase()) ||
-                  c.username.toLowerCase().includes(searchClienti.toLowerCase()) ||
-                  (c.email ?? '').toLowerCase().includes(searchClienti.toLowerCase())
-                ).length})
-              </span>
-            </CardTitle>
-
-            {/* Barra di ricerca */}
-            <div className="relative w-full sm:w-72">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <Input
-                value={searchClienti}
-                onChange={(e) => setSearchClienti(e.target.value)}
-                placeholder="Cerca cliente..."
-                className="pl-9 pr-9 h-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
-              />
-              {searchClienti && (
-                <button
-                  onClick={() => setSearchClienti('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                  aria-label="Cancella ricerca"
+      {/* Lista clienti: parte CHIUSA (solo testata col conteggio); un click sulla testata la apre/chiude */}
+      <Collapsible open={openRegistrati} onOpenChange={handleOpenRegistrati}>
+        <Card className="overflow-hidden">
+          <CollapsibleTrigger>
+            <CardHeader className="pb-3 cursor-pointer hover:bg-slate-50">
+              <CardTitle className="text-base flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 min-w-0">
+                  <Users className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                  <span className="truncate">Clienti registrati</span>
+                  <span className="ml-1 text-sm font-medium text-slate-500 flex-shrink-0">
+                    ({clienti.filter(c =>
+                      c.name.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                      c.username.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                      (c.email ?? '').toLowerCase().includes(searchClienti.toLowerCase())
+                    ).length})
+                  </span>
+                </span>
+                {openRegistrati ? <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />}
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              {/* Barra di ricerca (visibile solo a lista aperta) */}
+              <div className="relative w-full sm:w-72 mb-3">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <Input
+                  value={searchClienti}
+                  onChange={(e) => setSearchClienti(e.target.value)}
+                  placeholder="Cerca cliente..."
+                  className="pl-9 pr-9 h-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
+                />
+                {searchClienti && (
+                  <button
+                    onClick={() => setSearchClienti('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    aria-label="Cancella ricerca"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
           {clienti.length === 0 ? (
             <p className="text-sm text-slate-500 text-center py-8">Nessun cliente registrato</p>
           ) : (
@@ -690,8 +702,10 @@ export function TabGestioneClienti() {
               )
             })()
           )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
           <DialogContent>
