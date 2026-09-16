@@ -29,9 +29,22 @@ export async function POST(req: NextRequest) {
     const ext = key.split('.').pop() ?? ''
     const baseName = sanitizzaNomeFile(String(newName).trim()).replace(/\.[^.]+$/, '')
     if (!baseName) return NextResponse.json({ error: 'Nome non valido' }, { status: 400 })
-    const finalName = ext ? `${baseName}.${ext}` : baseName
 
     const oldFileName = key.split('/').pop() ?? ''
+
+    // v4.53: nel Cassetto il tipo resta inciso nella chiave anche rinominando:
+    // {tipoKey}_{anno}_{nuovonome}.{ext}. Rinominare NON libera piu' lo slot:
+    // il tipo resta occupato finche' il file non si cancella (regola
+    // "uno slot per tipo"). File senza prefisso riconoscibile (caricati e
+    // rinominati prima di questa versione) si rinominano come prima.
+    const matchTipo = oldFileName.match(
+      /^(qr_code_p_iva|certificato_p_iva|visura_camerale|doc_identita|iban|altro)_(\d{4})(?:_.*)?\.[^.]+$/,
+    )
+    let finalName = ext ? `${baseName}.${ext}` : baseName
+    if (matchTipo) {
+      finalName = `${matchTipo[1]}_${matchTipo[2]}_${baseName}${ext ? `.${ext}` : ''}`
+    }
+
     const newKey = key.slice(0, key.length - oldFileName.length) + finalName
 
     if (newKey === key) {
