@@ -1,9 +1,12 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { getSession, logAudit } from '@/lib/auth'
 import { salvaBytes, listaOggetti, eliminaOggetto, caricaBytes, buildCassettoKey, DOCS_PREFIX, ANAGRAFICA_DIR, haConfigurazioneR2 } from '@/lib/r2'
-import { sanitizzaNomeFile, MAX_FILE_SIZE_BYTES } from '@/lib/pfc-utils'
+import { sanitizzaNomeFile, MAX_FILE_SIZE_BYTES, DEFAULT_ADMIN_USER } from '@/lib/pfc-utils'
+import { sendPushToUser } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
+// Budget per l'invio push inline verso lo studio (stesso schema di /api/messaggi).
+export const maxDuration = 30
 
 const DOC_EXT_MAP: Record<string, string[]> = {
   'qr_code_p_iva': ['png', 'jpg', 'jpeg', 'svg', 'pdf'],
@@ -78,6 +81,22 @@ export async function POST(req: NextRequest) {
 
     const buf = Buffer.from(await file.arrayBuffer())
     await salvaBytes(newKey, buf)
+
+    // Squillo per lo studio SOLO quando a caricare e' il cliente (le sue carte
+    // d'identita', IBAN, ecc.). Se carica l'admin, nessuna notifica. Try/catch:
+    // un problema di push non deve mai far fallire il caricamento.
+    if (session.role === 'client') {
+      try {
+        await sendPushToUser(DEFAULT_ADMIN_USER, {
+          title: 'Documento nel Cassetto',
+          body: `${session.sub}: ha caricato "${tipoLabel}" (${tipoKey}_${anno}.${ext})`.slice(0, 100),
+          url: '/?tab=clienti',
+          tag: 'pfc-cassetto-cliente',
+        })
+      } catch (pushErr) {
+        console.error('[cassetto/upload] push admin (ignorata):', pushErr)
+      }
+    }
 
     await logAudit(session.sub, 'UPLOAD_CASSETTO', `${tipoKey}_${anno}.${ext} (${tipoLabel})`)
     return NextResponse.json({ ok: true, key: newKey, nome: `${tipoKey}_${anno}.${ext}` })

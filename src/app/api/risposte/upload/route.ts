@@ -2,9 +2,12 @@
 import { getSession, logAudit } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { salvaBytes, listaOggetti, DOCS_PREFIX, haConfigurazioneR2 } from '@/lib/r2'
-import { sanitizzaNomeFile, MAX_FILE_SIZE_BYTES } from '@/lib/pfc-utils'
+import { sanitizzaNomeFile, MAX_FILE_SIZE_BYTES, DEFAULT_ADMIN_USER } from '@/lib/pfc-utils'
+import { sendPushToUser } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
+// Budget per l'invio push inline verso lo studio (stesso schema di /api/messaggi).
+export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
   const session = await getSession()
@@ -64,6 +67,20 @@ export async function POST(req: NextRequest) {
       where: { id: msgId },
       data: { uploadReceived: true },
     })
+
+    // Squillo per lo studio: il cliente ha risposto al messaggio con un file.
+    // Tutto in try/catch: un problema di push NON deve mai far fallire il
+    // caricamento del documento (l'azione del cliente e' la parte critica).
+    try {
+      await sendPushToUser(DEFAULT_ADMIN_USER, {
+        title: 'Risposta dal cliente',
+        body: `${user.name}: ha risposto al tuo messaggio con "${finalName}"`.slice(0, 100),
+        url: '/?tab=risposte',
+        tag: 'pfc-risposta-cliente',
+      })
+    } catch (pushErr) {
+      console.error('[risposte/upload] push admin (ignorata):', pushErr)
+    }
 
     await logAudit(session.sub, 'UPLOAD_RISPOSTA', `${finalName} (msg: ${msgId})`)
     return NextResponse.json({ ok: true, key, nome: finalName })

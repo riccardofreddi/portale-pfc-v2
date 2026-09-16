@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { useEffect } from 'react'
 import { usePfcStore } from '@/store/pfc'
 import { TopBar } from './TopBar'
 import { TabInvioDocumenti } from './admin/TabInvioDocumenti'
@@ -22,6 +23,19 @@ const TABS = [
 
 export function AdminConsole() {
   const { adminTab, setAdminTab } = usePfcStore()
+
+  // Deep-link dalle notifiche browser: /?tab=risposte (o clienti, ecc.) apre
+  // direttamente la tab giusta della console quando si clicca sul fumetto.
+  useEffect(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get('tab')
+      const found = t ? TABS.find((x) => x.id === t) : undefined
+      if (found) setAdminTab(found.id)
+    } catch {
+      // parametri non leggibili: resta la tab corrente
+    }
+  }, [setAdminTab])
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <TopBar />

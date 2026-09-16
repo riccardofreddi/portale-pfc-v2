@@ -11,8 +11,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, logAudit } from '@/lib/auth'
+import { DEFAULT_ADMIN_USER } from '@/lib/pfc-utils'
+import { sendPushToUser } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
+// Budget per l'invio push inline verso lo studio (stesso schema di /api/messaggi).
+export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
   const session = await getSession()
@@ -40,6 +44,22 @@ export async function POST(req: NextRequest) {
     where: { filePath },
     data: { pagata: nuovoStato },
   })
+
+  // Squillo per lo studio: SOLO quando e' il CLIENTE a segnarla pagata (il
+  // reset pagata=false non squilla, e nemmeno le azioni dell'admin). Try/catch:
+  // un problema di push non deve mai far fallire l'azione del cliente.
+  if (session.role === 'client' && nuovoStato) {
+    try {
+      await sendPushToUser(DEFAULT_ADMIN_USER, {
+        title: 'Scadenza pagata',
+        body: `${session.sub}: ha segnato come pagata "${existing.titolo}"`.slice(0, 100),
+        url: '/?tab=clienti',
+        tag: 'pfc-pagamento-cliente',
+      })
+    } catch (pushErr) {
+      console.error('[scadenza/paga] push admin (ignorata):', pushErr)
+    }
+  }
 
   await logAudit(session.sub, nuovoStato ? 'SCADENZA_PAGATA' : 'SCADENZA_PAGATA_RESET', filePath)
   return NextResponse.json({ ok: true, pagata: scadenza.pagata })
