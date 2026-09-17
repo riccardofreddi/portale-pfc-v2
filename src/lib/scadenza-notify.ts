@@ -4,7 +4,7 @@
  * e cron giornaliero.
  */
 import { db } from './db'
-import { sendPushToUser } from './push'
+import { sendPushToUser, sendPushToUserCanali } from './push'
 import { sendEmail } from './email'
 
 export function giorniMancanti(data: Date, oggi: Date): number {
@@ -92,8 +92,21 @@ export async function notifyScadenzaImminente(params: {
     select: { pushInviata: true, emailInviata: true },
   })
   let pushSent = 0
+  let consegnataATutti = false
   if (!stato?.pushInviata) {
-    pushSent = await sendPushToUser(params.username, {
+    // v4.58: consegna contata PER CANALE. Prima la push era "consegnata" se la
+    // riceveva UN canale qualunque: se l'unico canale attivo era il telefono,
+    // il browser del cliente restava fuori PER SEMPRE (la push non viene mai
+    // ritentata). Ora la consegna e' vera solo se OGNI canale presente al
+    // momento dell'invio ha ricevuto (o era gia' morto e pulito durante
+    // l'invio stesso) E almeno un canale ha ricevuto. Se un canale vivo non
+    // ha ricevuto per un problema passeggero, il cron della mattina dopo
+    // ritenta: nessun cliente perso, nessun ritento a vuoto sui canali sani.
+    const contaFcm = () => db.fcmToken.count({ where: { userId: params.userId } })
+    const contaWeb = () => db.pushSubscription.count({ where: { userId: params.userId } })
+    const [fcmPrima, webPrima] = await Promise.all([contaFcm(), contaWeb()])
+
+    const esito = await sendPushToUserCanali(params.username, {
       title: '⏰ Scadenza imminente',
       body: text,
       url: scadenzaPushUrl(params.filePath),
@@ -101,8 +114,17 @@ export async function notifyScadenzaImminente(params: {
       data: { testo: text, tipo: 'scadenza' },
     }).catch((e) => {
       console.error('[SCADENZA] push errore:', e)
-      return 0
+      return { fcm: 0, web: 0 }
     })
+    pushSent = esito.fcm + esito.web
+
+    // Durante l'invio i canali morti vengono ripuliti da soli: ricontiamo.
+    // Canale ok = non esisteva, oppure ha ricevuto, oppure e' stato pulito
+    // (era morto: non c'era nessuno da avvisare).
+    const [fcmDopo, webDopo] = await Promise.all([contaFcm(), contaWeb()])
+    const okFcm = fcmPrima === 0 || esito.fcm > 0 || fcmDopo === 0
+    const okWeb = webPrima === 0 || esito.web > 0 || webDopo === 0
+    consegnataATutti = okFcm && okWeb && pushSent > 0
   }
 
   // Fallback email: se la push NON e' stata consegnata (nessuna subscription o
@@ -138,10 +160,10 @@ export async function notifyScadenzaImminente(params: {
     where: { id: params.scadenzaId },
     data: {
       notificata: true,
-      // pushInviata = vero SOLO se abbiamo davvero recapitato ad almeno una
-      // subscription. Se non ci sono subscription o tutte falliscono, resta
-      // false e il cron riprovera nei giorni successivi.
-      pushInviata: pushSent > 0 ? true : (stato?.pushInviata ?? false),
+      // pushInviata = vero SOLO se la consegna e' arrivata su TUTTI i canali
+      // presenti (v4.58, vedi commento sopra). Se un canale vivo e' rimasto
+      // fuori, resta false e il cron riprovera' nei giorni successivi.
+      pushInviata: consegnataATutti ? true : (stato?.pushInviata ?? false),
       emailInviata: emailSent ? true : (stato?.emailInviata ?? false),
     },
   })

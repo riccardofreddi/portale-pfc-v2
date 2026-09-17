@@ -192,8 +192,9 @@ export function TabResoconto() {
     }
   }
 
-  // v-push: invia una notifica FCM di prova a TUTTI i telefoni del cliente.
-  // Se arriva la notifica sul telefono, il canale push funziona da capo a fondo.
+  // v-push (v4.58): invia una notifica di prova a TUTTI i canali del cliente
+  // (telefoni E browser iscritti). Se arriva sia sull'app sia sul browser,
+  // il canale push funziona da capo a fondo.
   async function pushProva(username: string, name: string) {
     try {
       const res = await fetch('/api/push/fcm/admin', {
@@ -203,9 +204,9 @@ export function TabResoconto() {
       })
       const data = await res.json()
       if (data.ok) {
-        toast.success(`Push di prova inviata a ${name} (${data.inviati} ${data.inviati === 1 ? 'telefono' : 'telefoni'})`)
+        toast.success(`Push di prova inviata a ${name} (${data.inviati} ${data.inviati === 1 ? 'dispositivo' : 'dispositivi'}: telefono e/o browser)`)
       } else {
-        toast.warning(data.msg || `Nessun telefono collegato per ${name}`)
+        toast.warning(data.msg || `Nessun canale collegato per ${name}`)
       }
     } catch {
       toast.error(`Errore invio push di prova a ${name}`)

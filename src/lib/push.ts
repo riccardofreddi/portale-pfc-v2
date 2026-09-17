@@ -105,10 +105,20 @@ export interface PushPayload {
   data?: Record<string, unknown>
 }
 
-export async function sendPushToUser(
+/**
+ * Esito dettagliato di un invio a un utente: quante push sono state accettate
+ * da ciascun canale (app FCM / browser Web Push). Serve alla logica scadenze
+ * v4.58 per capire se TUTTI i canali presenti hanno ricevuto il messaggio.
+ */
+export interface PushEsitoCanali {
+  fcm: number
+  web: number
+}
+
+export async function sendPushToUserCanali(
   username: string,
   payload: PushPayload
-): Promise<number> {
+): Promise<PushEsitoCanali> {
   try {
     const startMs = Date.now()
 
@@ -116,7 +126,7 @@ export async function sendPushToUser(
       where: { username },
       select: { id: true },
     })
-    if (!user) return 0
+    if (!user) return { fcm: 0, web: 0 }
 
     // 1) Invio FCM (app nativa v3) — SEMPRE, prima di tutto e indipendente da VAPID
     let fcmSent = 0
@@ -200,11 +210,24 @@ export async function sendPushToUser(
     console.log(
       `[PUSH] user=${username} fcm=${fcmSent} web=${webSent} in ${Date.now() - startMs}ms`
     )
-    return total
+    return { fcm: fcmSent, web: webSent }
   } catch (err) {
     console.error('[PUSH] sendPushToUser errore:', err)
-    return 0
+    return { fcm: 0, web: 0 }
   }
+}
+
+/**
+ * Invio a tutti i canali di un utente, ritorna il TOTALE (app + browser).
+ * Sottile buccia attorno a sendPushToUserCanali: identica a quella che c'era
+ * prima della v4.58, cosi' nessun chiamante esistente cambia comportamento.
+ */
+export async function sendPushToUser(
+  username: string,
+  payload: PushPayload
+): Promise<number> {
+  const esito = await sendPushToUserCanali(username, payload)
+  return esito.fcm + esito.web
 }
 
 export async function sendPushToAll(payload: PushPayload): Promise<number> {
