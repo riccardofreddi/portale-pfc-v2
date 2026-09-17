@@ -15,7 +15,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { giorniMancanti, notifyScadenzaImminente } from '@/lib/scadenza-notify'
+import { giorniMancanti, notifyScadenzaImminente, notifyScadenzaOggi } from '@/lib/scadenza-notify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -84,10 +84,59 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
     }
 
+    // ---- Promemoria "scade OGGI" (ultimo giorno utile) ----
+    // Le scadenze gia' notificate nei giorni precedenti NON rientrano nella
+    // query di sopra (notificata e pushInviata sono true): il giorno stesso
+    // della scadenza mandiamo comunque un ultimo promemoria "scade oggi".
+    // Solo per quelle gia' CONSEGNATE (pushInviata true): quelle con push
+    // ancora in retry sono gia' gestite dalla passata di sopra, cosi' il
+    // cliente riceve UN SOLO messaggio per file. La guardia anti-doppione
+    // interna a notifyScadenzaOggi (una campanella al giorno) rende tutto
+    // sicuro anche se piu' sveglie fanno la stessa richiesta insieme.
+    const fineOggi = new Date(inizioOggi.getTime() + 24 * 60 * 60 * 1000)
+    const scadenzeOggi = await db.scadenza.findMany({
+      where: {
+        pagata: false,
+        notificata: true,
+        pushInviata: true,
+        dataScadenza: { gte: inizioOggi, lt: fineOggi },
+      },
+      include: { user: { select: { username: true, name: true, email: true } } },
+    })
+
+    let notificateOggi = 0
+    let pushInviateOggi = 0
+    const dettagliOggi: Array<{ filePath: string; titolo: string }> = []
+
+    for (const s of scadenzeOggi) {
+      const r = await notifyScadenzaOggi({
+        scadenzaId: s.id,
+        userId: s.userId,
+        username: s.user.username,
+        titolo: s.titolo,
+        filePath: s.filePath,
+        dataScadenza: s.dataScadenza,
+        emailCliente: s.user.email,
+        emailGiaInviata: s.emailInviata,
+      })
+      if (r.emailSent) {
+        await db.scadenza
+          .update({ where: { id: s.id }, data: { emailInviata: true } })
+          .catch(() => {})
+      }
+      if (!r.notified) continue
+      notificateOggi++
+      pushInviateOggi += r.pushSent
+      dettagliOggi.push({ filePath: s.filePath, titolo: s.titolo })
+    }
+
     console.log(
       `[CRON] scadenze notificate: ${notificate}/${scadenze.length} · ` +
         `push inviate: ${pushInviate} · ` +
-        dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ')
+        dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ') +
+        (notificateOggi > 0
+          ? ` · scadenze OGGI: ${notificateOggi} (push ${pushInviateOggi})`
+          : '')
     )
 
     return NextResponse.json({
@@ -96,6 +145,12 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       notificate,
       pushInviate,
       dettagli,
+      promemoriaOggi: {
+        controllate: scadenzeOggi.length,
+        notificate: notificateOggi,
+        pushInviate: pushInviateOggi,
+        dettagli: dettagliOggi,
+      },
     })
   } catch (err) {
     console.error('[SCADENZE] errore check:', err)

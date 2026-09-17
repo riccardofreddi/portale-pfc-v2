@@ -148,3 +148,87 @@ export async function notifyScadenzaImminente(params: {
 
   return { notified: true, pushSent, emailSent }
 }
+
+/**
+ * Promemoria dell'ULTIMO GIORNO ("scade oggi"). Diverso dal primo avviso:
+ * parte anche se la scadenza e' gia' stata notificata nei giorni precedenti,
+ * ma AL MASSIMO UNA VOLTA AL GIORNO. La guardia e' la ricerca di una
+ * campanella creata OGGI per lo stesso file: cosi' il promemoria resta unico
+ * anche se piu' sveglie (cron Vercel + sveglia di riserva) buscano insieme.
+ */
+export async function notifyScadenzaOggi(params: {
+  scadenzaId: string
+  userId: string
+  username: string
+  titolo: string
+  filePath: string
+  dataScadenza: Date
+  /** Email del cliente per il fallback (al massimo una volta per scadenza). */
+  emailCliente?: string | null
+  /** true se l'email di fallback era gia' stata mandata in passato. */
+  emailGiaInviata?: boolean
+  oggi?: Date
+}): Promise<{ notified: boolean; pushSent: number; emailSent: boolean }> {
+  const oggi = params.oggi ?? new Date()
+  const inizioGiornata = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate())
+  const text = buildScadenzaNotificaText(params.titolo, params.dataScadenza, oggi)
+
+  // Guardia anti-doppione: una campanella per questo file esiste GIA' creata
+  // oggi? (copre sia il promemoria normale sia un eventuale "oggi" gemello)
+  const giaOggi = await db.notification.findFirst({
+    where: {
+      userId: params.userId,
+      type: 'scadenza',
+      detail: params.filePath,
+      ts: { gte: inizioGiornata },
+    },
+  })
+  if (giaOggi) return { notified: false, pushSent: 0, emailSent: false }
+
+  await db.notification.create({
+    data: {
+      userId: params.userId,
+      type: 'scadenza',
+      text,
+      detail: params.filePath,
+    },
+  })
+
+  // Push dedicata all'ultimo giorno: titolo evidente e tag separato, cosi'
+  // non sostituisce (né viene sostituito dal) l'avviso dei giorni scorsi.
+  const pushSent = await sendPushToUser(params.username, {
+    title: '🚨 Scadenza OGGI',
+    body: text,
+    url: scadenzaPushUrl(params.filePath),
+    tag: 'pfc-scadenza-' + params.scadenzaId + '-oggi',
+    data: { testo: text, tipo: 'scadenza' },
+  }).catch((e) => {
+    console.error('[SCADENZA OGGI] push errore:', e)
+    return 0
+  })
+
+  // Fallback email: solo se la push non ha raggiunto nessun canale e non era
+  // gia' stata mandata una email per questa scadenza (mai piu' di una).
+  let emailSent = false
+  const emailCliente = params.emailCliente?.trim().toLowerCase() || null
+  if (pushSent === 0 && emailCliente && !params.emailGiaInviata) {
+    emailSent = await sendEmail({
+      to: emailCliente,
+      subject: 'Promemoria: scadenza OGGI',
+      text:
+        `Gentile cliente,\n\n` +
+        `Le ricordiamo che il documento risulta in scadenza OGGI:\n  ${params.titolo}\n` +
+        `${text}\n\n` +
+        `Può consultarlo nell'area riservata del portale.\n\n` +
+        `Cordiali saluti,\nLo Studio`,
+      html:
+        `<p>Gentile cliente,</p>` +
+        `<p>Le ricordiamo che il documento <strong>${params.titolo}</strong> risulta in scadenza <strong>OGGI</strong>.</p>` +
+        `<p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` +
+        `<p>Può consultarlo nell'area riservata del portale.</p>` +
+        `<p>Cordiali saluti,<br><strong>Lo Studio</strong></p>`,
+    })
+  }
+
+  return { notified: true, pushSent, emailSent }
+}
