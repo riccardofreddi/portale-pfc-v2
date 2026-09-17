@@ -149,7 +149,9 @@ export const api = {
   },
   push: {
     vapidKey: () => apiFetch<{ publicKey: string }>('/api/push/vapid-key'),
-    subscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    // v4.56: vecchiEndpoints = indirizzi vecchi dello STESSO browser che questa
+    // attivazione sostituisce (il server li cancella nella stessa richiesta).
+    subscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string }; vecchiEndpoints?: string[] }) =>
       apiFetch<{ ok: boolean }>('/api/push/subscribe', {
         method: 'POST',
         body: JSON.stringify(sub),
@@ -157,6 +159,13 @@ export const api = {
     unsubscribe: (endpoint: string) =>
       apiFetch<{ ok: boolean }>('/api/push/subscribe', {
         method: 'DELETE',
+        body: JSON.stringify({ endpoint }),
+      }),
+    // v4.56: chiede al server se la propria iscrizione e' ancora a libro
+    // (se no, il bottone torna "Attiva notifiche" invece di fingere che vada).
+    verifica: (endpoint: string) =>
+      apiFetch<{ ok: boolean; registrata: boolean }>('/api/push/verifica', {
+        method: 'POST',
         body: JSON.stringify({ endpoint }),
       }),
     test: () => apiFetch<{ ok: boolean; sent?: number; msg?: string }>('/api/push/test', { method: 'POST' }),

@@ -38,13 +38,15 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 // falso "Notifiche attive".
 const VAPID_KEY_STORAGE = 'pfc_vapid_key'
 
-// v4.54 (anti-doppione): indirizzo (endpoint) dell'ultima iscrizione di QUESTO
+// v4.54: indirizzo (endpoint) dell'ultima iscrizione di QUESTO
 // browser. Se il browser "perde" la subscription (dati del sito puliti, service
 // worker ricreato, profilo toccato) il server resta con la vecchia riga: alla
 // riattivazione nasce una riga nuova e quella vecchia, se ancora viva, fa
 // arrivare OGNI notifica DUE volte (due righe vive = due fumetti). All'attivazione
 // cancelliamo anche l'eventuale vecchio indirizzo salvato qui, diverso da quello
 // attuale, cosi' il server non resta mai con doppioni dello stesso browser.
+// v4.56: l'indirizzo serve anche a CHIEDERE al server se la nostra iscrizione
+// e' ancora valida (bottone sempre veritiero).
 const VAPID_ENDPOINT_STORAGE = 'pfc_vapid_endpoint'
 
 export interface PushState {
@@ -94,9 +96,23 @@ export function usePushNotifications(enabled: boolean = true): PushState {
       try {
         const { publicKey } = await api.push.vapidKey()
         const storedKey = localStorage.getItem(VAPID_KEY_STORAGE)
-        setSubscribed(storedKey === publicKey)
+        if (storedKey !== publicKey) {
+          setSubscribed(false)
+          return
+        }
+        // v4.56: la chiave corrisponde, ma il server ha ANCORA la nostra riga?
+        // (se l'indirizzo non è più a libro, il bottone deve tornare "Attiva
+        // notifiche" invece di un falso "Prova notifica" con avvisi che non
+        // arrivano mai, in silenzio).
+        const storedEndpoint = localStorage.getItem(VAPID_ENDPOINT_STORAGE)
+        if (!storedEndpoint) {
+          setSubscribed(false)
+          return
+        }
+        const esito = await api.push.verifica(storedEndpoint)
+        setSubscribed(Boolean(esito?.registrata))
       } catch {
-        // Impossibile confrontare: meglio far riattivare che mostrare un falso "attive"
+        // Impossibile confermare: meglio far riattivare che mostrare un falso "attive"
         setSubscribed(false)
       }
     } catch {
@@ -130,11 +146,14 @@ export function usePushNotifications(enabled: boolean = true): PushState {
 
       // 4. Se esiste già una subscription obsoleta (creata con chiavi VAPID diverse o
       //    rimasta orfana nel browser), rimuovila prima di iscriversi di nuovo.
+      //    v4.56: ricordiamoci l'indirizzo: lo portiamo con noi nella richiesta di
+      //    iscrizione, così il server lo cancella nella STESSA operazione.
+      const vecchiEndpoints: string[] = []
       const existing = await reg.pushManager.getSubscription()
       if (existing) {
-        const oldEndpoint = existing.endpoint
+        vecchiEndpoints.push(existing.endpoint)
         await existing.unsubscribe()
-        await api.push.unsubscribe(oldEndpoint).catch(() => {})
+        await api.push.unsubscribe(existing.endpoint).catch(() => {})
       }
 
       // 4-bis. v4.54 (anti-doppione): se in locale e' salvato un VECCHIO indirizzo
@@ -143,6 +162,7 @@ export function usePushNotifications(enabled: boolean = true): PushState {
       try {
         const storedEndpoint = localStorage.getItem(VAPID_ENDPOINT_STORAGE)
         if (storedEndpoint && storedEndpoint !== (existing?.endpoint ?? null)) {
+          vecchiEndpoints.push(storedEndpoint)
           await api.push.unsubscribe(storedEndpoint).catch(() => {})
         }
       } catch {
@@ -156,6 +176,9 @@ export function usePushNotifications(enabled: boolean = true): PushState {
       })
 
       // 6. Send to backend
+      // v4.56: con gli indirizzi vecchi allegati: sostituzione in UNA richiesta
+      // (il vecchio fix li mandava con chiamate separate che potevano fallire
+      // in silenzio, lasciando doppioni nel libro del server).
       const subJson = sub.toJSON()
       await api.push.subscribe({
         endpoint: subJson.endpoint!,
@@ -163,6 +186,7 @@ export function usePushNotifications(enabled: boolean = true): PushState {
           p256dh: subJson.keys!.p256dh!,
           auth: subJson.keys!.auth!,
         },
+        vecchiEndpoints,
       })
 
       // 7. Salva l'impronta della chiave VAPID e l'indirizzo di QUESTA iscrizione

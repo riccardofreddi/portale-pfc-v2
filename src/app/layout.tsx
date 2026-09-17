@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+import AvvisoUrlTemporaneo from "@/components/AvvisoUrlTemporaneo";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -39,6 +40,8 @@ export default function RootLayout({
   return (
     <html lang="it" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased bg-slate-50 text-slate-900 min-h-screen`}>
+        {/* v4.57: cartello anti-indirizzo-temporaneo (invisibile sull'indirizzo ufficiale) */}
+        <AvvisoUrlTemporaneo />
         {children}
         <SonnerToaster position="top-right" richColors closeButton />
       </body>
