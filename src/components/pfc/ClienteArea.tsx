@@ -139,6 +139,15 @@ export function ClienteArea() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, clienteTab])
 
+  // v4.60: quando il cliente segna "Pagato" dall'archivio (o lo annulla), il
+  // banner qui si ricarica da solo: scadenza pagata = sparisce dal promemoria.
+  useEffect(() => {
+    const ricarica = () => { loadScadenze() }
+    window.addEventListener('pfc-scadenze-aggiornate', ricarica)
+    return () => window.removeEventListener('pfc-scadenze-aggiornate', ricarica)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Apertura da notifica push con URL ?tab=... (es. /?tab=messaggi oppure
   // /?tab=archivio&anno=...&cartella=...): attiva subito la tab corretta e, per
   // i documenti, l'anno/cartella indicati appena la pagina viene caricata.

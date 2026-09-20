@@ -51,7 +51,7 @@ export function TabGestioneClienti() {
   const [deleteBulkTarget, setDeleteBulkTarget] = useState<{ anno: string; cartella?: string } | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
   const [renameNewName, setRenameNewName] = useState('')
-  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null>(null)
+  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null>(null)
   const [scadenzaData, setScadenzaData] = useState('')
   const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
   const [scadenzaSaving, setScadenzaSaving] = useState(false)
@@ -141,6 +141,50 @@ export function TabGestioneClienti() {
   useEffect(() => {
     if (selectedCliente) { loadArchivioCliente(selectedCliente) }
   }, [selectedCliente])
+
+  // v4.60: sincronizzazione automatica degli stati di pagamento. Mentre la
+  // console è aperta su un cliente, una query leggera (SOLO database, niente
+  // R2) rilegge le scadenze subito e poi ogni 30 secondi: se il cliente preme
+  // "Pagato" nel suo archivio, le targhette qui si aggiornano da sole e la
+  // finestra "Promemoria scadenza" risulta compilata in automatico.
+  useEffect(() => {
+    if (!selectedCliente) return
+    let vivo = true
+    async function sincronizza() {
+      try {
+        const res = await fetch(`/api/documenti/scadenza/tutte?username=${encodeURIComponent(selectedCliente)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!vivo) return
+        const lista = (data.scadenze ?? []) as Array<{ filePath: string; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null }>
+        const perFile = new Map(lista.map((s) => [s.filePath, s]))
+        setArchivioFiles((prev) => {
+          let cambiato = false
+          const next: typeof prev = {}
+          for (const [chiave, files] of Object.entries(prev)) {
+            next[chiave] = files.map((f) => {
+              const s = perFile.get(f.key)
+              const scad = (f as unknown as { scadenza?: { pagata: boolean; pagataDa?: string | null } | null }).scadenza
+              if (!s || !scad) return f
+              if (scad.pagata === s.pagata && (scad.pagataDa ?? null) === (s.pagataDa ?? null)) return f
+              cambiato = true
+              return { ...f, scadenza: { ...scad, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null } }
+            })
+          }
+          return cambiato ? next : prev
+        })
+        setScadenzaTarget((t) => {
+          if (!t || scadenzaSaving) return t
+          const s = perFile.get(t.key)
+          if (!s || (t.pagata === s.pagata && (t.pagataDa ?? null) === (s.pagataDa ?? null))) return t
+          return { ...t, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null }
+        })
+      } catch { /* silenzioso: il poll non deve rompere nulla */ }
+    }
+    sincronizza()
+    const timer = setInterval(sincronizza, 30000)
+    return () => { vivo = false; clearInterval(timer) }
+  }, [selectedCliente, scadenzaSaving])
 
   function handleSelectCliente(v: string | null) {
     setSelectedCliente(v ?? '')
@@ -237,7 +281,7 @@ export function TabGestioneClienti() {
 
   function openScadenza(f: { key: string; nome: string }) {
     // Se il file ha già una scadenza (passata dalla lista), precompila i campi.
-    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } }).scadenza
+    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } }).scadenza
     let dataIniziale = ''
     let anticipoIniziale = 10
     if (scad) {
@@ -248,9 +292,35 @@ export function TabGestioneClienti() {
       }
       anticipoIniziale = scad.anticipoGiorni
     }
-    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false, notificata: scad?.notificata ?? false, pushInviata: scad?.pushInviata ?? false, emailInviata: scad?.emailInviata ?? false })
+    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false, pagataDa: scad?.pagataDa ?? null, pagataIl: scad?.pagataIl ?? null, notificata: scad?.notificata ?? false, pushInviata: scad?.pushInviata ?? false, emailInviata: scad?.emailInviata ?? false })
     setScadenzaData(dataIniziale)
     setScadenzaAnticipo(String(anticipoIniziale))
+    // v4.60: rilettura FRESCA dal server. La riga della lista può essere
+    // vecchia (il cliente può aver premuto "Pagato" mentre la pagina era
+    // aperta): la finestra deve sempre aprire sullo stato vero, con la
+    // compilazione automatica di pagata + chi + quando.
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/documenti/scadenza?filePath=${encodeURIComponent(f.key)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        const s = data.scadenza as { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null
+        if (!s) return
+        const d = new Date(s.dataScadenza)
+        if (!isNaN(d.getTime())) setScadenzaData(d.toISOString().slice(0, 10))
+        setScadenzaAnticipo(String(s.anticipoGiorni ?? 10))
+        setScadenzaTarget((t) => (t && t.key === f.key ? {
+          ...t,
+          had: true,
+          pagata: s.pagata,
+          pagataDa: s.pagataDa ?? null,
+          pagataIl: s.pagataIl ?? null,
+          notificata: s.notificata ?? false,
+          pushInviata: s.pushInviata ?? false,
+          emailInviata: s.emailInviata ?? false,
+        } : t))
+      } catch { /* resta il prefill dalla riga */ }
+    })()
   }
 
   async function handleSaveScadenza() {
@@ -862,11 +932,23 @@ export function TabGestioneClienti() {
               )
             })()}
             {scadenzaTarget?.had && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-sm flex-wrap">
                 <Label className="text-slate-600">Stato pagamento</Label>
                 <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold', scadenzaTarget.pagata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
                   {scadenzaTarget.pagata ? '✅ Pagata' : '⏰ Da pagare'}
                 </span>
+                {/* v4.60: compilazione automatica visibile - chi ha segnato il
+                    pagamento (cliente o studio) e quando, letti dal database. */}
+                {scadenzaTarget.pagata && (scadenzaTarget.pagataDa || scadenzaTarget.pagataIl) && (
+                  <span className="text-xs text-slate-500">
+                    {scadenzaTarget.pagataDa
+                      ? scadenzaTarget.pagataDa === selectedCliente ? 'dal cliente' : 'dallo studio'
+                      : ''}
+                    {scadenzaTarget.pagataIl
+                      ? ` · ${new Date(scadenzaTarget.pagataIl).toLocaleDateString('it-IT')} alle ${new Date(scadenzaTarget.pagataIl).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`
+                      : ''}
+                  </span>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -884,7 +966,7 @@ export function TabGestioneClienti() {
                       })
                       if (!res.ok) throw new Error('Errore')
                       const data = await res.json()
-                      setScadenzaTarget((t) => (t ? { ...t, pagata: data.pagata } : t))
+                      setScadenzaTarget((t) => (t ? { ...t, pagata: data.pagata, pagataDa: data.pagataDa ?? null, pagataIl: data.pagataIl ?? null } : t))
                       toast.success(data.pagata ? 'Scadenza segnata come pagata' : 'Pagamento annullato')
                       if (selectedCliente) await loadArchivioCliente(selectedCliente)
                     } catch {

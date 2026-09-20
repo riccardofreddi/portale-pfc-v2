@@ -116,21 +116,24 @@ export async function GET(req: NextRequest) {
     const uploadDateMap = new Map(uploadDates.map(u => [u.filePath, u.ts]))
     const scadenze = await db.scadenza.findMany({ where: { filePath: { in: files.map(f => f.key) } } })
     const scadenzaMap = new Map(scadenze.map(s => [s.filePath, s]))
+    // v4.60: scadenza con chi/quando hanno segnato il pagamento (serve alla
+    // riga dell'archivio cliente per la targhetta e il pulsante "Pagato").
+    const conScadenza = (s: (typeof scadenze)[number]) => ({
+      id: s.id,
+      titolo: s.titolo,
+      dataScadenza: s.dataScadenza,
+      anticipoGiorni: s.anticipoGiorni,
+      pagata: s.pagata,
+      pagataDa: s.pagataDa,
+      pagataIl: s.pagataIl,
+      notificata: s.notificata,
+      pushInviata: s.pushInviata,
+      emailInviata: s.emailInviata,
+    })
     const enrichedWithDate = enriched.map(f => ({
       ...f,
       uploadDate: uploadDateMap.get(f.key) || null,
-      scadenza: scadenzaMap.has(f.key)
-        ? {
-            id: scadenzaMap.get(f.key)!.id,
-            titolo: scadenzaMap.get(f.key)!.titolo,
-            dataScadenza: scadenzaMap.get(f.key)!.dataScadenza,
-            anticipoGiorni: scadenzaMap.get(f.key)!.anticipoGiorni,
-            pagata: scadenzaMap.get(f.key)!.pagata,
-            notificata: scadenzaMap.get(f.key)!.notificata,
-            pushInviata: scadenzaMap.get(f.key)!.pushInviata,
-            emailInviata: scadenzaMap.get(f.key)!.emailInviata,
-          }
-        : null,
+      scadenza: scadenzaMap.has(f.key) ? conScadenza(scadenzaMap.get(f.key)!) : null,
     }))
     return NextResponse.json({ files: enrichedWithDate })
       }
@@ -142,21 +145,23 @@ export async function GET(req: NextRequest) {
     const uploadDateMapAdmin = new Map(uploadDatesAdmin.map(u => [u.filePath, u.ts]))
     const scadenzeAdmin = await db.scadenza.findMany({ where: { filePath: { in: files.map(f => f.key) } } })
     const scadenzaMapAdmin = new Map(scadenzeAdmin.map(s => [s.filePath, s]))
+    // v4.60: stessa arricchimento del ramo cliente (chi/quando pagamento).
+    const conScadenzaAdmin = (s: (typeof scadenzeAdmin)[number]) => ({
+      id: s.id,
+      titolo: s.titolo,
+      dataScadenza: s.dataScadenza,
+      anticipoGiorni: s.anticipoGiorni,
+      pagata: s.pagata,
+      pagataDa: s.pagataDa,
+      pagataIl: s.pagataIl,
+      notificata: s.notificata,
+      pushInviata: s.pushInviata,
+      emailInviata: s.emailInviata,
+    })
     const filesWithDate = files.map(f => ({
       ...f,
       uploadDate: uploadDateMapAdmin.get(f.key) || null,
-      scadenza: scadenzaMapAdmin.has(f.key)
-        ? {
-            id: scadenzaMapAdmin.get(f.key)!.id,
-            titolo: scadenzaMapAdmin.get(f.key)!.titolo,
-            dataScadenza: scadenzaMapAdmin.get(f.key)!.dataScadenza,
-            anticipoGiorni: scadenzaMapAdmin.get(f.key)!.anticipoGiorni,
-            pagata: scadenzaMapAdmin.get(f.key)!.pagata,
-            notificata: scadenzaMapAdmin.get(f.key)!.notificata,
-            pushInviata: scadenzaMapAdmin.get(f.key)!.pushInviata,
-            emailInviata: scadenzaMapAdmin.get(f.key)!.emailInviata,
-          }
-        : null,
+      scadenza: scadenzaMapAdmin.has(f.key) ? conScadenzaAdmin(scadenzaMapAdmin.get(f.key)!) : null,
     }))
     return NextResponse.json({ files: filesWithDate })
   } catch (err) {

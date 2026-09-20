@@ -7,6 +7,18 @@ export interface User {
   exemptMaintenance?: boolean
 }
 
+// v4.60: scadenza allegata al documento (arriva da /api/documenti/list).
+// Serve all'archivio cliente per la targhetta e il pulsante "Pagato".
+export interface ScadenzaFile {
+  id: string
+  titolo: string
+  dataScadenza: string
+  anticipoGiorni: number
+  pagata: boolean
+  pagataDa?: string | null
+  pagataIl?: string | null
+}
+
 export interface FileItem {
   nome: string
   key: string
@@ -15,6 +27,7 @@ export interface FileItem {
   lastModified: Date | null
   stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'
   isPreferito: boolean
+  scadenza?: ScadenzaFile | null
 }
 
 export type AdminTab = 'invio' | 'clienti' | 'bacheca' | 'cestino' | 'risposte' | 'resoconto'

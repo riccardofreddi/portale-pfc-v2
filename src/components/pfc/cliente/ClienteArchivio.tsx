@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { usePfcStore, type FileItem } from '@/store/pfc'
+import { usePfcStore, type FileItem, type ScadenzaFile } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,55 @@ interface CartellaMeta { nome: string; nFiles: number; nNuovi: number }
 interface SearchResult {
   nome: string; key: string; anno: string; cartella: string; sizeStr: string;
   stato: 'preferito' | 'nuovo' | 'visto' | 'scaricato'; isPreferito: boolean;
+}
+
+// v4.60: la scadenza del documento vista dall'archivio cliente. Giorni calcolati
+// come sul server (differenza di giorni UTC, stessa matematica di scadenza-notify).
+function scadenzaInfo(s: ScadenzaFile): { cls: string; label: string } {
+  const msAlGiorno = 24 * 60 * 60 * 1000
+  const giorni = Math.floor(new Date(s.dataScadenza).getTime() / msAlGiorno) - Math.floor(Date.now() / msAlGiorno)
+  const dataTxt = new Date(s.dataScadenza).toLocaleDateString('it-IT')
+  if (s.pagata) {
+    const quando = s.pagataIl ? new Date(s.pagataIl) : null
+    const quandoTxt = quando ? ` il ${quando.toLocaleDateString('it-IT')}` : ` · ${dataTxt}`
+    return { cls: 'bg-emerald-100 text-emerald-700', label: `Pagata${quandoTxt}` }
+  }
+  if (giorni < 0) return { cls: 'bg-red-100 text-red-700', label: `Scaduta il ${dataTxt}` }
+  if (giorni === 0) return { cls: 'bg-red-100 text-red-700', label: 'Scade oggi' }
+  if (giorni === 1) return { cls: 'bg-amber-100 text-amber-700', label: 'Scade domani' }
+  if (giorni <= s.anticipoGiorni) return { cls: 'bg-amber-100 text-amber-700', label: `Scade il ${dataTxt} · tra ${giorni} giorni` }
+  return { cls: 'bg-slate-100 text-slate-600', label: `Scade il ${dataTxt}` }
+}
+
+// Riga scadenza dentro la card del documento: targhetta di stato + azione.
+// "Pagato" ferma TUTTE le notifiche di quella scadenza (banner, campanella,
+// push, promemoria): il server salta le scadenze pagate. "Annulla" le riaccende.
+function ScadenzaRiga({ scadenza, onToggle }: { scadenza: ScadenzaFile; onToggle: (pagata: boolean) => void }) {
+  const info = scadenzaInfo(scadenza)
+  return (
+    <div className="flex items-center gap-1.5 mt-1 pl-[18px] flex-wrap">
+      <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold', info.cls)}>
+        {scadenza.pagata ? '✓' : '⏰'} {info.label}
+      </span>
+      {!scadenza.pagata ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggle(true) }}
+          className="text-[10px] sm:text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-sm"
+          title="Segna come pagato: le notifiche di questa scadenza si fermano"
+        >
+          Pagato
+        </button>
+      ) : (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggle(false) }}
+          className="text-[10px] sm:text-[11px] text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors"
+          title="Annulla: la scadenza torna attiva e le notifiche riprendono"
+        >
+          Annulla
+        </button>
+      )}
+    </div>
+  )
 }
 
 const globalCache = {
@@ -91,6 +140,37 @@ export function ClienteArchivio() {
     } catch { toast.error('Errore caricamento file') }
     finally { setLoadingFiles(false) }
   }, [username, clearSelected])
+
+  // v4.60: il cliente segna (o annulla) il pagamento direttamente dall'archivio.
+  // Aggiorna la riga, la cache globale, avvisa il banner (evento window) e lo
+  // studio (lo fa il server con la push "Scadenza pagata").
+  const handleScadenzaPaga = useCallback(async (f: FileItem, pagata: boolean) => {
+    try {
+      const res = await fetch('/api/documenti/scadenza/paga', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: f.key, pagata }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Errore aggiornamento scadenza')
+      const nuova: ScadenzaFile = {
+        ...(f.scadenza as ScadenzaFile),
+        pagata: Boolean(data.pagata),
+        pagataDa: data.pagataDa ?? null,
+        pagataIl: data.pagataIl ?? null,
+      }
+      setFiles((fs) => fs.map((x) => (x.key === f.key ? { ...x, scadenza: nuova } : x)))
+      // Cache: la stessa lista e' riusata al ritorno nella cartella, va aggiornata.
+      for (const key of Object.keys(globalCache.files)) {
+        globalCache.files[key] = globalCache.files[key].map((x) => (x.key === f.key ? { ...x, scadenza: nuova } : x))
+      }
+      toast.success(pagata ? 'Scadenza segnata come pagata: le notifiche si fermano' : 'Pagamento annullato: le notifiche riprendono')
+      // Il banner "Scadenze imminenti" (ClienteArea) si ricarica da solo.
+      window.dispatchEvent(new Event('pfc-scadenze-aggiornate'))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Errore aggiornamento scadenza')
+    }
+  }, [])
 
   const loadCartelle = useCallback(async (anno: string, cartellaTarget?: string | null, force = false) => {
     if (!force && globalCache.owner === username && globalCache.cartelle[anno]) {
@@ -581,6 +661,8 @@ export function ClienteArchivio() {
                                 </span>
                               )}
                             </div>
+                            {/* v4.60: scadenza impostata dallo studio + pulsante "Pagato" */}
+                            {f.scadenza && <ScadenzaRiga scadenza={f.scadenza} onToggle={(pagata) => handleScadenzaPaga(f, pagata)} />}
                           </div>
                           <div className="file-actions flex items-center gap-1 flex-shrink-0">
                             {canPreview && (

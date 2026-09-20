@@ -205,6 +205,11 @@ model Scadenza {
   notificata      Boolean  @default(false)
   pushInviata     Boolean  @default(false) @map("push_inviata")
   pagata          Boolean  @default(false)
+  // v4.60: chi ha segnato la scadenza come pagata (username) e quando.
+  // Compilati in automatico dal pulsante "Pagato" del cliente e dal
+  // pulsante admin "Segna come pagata"; svuotati al reset (pagata=false).
+  pagataDa        String?  @map("pagata_da")
+  pagataIl        DateTime? @map("pagata_il")
   emailInviata    Boolean  @default(false) @map("email_inviata")
   createdAt       DateTime @default(now()) @map("created_at")
 

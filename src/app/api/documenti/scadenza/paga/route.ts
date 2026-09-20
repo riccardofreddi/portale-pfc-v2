@@ -5,8 +5,16 @@
  *
  * - Il CLIENTE può marcare solo le proprie scadenze (ricavate dal filePath
  *   Documenti/<username>/...). È il modo in cui il cliente fa sparire la
- *   scadenza dal banner ("ho pagato").
- * - L'ADMIN può marcare qualsiasi scadenza.
+ *   scadenza dal banner ("ho pagato") e dall'archivio (v4.60: pulsante
+ *   "Pagato" sulla riga del documento).
+ * - L'ADMIN può marcare qualsiasi scadenza (finestra "Promemoria scadenza"
+ *   in Gestione Clienti).
+ *
+ * v4.60: viene memorizzato CHI ha segnato il pagamento (pagataDa = username)
+ * e QUANDO (pagataIl). Lo studio cosi' vede nella console se il pagamento è
+ * arrivato dal cliente (compilato in automatico) o è stato segnato da lui.
+ * Con pagata=true le notifiche si fermano ovunque: il cron salta le scadenze
+ * pagate, il banner non le mostra e l'app cancella i promemoria locali.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -42,7 +50,13 @@ export async function POST(req: NextRequest) {
 
   const scadenza = await db.scadenza.update({
     where: { filePath },
-    data: { pagata: nuovoStato },
+    data: {
+      pagata: nuovoStato,
+      // v4.60: firma del pagamento. Al reset (annulla) si svuota tutto:
+      // la scadenza torna "da pagare" come se niente fosse.
+      pagataDa: nuovoStato ? session.sub : null,
+      pagataIl: nuovoStato ? new Date() : null,
+    },
   })
 
   // Squillo per lo studio: SOLO quando e' il CLIENTE a segnarla pagata (il
@@ -62,5 +76,10 @@ export async function POST(req: NextRequest) {
   }
 
   await logAudit(session.sub, nuovoStato ? 'SCADENZA_PAGATA' : 'SCADENZA_PAGATA_RESET', filePath)
-  return NextResponse.json({ ok: true, pagata: scadenza.pagata })
+  return NextResponse.json({
+    ok: true,
+    pagata: scadenza.pagata,
+    pagataDa: scadenza.pagataDa,
+    pagataIl: scadenza.pagataIl,
+  })
 }
