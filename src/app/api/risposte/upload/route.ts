@@ -82,7 +82,9 @@ export async function POST(req: NextRequest) {
       console.error('[risposte/upload] push admin (ignorata):', pushErr)
     }
 
-    await logAudit(session.sub, 'UPLOAD_RISPOSTA', `${finalName} (msg: ${msgId})`)
+    // v4.61: nel log solo il nome del file (il msg id non serve allo studio
+    // e intasava la lettura del registro: "file.pdf (msg: cmu...)" -> "file.pdf").
+    await logAudit(session.sub, 'UPLOAD_RISPOSTA', finalName)
     return NextResponse.json({ ok: true, key, nome: finalName })
   } catch (err) {
     console.error('[risposte/upload] errore:', err)

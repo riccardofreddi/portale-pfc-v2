@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { formatDateAudit, formatBytes, ottieniIconaFile } from '@/lib/pfc-utils'
-import { Loader2, Download, Trash2, RefreshCw, FileText, Inbox, Search } from 'lucide-react'
+import { formatDateAudit, formatBytes, ottieniIconaFile, canPreviewFile } from '@/lib/pfc-utils'
+import { usePfcStore } from '@/store/pfc'
+import { Loader2, Download, Trash2, RefreshCw, FileText, Inbox, Search, Eye } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,7 @@ interface RispostaFile {
 }
 
 export function TabRisposte() {
+  const { setPreviewFile } = usePfcStore()
   const [files, setFiles] = useState<RispostaFile[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroCliente, setFiltroCliente] = useState<string>('tutti')
@@ -218,6 +220,12 @@ export function TabRisposte() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
+                      {/* v4.61: anteprima dei file ricevuti (stesso PreviewModal di tutto il portale). */}
+                      {canPreviewFile(f.nome) && (
+                        <Button variant="outline" size="sm" onClick={() => setPreviewFile({ nome: f.nome, key: f.key, size: f.size, sizeStr: f.sizeStr, lastModified: null, stato: 'nuovo', isPreferito: false })}>
+                          <Eye className="h-3.5 w-3.5 mr-1" /> Anteprima
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}>
                         <Download className="h-3.5 w-3.5 mr-1" /> Scarica
                       </Button>

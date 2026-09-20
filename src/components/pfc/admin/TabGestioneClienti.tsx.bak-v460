@@ -1,0 +1,1000 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { cn } from '@/lib/utils'
+import { usePfcStore } from '@/store/pfc'
+import { api } from '@/lib/api-client'
+import { toast } from 'sonner'
+import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, EyeOff, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight, Edit2, CalendarClock } from 'lucide-react'
+import { formatBytes, ottieniIconaFile, canPreviewFile, formatDateShort, MAX_FILE_SIZE_MB } from '@/lib/pfc-utils'
+
+interface Cliente { username: string; name: string; email?: string | null; exemptMaintenance: boolean; createdAt: string }
+interface CassettoFile { nome: string; key: string; size: number; sizeStr: string; lastModified: Date | null }
+interface ArchivioFile { nome: string; key: string; size: number; sizeStr: string; lastModified: Date | null }
+interface CartellaMeta { nome: string; nFiles: number; nNuovi: number }
+
+export function TabGestioneClienti() {
+  const { setPreviewFile } = usePfcStore()
+  const [clienti, setClienti] = useState<Cliente[]>([])
+  const [searchClienti, setSearchClienti] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [newName, setNewName] = useState('')
+  const [newUsername, setNewUsername] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<Cliente | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editUsername, setEditUsername] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [showEditPassword, setShowEditPassword] = useState(false)
+
+  const [selectedCliente, setSelectedCliente] = useState<string>('')
+  const [cassettoFiles, setCassettoFiles] = useState<CassettoFile[]>([])
+  const [archivioAnni, setArchivioAnni] = useState<string[]>([])
+  const [archivioCartelle, setArchivioCartelle] = useState<Record<string, CartellaMeta[]>>({})
+  const [archivioFiles, setArchivioFiles] = useState<Record<string, ArchivioFile[]>>({})
+  const [loadingArchivio, setLoadingArchivio] = useState(false)
+  const [openAnno, setOpenAnno] = useState<string | null>(null)
+  const [openCartella, setOpenCartella] = useState<string | null>(null)
+  const [deleteBulkTarget, setDeleteBulkTarget] = useState<{ anno: string; cartella?: string } | null>(null)
+  const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
+  const [renameNewName, setRenameNewName] = useState('')
+  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null>(null)
+  const [scadenzaData, setScadenzaData] = useState('')
+  const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
+  const [scadenzaSaving, setScadenzaSaving] = useState(false)
+  const [openCassetto, setOpenCassetto] = useState(false)
+  // Lista "Clienti registrati": parte CHIUSA, si apre al click sulla testata (nicchia la pagina).
+  const [openRegistrati, setOpenRegistrati] = useState(false)
+
+  const [uploadTipo, setUploadTipo] = useState('')
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
+
+  async function refresh() {
+    setLoading(true)
+    try { const r = await api.clienti.list(); setClienti(r.clienti) }
+    catch { toast.error('Errore caricamento clienti') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => {
+    // setTimeout(0): evita setState sincrono nel corpo dell'effect (react-hooks/set-state-in-effect)
+    const t = setTimeout(() => { refresh() }, 0)
+    return () => clearTimeout(t)
+  }, [])
+
+  async function handleDeleteBulk(anno: string, cartella?: string) {
+    if (!selectedCliente) return
+    const target = cartella ? 'cartella ' + cartella : 'anno ' + anno
+    // La conferma è già nell'AlertDialog centrato: nessun window.confirm() in più.
+    try {
+      const res = await fetch('/api/documenti/delete-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: selectedCliente, anno, cartella }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore ' + res.status)
+      }
+      const data = await res.json()
+      toast.success(data.deleted + ' file spostati nel cestino (' + target + ')')
+      await loadArchivioCliente(selectedCliente)
+    } catch (err) {
+      toast.error('Errore eliminazione: ' + (err instanceof Error ? err.message : 'errore'))
+    }
+  }
+
+  async function loadArchivioCliente(username: string) {
+    setLoadingArchivio(true)
+    try {
+      // Carica cassetto e anni in parallelo
+      const [rCass, rAnni] = await Promise.all([
+        api.cassetto.list(username),
+        api.documenti.list({ username }),
+      ])
+      setCassettoFiles(rCass.files)
+      const anni = rAnni.anni ?? []
+      setArchivioAnni(anni)
+
+      // Carica tutte le cartelle di tutti gli anni in parallelo
+      const cartelleResults = await Promise.all(anni.map((anno) => api.documenti.list({ username, anno })))
+      const cartelleMap: Record<string, CartellaMeta[]> = {}
+      for (let i = 0; i < anni.length; i++) {
+        cartelleMap[anni[i]] = (cartelleResults[i].cartelle ?? []) as unknown as CartellaMeta[]
+      }
+      setArchivioCartelle(cartelleMap)
+
+      // Carica tutti i file di tutte le cartelle in parallelo
+      const filesMap: Record<string, ArchivioFile[]> = {}
+      const filesRequests: Array<{ anno: string; cartella: string; promise: ReturnType<typeof api.documenti.list> }> = []
+      for (let i = 0; i < anni.length; i++) {
+        for (const cart of cartelleMap[anni[i]]) {
+          filesRequests.push({ anno: anni[i], cartella: cart.nome, promise: api.documenti.list({ username, anno: anni[i], cartella: cart.nome }) })
+        }
+      }
+      const filesResults = await Promise.all(filesRequests.map((r) => r.promise))
+      for (let i = 0; i < filesRequests.length; i++) {
+        const { anno, cartella } = filesRequests[i]
+        filesMap[`${anno}_${cartella}`] = (filesResults[i].files ?? []) as unknown as ArchivioFile[]
+      }
+      setArchivioFiles(filesMap)
+    } catch { toast.error('Errore caricamento archivio') }
+    finally { setLoadingArchivio(false) }
+  }
+
+
+  useEffect(() => {
+    if (selectedCliente) { loadArchivioCliente(selectedCliente) }
+  }, [selectedCliente])
+
+  // v4.60: sincronizzazione automatica degli stati di pagamento. Mentre la
+  // console è aperta su un cliente, una query leggera (SOLO database, niente
+  // R2) rilegge le scadenze subito e poi ogni 30 secondi: se il cliente preme
+  // "Pagato" nel suo archivio, le targhette qui si aggiornano da sole e la
+  // finestra "Promemoria scadenza" risulta compilata in automatico.
+  useEffect(() => {
+    if (!selectedCliente) return
+    let vivo = true
+    async function sincronizza() {
+      try {
+        const res = await fetch(`/api/documenti/scadenza/tutte?username=${encodeURIComponent(selectedCliente)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!vivo) return
+        const lista = (data.scadenze ?? []) as Array<{ filePath: string; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null }>
+        const perFile = new Map(lista.map((s) => [s.filePath, s]))
+        setArchivioFiles((prev) => {
+          let cambiato = false
+          const next: typeof prev = {}
+          for (const [chiave, files] of Object.entries(prev)) {
+            next[chiave] = files.map((f) => {
+              const s = perFile.get(f.key)
+              const scad = (f as unknown as { scadenza?: { pagata: boolean; pagataDa?: string | null } | null }).scadenza
+              if (!s || !scad) return f
+              if (scad.pagata === s.pagata && (scad.pagataDa ?? null) === (s.pagataDa ?? null)) return f
+              cambiato = true
+              return { ...f, scadenza: { ...scad, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null } }
+            })
+          }
+          return cambiato ? next : prev
+        })
+        setScadenzaTarget((t) => {
+          if (!t || scadenzaSaving) return t
+          const s = perFile.get(t.key)
+          if (!s || (t.pagata === s.pagata && (t.pagataDa ?? null) === (s.pagataDa ?? null))) return t
+          return { ...t, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null }
+        })
+      } catch { /* silenzioso: il poll non deve rompere nulla */ }
+    }
+    sincronizza()
+    const timer = setInterval(sincronizza, 30000)
+    return () => { vivo = false; clearInterval(timer) }
+  }, [selectedCliente, scadenzaSaving])
+
+  function handleSelectCliente(v: string | null) {
+    setSelectedCliente(v ?? '')
+    setOpenAnno(null)
+    setOpenCartella(null)
+    setOpenCassetto(false)
+  }
+
+  // Chiudendo la lista si azzera anche la ricerca: il conteggio in testata torna il totale reale.
+  function handleOpenRegistrati(o: boolean) {
+    setOpenRegistrati(o)
+    if (!o) setSearchClienti('')
+  }
+
+  async function handleCreate() {
+    const errUsername = newUsername.length < 3 ? 'Lo username deve avere almeno 3 caratteri' : ''
+    const errPassword = newPassword.length < 4 ? 'La password deve avere almeno 4 caratteri' : ''
+    if (errUsername || errPassword || !newName) {
+      toast.error(errUsername || errPassword || 'Inserisci la ragione sociale')
+      return
+    }
+    setCreating(true)
+    try {
+      await api.clienti.create({ username: newUsername, name: newName, password: newPassword, email: newEmail.trim() || undefined })
+      toast.success(`Cliente ${newName} registrato`)
+      setNewName(''); setNewUsername(''); setNewEmail(''); setNewPassword('')
+      await refresh()
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
+    finally { setCreating(false) }
+  }
+
+  async function handleDelete(username: string) {
+    try { await api.clienti.delete(username); toast.success('Cliente eliminato'); await refresh() }
+    catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
+  }
+
+  function openEdit(c: Cliente) {
+    setEditing(c); setEditName(c.name); setEditUsername(c.username); setEditEmail(c.email ?? ''); setEditPassword('')
+  }
+
+  async function handleSaveEdit() {
+    if (!editing) return
+    try {
+      await api.clienti.update({ oldUsername: editing.username, newUsername: editUsername, newName: editName, newPassword: editPassword || undefined, newEmail: editEmail.trim() || undefined })
+      toast.success('Modifiche salvate'); setEditing(null); await refresh()
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
+  }
+
+  async function handleUploadCassetto() {
+    if (!uploadTipo || !uploadFile || !selectedCliente) { toast.error('Seleziona tipo e file'); return }
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('tipo', uploadTipo)
+      formData.append('file', uploadFile)
+      await api.cassetto.upload(formData, selectedCliente)
+      toast.success('Documento salvato nel cassetto')
+      setUploadOpen(false); setUploadTipo(''); setUploadFile(null)
+      await loadArchivioCliente(selectedCliente)
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
+    finally { setUploading(false) }
+  }
+
+  async function handleDeleteCassettoFile(key: string) {
+    try { await api.cassetto.delete(key); toast.success('File eliminato'); await loadArchivioCliente(selectedCliente) }
+    catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
+  }
+
+  async function handleDeleteArchivioFile(key: string) {
+    try { await api.documenti.delete([key]); toast.success('File spostato nel cestino'); await loadArchivioCliente(selectedCliente) }
+    catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
+  }
+
+  async function handleRename() {
+    if (!renameTarget) return
+    try {
+      const res = await fetch('/api/documenti/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: renameTarget.key, newName: renameNewName }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore ' + res.status)
+      }
+      toast.success('File rinominato in: ' + renameNewName)
+      setRenameTarget(null)
+      setRenameNewName('')
+      if (selectedCliente) await loadArchivioCliente(selectedCliente)
+    } catch (err) {
+      toast.error('Errore rinomina: ' + (err instanceof Error ? err.message : 'errore'))
+    }
+  }
+
+  function openScadenza(f: { key: string; nome: string }) {
+    // Se il file ha già una scadenza (passata dalla lista), precompila i campi.
+    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } }).scadenza
+    let dataIniziale = ''
+    let anticipoIniziale = 10
+    if (scad) {
+      // dataScadenza arriva come stringa ISO dal JSON della fetch
+      const d = new Date(scad.dataScadenza)
+      if (!isNaN(d.getTime())) {
+        dataIniziale = d.toISOString().slice(0, 10)
+      }
+      anticipoIniziale = scad.anticipoGiorni
+    }
+    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false, pagataDa: scad?.pagataDa ?? null, pagataIl: scad?.pagataIl ?? null, notificata: scad?.notificata ?? false, pushInviata: scad?.pushInviata ?? false, emailInviata: scad?.emailInviata ?? false })
+    setScadenzaData(dataIniziale)
+    setScadenzaAnticipo(String(anticipoIniziale))
+    // v4.60: rilettura FRESCA dal server. La riga della lista può essere
+    // vecchia (il cliente può aver premuto "Pagato" mentre la pagina era
+    // aperta): la finestra deve sempre aprire sullo stato vero, con la
+    // compilazione automatica di pagata + chi + quando.
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/documenti/scadenza?filePath=${encodeURIComponent(f.key)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        const s = data.scadenza as { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null
+        if (!s) return
+        const d = new Date(s.dataScadenza)
+        if (!isNaN(d.getTime())) setScadenzaData(d.toISOString().slice(0, 10))
+        setScadenzaAnticipo(String(s.anticipoGiorni ?? 10))
+        setScadenzaTarget((t) => (t && t.key === f.key ? {
+          ...t,
+          had: true,
+          pagata: s.pagata,
+          pagataDa: s.pagataDa ?? null,
+          pagataIl: s.pagataIl ?? null,
+          notificata: s.notificata ?? false,
+          pushInviata: s.pushInviata ?? false,
+          emailInviata: s.emailInviata ?? false,
+        } : t))
+      } catch { /* resta il prefill dalla riga */ }
+    })()
+  }
+
+  async function handleSaveScadenza() {
+    if (!scadenzaTarget) return
+    if (!scadenzaData.trim()) { toast.error('Inserisci una data di scadenza'); return }
+    setScadenzaSaving(true)
+    try {
+      const res = await fetch('/api/documenti/scadenza', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filePath: scadenzaTarget.key,
+          titolo: scadenzaTarget.nome,
+          dataScadenza: scadenzaData,
+          anticipoGiorni: Number(scadenzaAnticipo) || 10,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Errore ' + res.status)
+      }
+      toast.success(`Promemoria impostato per ${scadenzaTarget.nome}`)
+      setScadenzaTarget(null)
+      if (selectedCliente) await loadArchivioCliente(selectedCliente)
+    } catch (err) {
+      toast.error('Errore scadenza: ' + (err instanceof Error ? err.message : 'errore'))
+    } finally {
+      setScadenzaSaving(false)
+    }
+  }
+
+  async function handleRemoveScadenza() {
+    if (!scadenzaTarget) return
+    setScadenzaSaving(true)
+    try {
+      const res = await fetch(`/api/documenti/scadenza?filePath=${encodeURIComponent(scadenzaTarget.key)}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Errore ' + res.status)
+      toast.success('Promemoria rimosso')
+      setScadenzaTarget(null)
+      if (selectedCliente) await loadArchivioCliente(selectedCliente)
+    } catch {
+      toast.error('Errore rimozione promemoria')
+    } finally {
+      setScadenzaSaving(false)
+    }
+  }
+
+  async function handleDownload(key: string, nome: string) {
+    try {
+      const res = await fetch(`/api/documenti/download?key=${encodeURIComponent(key)}`)
+      if (!res.ok) throw new Error('Errore')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = nome
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success(`Download: ${nome}`)
+    } catch { toast.error('Errore download') }
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+
+  return (
+    <div className="space-y-6">
+      <Card className="overflow-hidden shadow-card hover:shadow-card-hover transition-shadow duration-200">
+        <CardHeader className="pb-4">
+    <CardTitle className="text-base flex items-center gap-2.5">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+        <UserPlus className="h-4 w-4" />
+      </div>
+      Nuovo Cliente
+    </CardTitle>
+  </CardHeader>
+
+  <CardContent>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+      {/* Ragione Sociale */}
+      <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+        <Label className="text-slate-700">Ragione Sociale</Label>
+        <Input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="es. Rossi Mario S.r.l."
+          className="h-10 bg-slate-50/80 border-slate-200 focus-visible:ring-emerald-500/40"
+        />
+      </div>
+
+      {/* Username */}
+      <div className="space-y-1.5">
+        <Label className="text-slate-700">Username</Label>
+        <Input
+          value={newUsername}
+          onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+          placeholder="min 3 lettere/numeri"
+          maxLength={20}
+          className="h-10 bg-slate-50/80 border-slate-200 focus-visible:ring-emerald-500/40"
+        />
+      </div>
+
+      {/* Password */}
+      <div className="space-y-1.5">
+        <Label className="text-slate-700">Password</Label>
+        <div className="relative">
+          <Input
+            type={showNewPassword ? 'text' : 'password'}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Min 4 caratteri"
+            className="h-10 pr-10 bg-slate-50/80 border-slate-200 focus-visible:ring-emerald-500/40 text-base sm:text-sm"
+            minLength={4}
+          />
+          <button
+            type="button"
+            onClick={() => setShowNewPassword(!showNewPassword)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1"
+            aria-label={showNewPassword ? 'Nascondi password' : 'Mostra password'}
+            tabIndex={-1}
+          >
+            {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
+
+      {/* Email (opzionale) — fallback push via mail */}
+      <div className="space-y-1.5">
+        <Label className="text-slate-700">Email (opzionale)</Label>
+        <Input
+          type="email"
+          value={newEmail}
+          onChange={(e) => setNewEmail(e.target.value)}
+          placeholder="promemoria scadenze via email"
+          className="h-10 bg-slate-50/80 border-slate-200 focus-visible:ring-emerald-500/40"
+        />
+      </div>
+
+      {/* Bottone */}
+      <div className="sm:col-span-2 lg:col-span-1">
+        <Button
+          onClick={handleCreate}
+          disabled={creating || !newName || newUsername.length < 3 || newPassword.length < 4}
+          className="w-full h-10 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md transition-all"
+        >
+          {creating ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <UserPlus className="h-4 w-4 mr-2" />
+          )}
+          Registra
+        </Button>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><FolderOpen className="h-5 w-5 text-emerald-600" /> Archivio Cliente</CardTitle></CardHeader>
+        <CardContent>
+          <Select value={selectedCliente || undefined} onValueChange={(v) => handleSelectCliente(v ?? '')}>
+            <SelectTrigger><SelectValue placeholder="Seleziona cliente" /></SelectTrigger>
+            <SelectContent>
+              {clienti.map((c) => <SelectItem key={c.username} value={c.username}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          {loadingArchivio && <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>}
+
+          {selectedCliente && !loadingArchivio && (
+            <div className="mt-4 space-y-4">
+              <Collapsible open={openCassetto} onOpenChange={setOpenCassetto}>
+                <Card>
+                  <CollapsibleTrigger>
+                    <CardHeader className="cursor-pointer hover:bg-slate-50">
+                      <CardTitle className="text-sm flex items-center justify-between">
+                        <span className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-emerald-600" /> Cassetto Digitale ({cassettoFiles.length})</span>
+                        {openCassetto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </CardTitle>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="space-y-3">
+                      <Button size="sm" onClick={() => setUploadOpen(true)} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+                        <UploadCloud className="h-3.5 w-3.5 mr-1.5" /> Carica nel cassetto
+                      </Button>
+                      {cassettoFiles.length === 0 ? (
+                        <p className="text-sm text-slate-500 text-center py-4">Cassetto vuoto</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {cassettoFiles.map((f) => {
+                            const icon = ottieniIconaFile(f.nome)
+                            return (
+                              <div key={f.key} className="flex items-center gap-3 p-2 bg-white border border-slate-200 rounded-lg">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{f.nome}</p>
+                                  <p className="text-xs text-slate-500">{f.sizeStr}</p>
+                                </div>
+                                <div className="flex gap-1">
+                                  {canPreviewFile(f.nome) && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'nuovo', isPreferito: false })}><Eye className="h-3 w-3" /></Button>}
+                                  <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3 w-3" /></Button>
+<Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="text-red-600"><Trash2 className="h-3 w-3" /></Button></AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader><AlertDialogTitle>Eliminare {f.nome}?</AlertDialogTitle><AlertDialogDescription>Operazione irreversibile.</AlertDialogDescription></AlertDialogHeader>
+                                      <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCassettoFile(f.key)} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+
+              {archivioAnni.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">Nessun documento nell&apos;archivio</p>
+              ) : (
+                archivioAnni.map((anno) => (
+                  <Collapsible key={anno} open={openAnno === anno} onOpenChange={(o) => setOpenAnno(o ? anno : null)}>
+                    <Card>
+                      <CollapsibleTrigger>
+                        <CardHeader className="cursor-pointer hover:bg-slate-50">
+                          <CardTitle className="text-sm flex items-center justify-between">
+                            <span className="flex items-center gap-2"><FolderOpen className="h-4 w-4 text-blue-600" /> Anno {anno}</span><Button variant="ghost" size="sm" className="ml-auto text-red-600 hover:bg-red-50 h-6 px-2 text-xs" onClick={() => setDeleteBulkTarget({ anno })}><Trash2 className="h-3 w-3 mr-1" />Elimina anno</Button>
+                            {openAnno === anno ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </CardTitle>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="space-y-3">
+                          {(archivioCartelle[anno] ?? []).map((cart) => {
+                            const cartKey = `${anno}_${cart.nome}`
+                            const filesInCart = archivioFiles[cartKey] ?? []
+                            return (
+                              <Collapsible key={cartKey} open={openCartella === cartKey} onOpenChange={(o) => setOpenCartella(o ? cartKey : null)}>
+                                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                  <CollapsibleTrigger>
+                                    <button className="w-full flex items-center justify-between p-3 hover:bg-slate-50 text-left text-sm">
+                                      <div className="flex items-center gap-2">
+                                        {openCartella === cartKey ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                        <span className="font-medium">📂 {cart.nome}</span><Button variant="ghost" size="sm" className="ml-2 text-red-600 hover:bg-red-50 h-5 px-1.5 text-[10px]" onClick={() => setDeleteBulkTarget({ anno, cartella: cart.nome })}><Trash2 className="h-2.5 w-2.5 mr-0.5" />Elimina</Button>
+                                      </div>
+                                      <span className="text-xs text-slate-500">{cart.nFiles} file</span>
+                                    </button>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent>
+                                    <div className="border-t border-slate-200 p-3 space-y-2 bg-slate-50/30">
+                                      {filesInCart.map((f) => {
+                                        const icon = ottieniIconaFile(f.nome)
+                                        return (
+                                          <div key={f.key} className="flex items-center gap-3 p-2 bg-white border border-slate-200 rounded-lg">
+                                            <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ background: icon.bg, color: icon.fg }}>{icon.icon}</div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-sm font-medium truncate">{f.nome}</p>
+                                              <p className="text-xs text-slate-500">{f.sizeStr}</p>
+                                            </div>
+                                            <div className="flex gap-1">
+                                              {canPreviewFile(f.nome) && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'nuovo', isPreferito: false })}><Eye className="h-3 w-3" /></Button>}
+                                              <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3 w-3" /></Button>
+<Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
+{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean } }).scadenza && (
+                                                (() => {
+                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; pagata?: boolean } }).scadenza
+                                                  const pagata = !!sc.pagata
+                                                  return (
+                                                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${pagata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                      {pagata ? '✅' : '⏰'} {new Date(sc.dataScadenza).toLocaleDateString('it-IT')}
+                                                    </span>
+                                                  )
+                                                })()
+                                              )}
+                                              <Button variant="outline" size="sm" className="text-amber-700 border-amber-300" onClick={() => openScadenza(f)}><CalendarClock className="h-3 w-3" /></Button>
+                                              <AlertDialog>
+                                                <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="text-red-600"><Trash2 className="h-3 w-3" /></Button></AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                  <AlertDialogHeader><AlertDialogTitle>Eliminare {f.nome}?</AlertDialogTitle><AlertDialogDescription>Il file verra spostato nel cestino.</AlertDialogDescription></AlertDialogHeader>
+                                                  <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteArchivioFile(f.key)} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
+                                                </AlertDialogContent>
+                                              </AlertDialog>
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </CollapsibleContent>
+                                </div>
+                              </Collapsible>
+                            )
+                          })}
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                ))
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Lista clienti: parte CHIUSA (solo testata col conteggio); un click sulla testata la apre/chiude */}
+      <Collapsible open={openRegistrati} onOpenChange={handleOpenRegistrati}>
+        <Card className="overflow-hidden">
+          <CollapsibleTrigger>
+            <CardHeader className="pb-3 cursor-pointer hover:bg-slate-50">
+              <CardTitle className="text-base flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 min-w-0">
+                  <Users className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                  <span className="truncate">Clienti registrati</span>
+                  <span className="ml-1 text-sm font-medium text-slate-500 flex-shrink-0">
+                    ({clienti.filter(c =>
+                      c.name.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                      c.username.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                      (c.email ?? '').toLowerCase().includes(searchClienti.toLowerCase())
+                    ).length})
+                  </span>
+                </span>
+                {openRegistrati ? <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />}
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              {/* Barra di ricerca (visibile solo a lista aperta) */}
+              <div className="relative w-full sm:w-72 mb-3">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <Input
+                  value={searchClienti}
+                  onChange={(e) => setSearchClienti(e.target.value)}
+                  placeholder="Cerca cliente..."
+                  className="pl-9 pr-9 h-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
+                />
+                {searchClienti && (
+                  <button
+                    onClick={() => setSearchClienti('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    aria-label="Cancella ricerca"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+          {clienti.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-8">Nessun cliente registrato</p>
+          ) : (
+            (() => {
+              const filtered = clienti.filter(
+                (c) =>
+                  c.name.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                  c.username.toLowerCase().includes(searchClienti.toLowerCase()) ||
+                  (c.email ?? '').toLowerCase().includes(searchClienti.toLowerCase())
+              )
+
+              if (filtered.length === 0) {
+                return (
+                  <p className="text-sm text-slate-500 text-center py-8">
+                    Nessun cliente trovato per “{searchClienti}”
+                  </p>
+                )
+              }
+
+              return (
+                <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+                  {filtered.map((c) => {
+                    const initials = c.name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase()
+
+                    return (
+                      <div
+                        key={c.username}
+                        className="group flex items-center gap-3 p-3 rounded-xl border border-slate-200/80 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm transition-all duration-200"
+                      >
+                        {/* Avatar */}
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                          {initials}
+                        </div>
+
+                        {/* Info */}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-slate-900 truncate leading-tight">{c.name}</p>
+                          {c.email && (
+                            <p className="text-xs text-slate-500 truncate mt-0.5">{c.email}</p>
+                          )}
+                          <p className="text-xs text-slate-400 truncate mt-0.5 font-mono">{c.username}</p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEdit(c)}
+                            className="h-8 w-8 p-0 text-slate-500 hover:text-emerald-700 hover:bg-emerald-100"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Elimina cliente {c.name}?</AlertDialogTitle>
+                                <AlertDialogDescription>Operazione irreversibile.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(c.username)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Elimina
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()
+          )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+          <DialogContent>
+          <DialogHeader><DialogTitle>Modifica cliente</DialogTitle><DialogDescription>Lascia la password vuota per mantenerla.</DialogDescription></DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5"><Label>Ragione Sociale</Label><Input value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>Username</Label><Input value={editUsername} onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} maxLength={20} /></div>
+            <div className="space-y-1.5"><Label>Email (opzionale)</Label><Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="promemoria via email" /></div>
+            <div className="space-y-1.5">
+              <Label>Nuova password (opzionale)</Label>
+              <div className="relative">
+                <Input
+                  type={showEditPassword ? 'text' : 'password'}
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Mantieni attuale"
+                  className="pr-10 text-base sm:text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1"
+                  aria-label={showEditPassword ? 'Nascondi password' : 'Mostra password'}
+                  tabIndex={-1}
+                >
+                  {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button><Button onClick={handleSaveEdit} className="bg-emerald-700 hover:bg-emerald-800 text-white">Salva</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Carica nel cassetto di {clienti.find(c => c.username === selectedCliente)?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2"><Label>Tipo documento</Label>
+              <Select value={uploadTipo || undefined} onValueChange={(v) => setUploadTipo(v ?? '')}>
+                <SelectTrigger><SelectValue placeholder="Seleziona tipo..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="QR Code P.IVA">QR Code P.IVA</SelectItem>
+                  <SelectItem value="Certificato P.IVA">Certificato P.IVA</SelectItem>
+                  <SelectItem value="Visura Camerale">Visura Camerale</SelectItem>
+                  <SelectItem value="Doc. Identita">Doc. Identita</SelectItem>
+                  <SelectItem value="IBAN">IBAN</SelectItem>
+                  <SelectItem value="Altro">Altro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2"><Label>File (max {MAX_FILE_SIZE_MB}MB)</Label><Input type="file" onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUploadOpen(false)}>Annulla</Button>
+            <Button onClick={handleUploadCassetto} disabled={uploading || !uploadTipo || !uploadFile} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+              {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UploadCloud className="h-4 w-4 mr-2" />} Salva
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog conferma eliminazione anno/cartella bulk */}
+      <AlertDialog open={!!deleteBulkTarget} onOpenChange={(o) => !o && setDeleteBulkTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare {deleteBulkTarget?.cartella ? 'la cartella ' + deleteBulkTarget.cartella : 'l\u2019anno ' + deleteBulkTarget?.anno}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tutti i file verranno spostati nel cestino. Potrai recuperarli dalla scheda Cestino.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (deleteBulkTarget) {
+                  handleDeleteBulk(deleteBulkTarget.anno, deleteBulkTarget.cartella)
+                  setDeleteBulkTarget(null)
+                }
+              }}
+            >
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Dialog rinomina file */}
+      <Dialog open={!!renameTarget} onOpenChange={(o) => !o && setRenameTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rinomina file</DialogTitle>
+          </DialogHeader>
+          <div className='space-y-3 py-2'>
+            <p className='text-sm text-slate-500'>File originale: <span className='font-mono'>{renameTarget?.nome}</span></p>
+            <Input value={renameNewName} onChange={(e) => setRenameNewName(e.target.value)} placeholder='Nuovo nome file' />
+          </div>
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setRenameTarget(null)}>Annulla</Button>
+            <Button onClick={handleRename} disabled={!renameNewName.trim() || renameNewName === renameTarget?.nome} className='bg-emerald-700 hover:bg-emerald-800 text-white'>Salva</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog promemoria scadenza */}
+      <Dialog open={!!scadenzaTarget} onOpenChange={(o) => !o && setScadenzaTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-amber-600" /> Promemoria scadenza</DialogTitle>
+            <DialogDescription>
+              Il cliente riceverà una notifica push N giorni prima della scadenza (anche se non è loggato).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-slate-500">File: <span className="font-mono break-all">{scadenzaTarget?.nome}</span></p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Data scadenza</Label>
+                <Input type="date" value={scadenzaData} onChange={(e) => setScadenzaData(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Avvisa N giorni prima</Label>
+                <Input type="number" min={1} max={365} value={scadenzaAnticipo} onChange={(e) => setScadenzaAnticipo(e.target.value)} />
+              </div>
+            </div>
+            {/* Stato notifica: pillola verde = push arrivata sul telefono del cliente.
+                Legge i flag scritti dal motore scadenza-notify (pushInviata = consegnata davvero). */}
+            {scadenzaTarget?.had && (() => {
+              const consegnata = scadenzaTarget.pushInviata === true
+              const avviata = scadenzaTarget.notificata === true
+              return (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Label className="text-slate-600">Stato notifica</Label>
+                    {consegnata ? (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">✅ Push consegnata</span>
+                    ) : avviata ? (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">⏳ In attesa di consegna</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600">Non ancora avviata</span>
+                    )}
+                    {scadenzaTarget.emailInviata === true && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-sky-100 text-sky-700">📧 Email di cortesia inviata</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 pl-0.5">
+                    {consegnata
+                      ? 'La notifica push è arrivata sul telefono del cliente.'
+                      : avviata
+                        ? 'Il sveglione riprova la consegna ogni mattina verso le 8:00.'
+                        : 'La notifica partirà quando la scadenza entra nei giorni di preavviso.'}
+                  </p>
+                </div>
+              )
+            })()}
+            {scadenzaTarget?.had && (
+              <div className="flex items-center gap-2 text-sm flex-wrap">
+                <Label className="text-slate-600">Stato pagamento</Label>
+                <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold', scadenzaTarget.pagata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                  {scadenzaTarget.pagata ? '✅ Pagata' : '⏰ Da pagare'}
+                </span>
+                {/* v4.60: compilazione automatica visibile - chi ha segnato il
+                    pagamento (cliente o studio) e quando, letti dal database. */}
+                {scadenzaTarget.pagata && (scadenzaTarget.pagataDa || scadenzaTarget.pagataIl) && (
+                  <span className="text-xs text-slate-500">
+                    {scadenzaTarget.pagataDa
+                      ? scadenzaTarget.pagataDa === selectedCliente ? 'dal cliente' : 'dallo studio'
+                      : ''}
+                    {scadenzaTarget.pagataIl
+                      ? ` · ${new Date(scadenzaTarget.pagataIl).toLocaleDateString('it-IT')} alle ${new Date(scadenzaTarget.pagataIl).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`
+                      : ''}
+                  </span>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  disabled={scadenzaSaving}
+                  onClick={async () => {
+                    if (!scadenzaTarget) return
+                    setScadenzaSaving(true)
+                    try {
+                      const res = await fetch('/api/documenti/scadenza/paga', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filePath: scadenzaTarget.key, pagata: !scadenzaTarget.pagata }),
+                      })
+                      if (!res.ok) throw new Error('Errore')
+                      const data = await res.json()
+                      setScadenzaTarget((t) => (t ? { ...t, pagata: data.pagata, pagataDa: data.pagataDa ?? null, pagataIl: data.pagataIl ?? null } : t))
+                      toast.success(data.pagata ? 'Scadenza segnata come pagata' : 'Pagamento annullato')
+                      if (selectedCliente) await loadArchivioCliente(selectedCliente)
+                    } catch {
+                      toast.error('Errore aggiornamento stato')
+                    } finally {
+                      setScadenzaSaving(false)
+                    }
+                  }}
+                >
+                  {scadenzaTarget.pagata ? 'Segna come non pagata' : 'Segna come pagata'}
+                </Button>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setScadenzaTarget(null)}>Annulla</Button>
+            {scadenzaTarget?.had && (
+              <Button variant="outline" className="text-red-600 border-red-300" onClick={handleRemoveScadenza} disabled={scadenzaSaving}>
+                Rimuovi
+              </Button>
+            )}
+            <Button onClick={handleSaveScadenza} disabled={scadenzaSaving || !scadenzaData.trim()} className="bg-amber-600 hover:bg-amber-700 text-white">
+              {scadenzaSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null} Salva promemoria
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+
+  )
+}
