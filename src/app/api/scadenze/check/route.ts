@@ -84,15 +84,17 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
     }
 
-    // ---- Promemoria "scade OGGI" (ultimo giorno utile) ----
+    // ---- Campanella "scade OGGI" (ultimo giorno utile, v4.62) ----
     // Le scadenze gia' notificate nei giorni precedenti NON rientrano nella
     // query di sopra (notificata e pushInviata sono true): il giorno stesso
-    // della scadenza mandiamo comunque un ultimo promemoria "scade oggi".
-    // Solo per quelle gia' CONSEGNATE (pushInviata true): quelle con push
-    // ancora in retry sono gia' gestite dalla passata di sopra, cosi' il
-    // cliente riceve UN SOLO messaggio per file. La guardia anti-doppione
-    // interna a notifyScadenzaOggi (una campanella al giorno) rende tutto
-    // sicuro anche se piu' sveglie fanno la stessa richiesta insieme.
+    // della scadenza creiamo comunque la campanella "scade oggi" cosi' il
+    // giorno resta visibile nella campana. SOLO LA CAMPANELLA (v4.62):
+    // niente push, niente email — il giorno stesso il promemoria e' la
+    // sveglia locale 8:30 dell'app, e la push del cron arrivava quando
+    // capitava (spesso nel pomeriggio, con la sveglia di riserva GitHub in
+    // ritardo): era il doppione. La guardia anti-doppione interna a
+    // notifyScadenzaOggi (una campanella al giorno) rende tutto sicuro
+    // anche se piu' sveglie fanno la stessa richiesta insieme.
     const fineOggi = new Date(inizioOggi.getTime() + 24 * 60 * 60 * 1000)
     const scadenzeOggi = await db.scadenza.findMany({
       where: {
@@ -116,14 +118,7 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
         titolo: s.titolo,
         filePath: s.filePath,
         dataScadenza: s.dataScadenza,
-        emailCliente: s.user.email,
-        emailGiaInviata: s.emailInviata,
       })
-      if (r.emailSent) {
-        await db.scadenza
-          .update({ where: { id: s.id }, data: { emailInviata: true } })
-          .catch(() => {})
-      }
       if (!r.notified) continue
       notificateOggi++
       pushInviateOggi += r.pushSent

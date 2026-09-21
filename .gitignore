@@ -47,3 +47,11 @@ tsconfig.tsbuildinfo
 .env.vercel
 _fcm_pk.txt
 
+
+# v4.62: mai piu scarti di versione nel repo (le copie .bak-vXXX e i
+# manifest degli zip restano sul PC, non su GitHub)
+*.bak
+*.bak-*
+.bak-v*/
+MANIFEST.txt
+LEGGIMI-V4*.txt

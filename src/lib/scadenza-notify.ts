@@ -4,7 +4,7 @@
  * e cron giornaliero.
  */
 import { db } from './db'
-import { sendPushToUser, sendPushToUserCanali } from './push'
+import { sendPushToUserCanali } from './push'
 import { sendEmail } from './email'
 
 export function giorniMancanti(data: Date, oggi: Date): number {
@@ -93,7 +93,18 @@ export async function notifyScadenzaImminente(params: {
   })
   let pushSent = 0
   let consegnataATutti = false
-  if (!stato?.pushInviata) {
+  // v4.62 — IL GIORNO STESSO DELLA SCADENZA IL SERVER NON MANDA PUSH, MAI.
+  // Il promemoria del giorno X e' la sveglia LOCALE dell'app (8:30, scatta
+  // anche a app chiusa: la fa l'orologio di Android). La push del cron
+  // arrivava "quando capitava": alle 8 con le sveglie puntuali, nel pieno
+  // pomeriggio quando la sveglia di riserva su GitHub parte in ritardo
+  // (caso reale 21/9/2026: push alle 14:38) = doppione percepito. Da oggi
+  // il giorno stesso: solo sveglia 8:30 + campanella silenziosa. Chi non
+  // ha l'app resta coperto dalle push di anticipo e dall'email di fallback
+  // piu' sotto. Per le scadenze dei giorni FUTURI (giorni >= 1) la push
+  // resta come sempre: sono preavvisi, non doppioni.
+  const scadeOggi = giorniMancanti(params.dataScadenza, oggi) === 0
+  if (!stato?.pushInviata && !scadeOggi) {
     // v4.58: consegna contata PER CANALE. Prima la push era "consegnata" se la
     // riceveva UN canale qualunque: se l'unico canale attivo era il telefono,
     // il browser del cliente restava fuori PER SEMPRE (la push non viene mai
@@ -125,6 +136,14 @@ export async function notifyScadenzaImminente(params: {
     const okFcm = fcmPrima === 0 || esito.fcm > 0 || fcmDopo === 0
     const okWeb = webPrima === 0 || esito.web > 0 || webDopo === 0
     consegnataATutti = okFcm && okWeb && pushSent > 0
+  } else if (scadeOggi && !stato?.pushInviata) {
+    // v4.62: scade OGGI e la push non e' mai stata consegnata: niente push
+    // (vedi commento sopra), al posto nostro avvisa la sveglia locale 8:30.
+    console.log(
+      '[SCADENZA] push del giorno stesso non inviata:',
+      params.titolo,
+      '- avvisa la sveglia locale delle 8:30'
+    )
   }
 
   // Fallback email: se la push NON e' stata consegnata (nessuna subscription o
@@ -172,10 +191,14 @@ export async function notifyScadenzaImminente(params: {
 }
 
 /**
- * Promemoria dell'ULTIMO GIORNO ("scade oggi"). Diverso dal primo avviso:
- * parte anche se la scadenza e' gia' stata notificata nei giorni precedenti,
- * ma AL MASSIMO UNA VOLTA AL GIORNO. La guardia e' la ricerca di una
- * campanella creata OGGI per lo stesso file: cosi' il promemoria resta unico
+ * Promemoria dell'ULTIMO GIORNO ("scade oggi") — SOLO CAMPANELLA (v4.62).
+ * Il giorno stesso della scadenza il cliente e' avvisato dalla sveglia
+ * locale dell'app (8:30): qui creiamo solo la campanella silenziosa (badge
+ * nella campana, zero rumore), cosi' il giorno resta visibile anche dentro
+ * l'app. Niente push e niente email: erano loro i doppioni del pomeriggio.
+ * Parte anche se la scadenza e' gia' stata notificata nei giorni
+ * precedenti, ma AL MASSIMO UNA VOLTA AL GIORNO: la guardia e' la ricerca
+ * di una campanella creata OGGI per lo stesso file, cosi' resta unico
  * anche se piu' sveglie (cron Vercel + sveglia di riserva) buscano insieme.
  */
 export async function notifyScadenzaOggi(params: {
@@ -185,10 +208,6 @@ export async function notifyScadenzaOggi(params: {
   titolo: string
   filePath: string
   dataScadenza: Date
-  /** Email del cliente per il fallback (al massimo una volta per scadenza). */
-  emailCliente?: string | null
-  /** true se l'email di fallback era gia' stata mandata in passato. */
-  emailGiaInviata?: boolean
   oggi?: Date
 }): Promise<{ notified: boolean; pushSent: number; emailSent: boolean }> {
   const oggi = params.oggi ?? new Date()
@@ -216,41 +235,13 @@ export async function notifyScadenzaOggi(params: {
     },
   })
 
-  // Push dedicata all'ultimo giorno: titolo evidente e tag separato, cosi'
-  // non sostituisce (né viene sostituito dal) l'avviso dei giorni scorsi.
-  const pushSent = await sendPushToUser(params.username, {
-    title: '🚨 Scadenza OGGI',
-    body: text,
-    url: scadenzaPushUrl(params.filePath),
-    tag: 'pfc-scadenza-' + params.scadenzaId + '-oggi',
-    data: { testo: text, tipo: 'scadenza' },
-  }).catch((e) => {
-    console.error('[SCADENZA OGGI] push errore:', e)
-    return 0
-  })
-
-  // Fallback email: solo se la push non ha raggiunto nessun canale e non era
-  // gia' stata mandata una email per questa scadenza (mai piu' di una).
-  let emailSent = false
-  const emailCliente = params.emailCliente?.trim().toLowerCase() || null
-  if (pushSent === 0 && emailCliente && !params.emailGiaInviata) {
-    emailSent = await sendEmail({
-      to: emailCliente,
-      subject: 'Promemoria: scadenza OGGI',
-      text:
-        `Gentile cliente,\n\n` +
-        `Le ricordiamo che il documento risulta in scadenza OGGI:\n  ${params.titolo}\n` +
-        `${text}\n\n` +
-        `Può consultarlo nell'area riservata del portale.\n\n` +
-        `Cordiali saluti,\nLo Studio`,
-      html:
-        `<p>Gentile cliente,</p>` +
-        `<p>Le ricordiamo che il documento <strong>${params.titolo}</strong> risulta in scadenza <strong>OGGI</strong>.</p>` +
-        `<p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` +
-        `<p>Può consultarlo nell'area riservata del portale.</p>` +
-        `<p>Cordiali saluti,<br><strong>Lo Studio</strong></p>`,
-    })
-  }
-
-  return { notified: true, pushSent, emailSent }
+  // v4.62 — Qui finisce il lavoro del server il giorno stesso: solo la
+  // campanella qui sopra. La push "Scadenza OGGI" e l'email di fallback
+  // che stavano qui sono state TOLTE: la push raddoppiava la sveglia 8:30
+  // dell'app (a volte con ore di ritardo, quando la sveglia di riserva su
+  // GitHub arrivava nel pomeriggio) e l'email sembrava un secondo
+  // promemoria. I clienti senza app sono gia' coperti dal primo avviso:
+  // push di anticipo nei giorni prima + email di fallback entro i 2 giorni
+  // finali. Il ritorno resta compatibile: pushSent 0, emailSent false.
+  return { notified: true, pushSent: 0, emailSent: false }
 }
