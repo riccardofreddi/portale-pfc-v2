@@ -119,6 +119,13 @@ export async function sendFcmToUser(
               visibility: 'public',
               priority: 'max',
               clickAction: 'FCM_PLUGIN_ACTIVITY',
+              // v4.63 - tag Android: due push con lo stesso tag si
+              // sostituiscono nella barra di stato invece di accumularsi.
+              // Le scadenze viaggiano con tag "pfc-scadenza-<id>": l'avviso
+              // di anticipo e il ritento del giorno dopo non fanno due
+              // righe per lo stesso documento. Chi non passa tag non ha
+              // nessun cambio di comportamento.
+              ...(payload.tag ? { tag: payload.tag } : {}),
             },
           },
           apns: {

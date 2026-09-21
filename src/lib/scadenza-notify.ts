@@ -144,6 +144,21 @@ export async function notifyScadenzaImminente(params: {
       params.titolo,
       '- avvisa la sveglia locale delle 8:30'
     )
+    // v4.63 - campanella "scade oggi" ANCHE per le scadenze la cui push
+    // non e' mai stata consegnata su tutti i canali: prima restavano escluse
+    // dalla seconda query del cron (che chiede pushInviata=true) e la loro
+    // campanella restava ferma al vecchio testo "scade tra N giorni". La
+    // guardia interna a notifyScadenzaOggi (una campanella al giorno per
+    // file) rende tutto idempotente anche con piu' sveglie parallele.
+    await notifyScadenzaOggi({
+      scadenzaId: params.scadenzaId,
+      userId: params.userId,
+      username: params.username,
+      titolo: params.titolo,
+      filePath: params.filePath,
+      dataScadenza: params.dataScadenza,
+      oggi,
+    }).catch(() => {})
   }
 
   // Fallback email: se la push NON e' stata consegnata (nessuna subscription o
@@ -156,7 +171,13 @@ export async function notifyScadenzaImminente(params: {
 
   let emailSent = false
   const emailCliente = params.emailCliente?.trim().toLowerCase() || null
-  if (pushSent === 0 && critico && emailCliente && !stato?.emailInviata) {
+  // v4.63 - MAI nel giorno stesso: da v4.62 il giorno della scadenza il
+  // promemoria e' solo la sveglia 8:30 + campanella silenziosa; un'email
+  // che partiva la mattina stessa era percepita come secondo promemoria
+  // (stesso difetto delle push rimosse da v4.62). L'email di cortesia
+  // resta per i giorni di anticipo (ultimi 2), dove copre chi non ha
+  // canali push; il flag emailInviata garantisce una sola email in totale.
+  if (!scadeOggi && pushSent === 0 && critico && emailCliente && !stato?.emailInviata) {
     emailSent = await sendEmail({
       to: emailCliente,
       subject: 'Promemoria scadenza',
