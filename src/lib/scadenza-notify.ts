@@ -2,9 +2,16 @@
  * Notifiche promemoria scadenze: campanella in-app + Web Push (anche a client
  * non loggato, gestita dal Service Worker). Usato da upload, gestione clienti
  * e cron giornaliero.
+ *
+ * v4.75b — file identico alla v4.63 (consegna per canale v4.58, niente push
+ * il giorno stesso v4.62, niente email il giorno stesso v4.63) + IN CODA la
+ * nuova push dedicata "Scade OGGI" (notifyScadenzaDiOggi) che il cron usa
+ * il giorno della scadenza quando il preavviso e' gia' stato consegnato:
+ * e' la rete di sicurezza per l'allarme locale 8:30 perso dall'Android
+ * (caso reale 24/9/2026). Tutto il resto non e' toccato.
  */
 import { db } from './db'
-import { sendPushToUser } from './push'
+import { sendPushToUserCanali } from './push'
 import { sendEmail } from './email'
 
 export function giorniMancanti(data: Date, oggi: Date): number {
@@ -92,8 +99,35 @@ export async function notifyScadenzaImminente(params: {
     select: { pushInviata: true, emailInviata: true },
   })
   let pushSent = 0
-  if (!stato?.pushInviata) {
-    pushSent = await sendPushToUser(params.username, {
+  let consegnataATutti = false
+  // v4.62 — IL GIORNO STESSO DELLA SCADENZA IL SERVER NON MANDA PUSH, MAI.
+  // Il promemoria del giorno X e' la sveglia LOCALE dell'app (8:30, scatta
+  // anche a app chiusa: la fa l'orologio di Android). La push del cron
+  // arrivava "quando capitava": alle 8 con le sveglie puntuali, nel pieno
+  // pomeriggio quando la sveglia di riserva su GitHub parte in ritardo
+  // (caso reale 21/9/2026: push alle 14:38) = doppione percepito. Da oggi
+  // il giorno stesso: solo sveglia 8:30 + campanella silenziosa. Chi non
+  // ha l'app resta coperto dalle push di anticipo e dall'email di fallback
+  // piu' sotto. Per le scadenze dei giorni FUTURI (giorni >= 1) la push
+  // resta come sempre: sono preavvisi, non doppioni. (v4.75b: l'unica
+  // eccezione resta la push dedicata "Scade OGGI" del cron, notifyScadenzaDiOggi,
+  // che parte alle 8:05/8:35/8:55 — non "quando capitava" — e l'app v4.75
+  // deduplica lato telefono. La via di questa funzione resta senza push.)
+  const scadeOggi = giorniMancanti(params.dataScadenza, oggi) === 0
+  if (!stato?.pushInviata && !scadeOggi) {
+    // v4.58: consegna contata PER CANALE. Prima la push era "consegnata" se la
+    // riceveva UN canale qualunque: se l'unico canale attivo era il telefono,
+    // il browser del cliente restava fuori PER SEMPRE (la push non viene mai
+    // ritentata). Ora la consegna e' vera solo se OGNI canale presente al
+    // momento dell'invio ha ricevuto (o era gia' morto e pulito durante
+    // l'invio stesso) E almeno un canale ha ricevuto. Se un canale vivo non
+    // ha ricevuto per un problema passeggero, il cron della mattina dopo
+    // ritenta: nessun cliente perso, nessun ritento a vuoto sui canali sani.
+    const contaFcm = () => db.fcmToken.count({ where: { userId: params.userId } })
+    const contaWeb = () => db.pushSubscription.count({ where: { userId: params.userId } })
+    const [fcmPrima, webPrima] = await Promise.all([contaFcm(), contaWeb()])
+
+    const esito = await sendPushToUserCanali(params.username, {
       title: '⏰ Scadenza imminente',
       body: text,
       url: scadenzaPushUrl(params.filePath),
@@ -101,8 +135,40 @@ export async function notifyScadenzaImminente(params: {
       data: { testo: text, tipo: 'scadenza' },
     }).catch((e) => {
       console.error('[SCADENZA] push errore:', e)
-      return 0
+      return { fcm: 0, web: 0 }
     })
+    pushSent = esito.fcm + esito.web
+
+    // Durante l'invio i canali morti vengono ripuliti da soli: ricontiamo.
+    // Canale ok = non esisteva, oppure ha ricevuto, oppure e' stato pulito
+    // (era morto: non c'era nessuno da avvisare).
+    const [fcmDopo, webDopo] = await Promise.all([contaFcm(), contaWeb()])
+    const okFcm = fcmPrima === 0 || esito.fcm > 0 || fcmDopo === 0
+    const okWeb = webPrima === 0 || esito.web > 0 || webDopo === 0
+    consegnataATutti = okFcm && okWeb && pushSent > 0
+  } else if (scadeOggi && !stato?.pushInviata) {
+    // v4.62: scade OGGI e la push non e' mai stata consegnata: niente push
+    // (vedi commento sopra), al posto nostro avvisa la sveglia locale 8:30.
+    console.log(
+      '[SCADENZA] push del giorno stesso non inviata:',
+      params.titolo,
+      '- avvisa la sveglia locale delle 8:30'
+    )
+    // v4.63 - campanella "scade oggi" ANCHE per le scadenze la cui push
+    // non e' mai stata consegnata su tutti i canali: prima restavano escluse
+    // dalla seconda query del cron (che chiede pushInviata=true) e la loro
+    // campanella restava ferma al vecchio testo "scade tra N giorni". La
+    // guardia interna a notifyScadenzaOggi (una campanella al giorno per
+    // file) rende tutto idempotente anche con piu' sveglie parallele.
+    await notifyScadenzaOggi({
+      scadenzaId: params.scadenzaId,
+      userId: params.userId,
+      username: params.username,
+      titolo: params.titolo,
+      filePath: params.filePath,
+      dataScadenza: params.dataScadenza,
+      oggi,
+    }).catch(() => {})
   }
 
   // Fallback email: se la push NON e' stata consegnata (nessuna subscription o
@@ -115,7 +181,13 @@ export async function notifyScadenzaImminente(params: {
 
   let emailSent = false
   const emailCliente = params.emailCliente?.trim().toLowerCase() || null
-  if (pushSent === 0 && critico && emailCliente && !stato?.emailInviata) {
+  // v4.63 - MAI nel giorno stesso: da v4.62 il giorno della scadenza il
+  // promemoria e' solo la sveglia 8:30 + campanella silenziosa; un'email
+  // che partiva la mattina stessa era percepita come secondo promemoria
+  // (stesso difetto delle push rimosse da v4.62). L'email di cortesia
+  // resta per i giorni di anticipo (ultimi 2), dove copre chi non ha
+  // canali push; il flag emailInviata garantisce una sola email in totale.
+  if (!scadeOggi && pushSent === 0 && critico && emailCliente && !stato?.emailInviata) {
     emailSent = await sendEmail({
       to: emailCliente,
       subject: 'Promemoria scadenza',
@@ -138,10 +210,10 @@ export async function notifyScadenzaImminente(params: {
     where: { id: params.scadenzaId },
     data: {
       notificata: true,
-      // pushInviata = vero SOLO se abbiamo davvero recapitato ad almeno una
-      // subscription. Se non ci sono subscription o tutte falliscono, resta
-      // false e il cron riprovera nei giorni successivi.
-      pushInviata: pushSent > 0 ? true : (stato?.pushInviata ?? false),
+      // pushInviata = vero SOLO se la consegna e' arrivata su TUTTI i canali
+      // presenti (v4.58, vedi commento sopra). Se un canale vivo e' rimasto
+      // fuori, resta false e il cron riprovera' nei giorni successivi.
+      pushInviata: consegnataATutti ? true : (stato?.pushInviata ?? false),
       emailInviata: emailSent ? true : (stato?.emailInviata ?? false),
     },
   })
@@ -150,21 +222,80 @@ export async function notifyScadenzaImminente(params: {
 }
 
 /**
- * v4.75 — PUSH DEDICATA "Scade OGGI" per il GIORNO della scadenza quando il
+ * Promemoria dell'ULTIMO GIORNO ("scade oggi") — SOLO CAMPANELLA (v4.62).
+ * Il giorno stesso della scadenza il cliente e' avvisato dalla sveglia
+ * locale dell'app (8:30): qui creiamo solo la campanella silenziosa (badge
+ * nella campana, zero rumore), cosi' il giorno resta visibile anche dentro
+ * l'app. Niente push e niente email: erano loro i doppioni del pomeriggio.
+ * Parte anche se la scadenza e' gia' stata notificata nei giorni
+ * precedenti, ma AL MASSIMO UNA VOLTA AL GIORNO: la guardia e' la ricerca
+ * di una campanella creata OGGI per lo stesso file, cosi' resta unico
+ * anche se piu' sveglie (cron Vercel + sveglia di riserva) buscano insieme.
+ */
+export async function notifyScadenzaOggi(params: {
+  scadenzaId: string
+  userId: string
+  username: string
+  titolo: string
+  filePath: string
+  dataScadenza: Date
+  oggi?: Date
+}): Promise<{ notified: boolean; pushSent: number; emailSent: boolean }> {
+  const oggi = params.oggi ?? new Date()
+  const inizioGiornata = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate())
+  const text = buildScadenzaNotificaText(params.titolo, params.dataScadenza, oggi)
+
+  // Guardia anti-doppione: una campanella per questo file esiste GIA' creata
+  // oggi? (copre sia il promemoria normale sia un eventuale "oggi" gemello)
+  const giaOggi = await db.notification.findFirst({
+    where: {
+      userId: params.userId,
+      type: 'scadenza',
+      detail: params.filePath,
+      ts: { gte: inizioGiornata },
+    },
+  })
+  if (giaOggi) return { notified: false, pushSent: 0, emailSent: false }
+
+  await db.notification.create({
+    data: {
+      userId: params.userId,
+      type: 'scadenza',
+      text,
+      detail: params.filePath,
+    },
+  })
+
+  // v4.62 — Qui finisce il lavoro del server il giorno stesso: solo la
+  // campanella qui sopra. La push "Scadenza OGGI" e l'email di fallback
+  // che stavano qui sono state TOLTE: la push raddoppiava la sveglia 8:30
+  // dell'app (a volte con ore di ritardo, quando la sveglia di riserva su
+  // GitHub arrivava nel pomeriggio) e l'email sembrava un secondo
+  // promemoria. I clienti senza app sono gia' coperti dal primo avviso:
+  // push di anticipo nei giorni prima + email di fallback entro i 2 giorni
+  // finali. Il ritorno resta compatibile: pushSent 0, emailSent false.
+  return { notified: true, pushSent: 0, emailSent: false }
+}
+
+/**
+ * v4.75b — PUSH DEDICATA "Scade OGGI" per il GIORNO della scadenza quando il
  * preavviso e' gia' stato consegnato nei giorni precedenti (notificata e
- * pushInviata a true). Prima il server qui taceva del tutto (la query del
- * cron escludeva queste scadenze) e tutto dipendeva dall'allarme locale
- * delle 08:30 del telefono, che Android puo' perdere in risparmio batteria:
- * e' il caso reale del 24/9/2026 ("Scade OGGI" mai arrivato). Da oggi il
- * server riparte dalla STESSA via FCM del preavviso, che funziona.
+ * pushInviata a true). Prima (v4.62-4.63) il server qui taceva del tutto e
+ * tutto dipendeva dall'allarme locale delle 08:30 del telefono, che Android
+ * puo' perdere in risparmio batteria: e' il caso reale del 24/9/2026
+ * ("Scade OGGI" mai arrivato nonostante il preavviso del giorno prima).
+ * Da oggi il server riparte dalla STESSA via FCM del preavviso, che
+ * funziona, con le sveglie mattutine del cron (8:05, 8:35, 8:55 ora
+ * italiana) che ritentano finche' la push arriva — non "quando capitava",
+ * percio' non rinasce il doppione del pomeriggio che la v4.62 aveva tolto.
  *
- * La campanella (type 'scadenza_oggi') e' il SEGNALE "oggi e' stato
- * avvisato" (idempotenza: le 3 sveglie mattutine 8:05/8:35/8:55 ritentano
- * finche' la push arriva, poi il guard su notification esistente impedisce
- * i doppioni). Viene creata SOLO DOPO una push consegnata (pushSent > 0):
- * se la push fallisce nessun segnale resta scritto e le sveglie successive
- * ritentano. Tag FCM dedicato pfc-scadenza-oggi-<id>, distinto dal
- * preavviso: i due avvisi non si sovrascrivono mai.
+ * Niente email il giorno stesso (principio v4.63 confermato): questa
+ * funzione non tocca l'email. La campanella (type 'scadenza_oggi') e' il
+ * SEGNALE "oggi e' stato avvisato": viene creata SOLO DOPO una push
+ * consegnata (almeno un canale). Se la push fallisce nessun segnale resta
+ * scritto e le sveglie successive ritentano. Tag FCM dedicato
+ * pfc-scadenza-oggi-<id>, distinto dal preavviso: i due avvisi non si
+ * sovrascrivono mai.
  */
 export async function notifyScadenzaDiOggi(params: {
   scadenzaId: string
@@ -173,11 +304,29 @@ export async function notifyScadenzaDiOggi(params: {
   titolo: string
   filePath: string
   dataScadenza: Date
+  oggi?: Date
 }): Promise<{ pushSent: number }> {
+  const oggi = params.oggi ?? new Date()
+  const inizioGiornata = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate())
+
+  // Guardia anti-doppione (stessa regola del check del cron, ma dentro la
+  // funzione: cosi' resta idempotente da qualunque via venga chiamata).
+  // Se oggi e' gia' comparso un avviso per questo file (campanella
+  // 'scadenza' o 'scadenza_oggi'), non si ripete nulla.
+  const giaOggi = await db.notification.findFirst({
+    where: {
+      userId: params.userId,
+      detail: params.filePath,
+      ts: { gte: inizioGiornata },
+      OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza' }],
+    },
+  })
+  if (giaOggi) return { pushSent: 0 }
+
   const dataIt = params.dataScadenza.toLocaleDateString('it-IT')
   const text = `${params.titolo}: scade OGGI (${dataIt})`
 
-  const pushSent = await sendPushToUser(params.username, {
+  const esito = await sendPushToUserCanali(params.username, {
     title: '⏰ Scade OGGI',
     body: `"${params.titolo}" scade OGGI (${dataIt}). Aprilo dall'archivio.`,
     url: scadenzaPushUrl(params.filePath),
@@ -185,11 +334,13 @@ export async function notifyScadenzaDiOggi(params: {
     data: { testo: text, tipo: 'scadenza_oggi' },
   }).catch((e) => {
     console.error('[SCADENZA-OGGI] push errore:', e)
-    return 0
+    return { fcm: 0, web: 0 }
   })
+  const pushSent = esito.fcm + esito.web
 
-  // Campanella SOLO dopo push riuscita: e' il segnale "avvisato oggi" che
-  // le sveglie successive leggeranno per non ripetere nulla.
+  // Campanella SOLO dopo push riuscita (almeno un canale): e' il segnale
+  // "avvisato oggi" che le sveglie successive e il cron leggeranno per non
+  // ripetere nulla.
   if (pushSent > 0) {
     await db.notification.create({
       data: {
