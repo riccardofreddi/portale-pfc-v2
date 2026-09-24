@@ -18,11 +18,20 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Utente non trovato' }, { status: 404 })
 
   const oggi = new Date()
+  // v4.76 - Inizio della giornata (00:00 del fuso del server, come fa il cron
+  // in check/route.ts). Prima qui si usava l'istante pieno (new Date()): le
+  // scadenze sono salvate a mezzanotte UTC, quindi la scadenza USCIVA dalla
+  // lista alle 02:00 italiane del GIORNO STESSO: il banner "scade OGGI"
+  // spariva proprio il giorno della scadenza, la sync dell'app tra le 02:00
+  // e le 08:30 cancellava la sveglia delle 08:30 senza riarmarla e il
+  // recupero "avviso immediato" della v4.75 non poteva mai scattare.
+  // Con l'inizio giornata la scadenza resta visibile per tutto il suo giorno.
+  const inizioOggi = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate())
   const scadenze = await db.scadenza.findMany({
     where: {
       userId: user.id,
       pagata: false,
-      dataScadenza: { gte: oggi },
+      dataScadenza: { gte: inizioOggi },
     },
     orderBy: { dataScadenza: 'asc' },
   })
