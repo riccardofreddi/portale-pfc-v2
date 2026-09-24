@@ -15,7 +15,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { giorniMancanti, notifyScadenzaImminente, notifyScadenzaOggi } from '@/lib/scadenza-notify'
+import { giorniMancanti, notifyScadenzaDiOggi, notifyScadenzaImminente } from '@/lib/scadenza-notify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -45,25 +45,60 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
     // adesso e verrebbe saltata per sempre.
     const inizioOggi = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate())
 
-    // Prendiamo tutte le scadenze non pagate con data odierna o futura, che
-    // hanno la campanella non ancora creata OPPURE la push non ancora consegnata
-    // (cosi il cron ritenta la push giorno dopo giorno finche non arriva).
+    // v4.75 — Prendiamo TUTTE le scadenze non pagate con data odierna o
+    // futura (senza il vecchio filtro OR: ora il giorno stesso e' gestito
+    // nel loop, anche quando il preavviso e' gia' stato consegnato).
     const scadenze = await db.scadenza.findMany({
       where: {
         pagata: false,
         dataScadenza: { gte: inizioOggi },
-        OR: [{ notificata: false }, { pushInviata: false }],
       },
       include: { user: { select: { username: true, name: true, email: true } } },
     })
 
     let notificate = 0
     let pushInviate = 0
+    let avvisiOggi = 0
     const dettagli: Array<{ filePath: string; titolo: string; giorni: number }> = []
 
     for (const s of scadenze) {
       const giorni = giorniMancanti(s.dataScadenza, oggi)
       if (giorni > s.anticipoGiorni) continue // ancora troppo presto
+
+      // v4.75 — GIORNO DELLA SCADENZA con preavviso gia' consegnato: qui
+      // prima il server taceva del tutto (la query li escludeva) e tutto
+      // dipendeva dall'allarme locale del telefono. Ora push dedicata
+      // "Scade OGGI", una sola al giorno, ritentata dalle 3 sveglie
+      // mattutine finche' non arriva.
+      if (giorni === 0 && s.notificata && s.pushInviata) {
+        const giaAvvisatoOggi = await db.notification.findFirst({
+          where: {
+            userId: s.userId,
+            detail: s.filePath,
+            ts: { gte: inizioOggi },
+            OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza' }],
+          },
+        })
+        if (giaAvvisatoOggi) continue
+        const esitoOggi = await notifyScadenzaDiOggi({
+          scadenzaId: s.id,
+          userId: s.userId,
+          username: s.user.username,
+          titolo: s.titolo,
+          filePath: s.filePath,
+          dataScadenza: s.dataScadenza,
+        })
+        pushInviate += esitoOggi.pushSent
+        if (esitoOggi.pushSent > 0) {
+          avvisiOggi++
+          dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
+        }
+        continue
+      }
+
+      // Preavviso gia' consegnato e NON e' il giorno della scadenza: qui
+      // non c'e' niente da dire (v4.75: prima la query li escludeva gia').
+      if (s.notificata && s.pushInviata) continue
 
       const { notified, pushSent } = await notifyScadenzaImminente({
         scadenzaId: s.id,
@@ -84,54 +119,10 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
     }
 
-    // ---- Campanella "scade OGGI" (ultimo giorno utile, v4.62) ----
-    // Le scadenze gia' notificate nei giorni precedenti NON rientrano nella
-    // query di sopra (notificata e pushInviata sono true): il giorno stesso
-    // della scadenza creiamo comunque la campanella "scade oggi" cosi' il
-    // giorno resta visibile nella campana. SOLO LA CAMPANELLA (v4.62):
-    // niente push, niente email — il giorno stesso il promemoria e' la
-    // sveglia locale 8:30 dell'app, e la push del cron arrivava quando
-    // capitava (spesso nel pomeriggio, con la sveglia di riserva GitHub in
-    // ritardo): era il doppione. La guardia anti-doppione interna a
-    // notifyScadenzaOggi (una campanella al giorno) rende tutto sicuro
-    // anche se piu' sveglie fanno la stessa richiesta insieme.
-    const fineOggi = new Date(inizioOggi.getTime() + 24 * 60 * 60 * 1000)
-    const scadenzeOggi = await db.scadenza.findMany({
-      where: {
-        pagata: false,
-        notificata: true,
-        pushInviata: true,
-        dataScadenza: { gte: inizioOggi, lt: fineOggi },
-      },
-      include: { user: { select: { username: true, name: true, email: true } } },
-    })
-
-    let notificateOggi = 0
-    let pushInviateOggi = 0
-    const dettagliOggi: Array<{ filePath: string; titolo: string }> = []
-
-    for (const s of scadenzeOggi) {
-      const r = await notifyScadenzaOggi({
-        scadenzaId: s.id,
-        userId: s.userId,
-        username: s.user.username,
-        titolo: s.titolo,
-        filePath: s.filePath,
-        dataScadenza: s.dataScadenza,
-      })
-      if (!r.notified) continue
-      notificateOggi++
-      pushInviateOggi += r.pushSent
-      dettagliOggi.push({ filePath: s.filePath, titolo: s.titolo })
-    }
-
     console.log(
       `[CRON] scadenze notificate: ${notificate}/${scadenze.length} · ` +
-        `push inviate: ${pushInviate} · ` +
-        dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ') +
-        (notificateOggi > 0
-          ? ` · scadenze OGGI: ${notificateOggi} (push ${pushInviateOggi})`
-          : '')
+        `push inviate: ${pushInviate} · avvisi oggi: ${avvisiOggi} · ` +
+        dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ')
     )
 
     return NextResponse.json({
@@ -139,13 +130,8 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       controllate: scadenze.length,
       notificate,
       pushInviate,
+      avvisiOggi,
       dettagli,
-      promemoriaOggi: {
-        controllate: scadenzeOggi.length,
-        notificate: notificateOggi,
-        pushInviate: pushInviateOggi,
-        dettagli: dettagliOggi,
-      },
     })
   } catch (err) {
     console.error('[SCADENZE] errore check:', err)
