@@ -12,6 +12,25 @@ export const dynamic = 'force-dynamic'
 // (file fino a 20MB ciascuno) + invio push in coda.
 export const maxDuration = 60
 
+// v4.77-web: il database Supabase puo' andare TEMPORANEAMENTE in "sola lettura"
+// (protezione automatica del servizio). In quel caso Postgres rifiuta le scritture
+// con errore 25006 "read-only transaction". I blocchi durano poco: riproviamo da
+// soli 3 volte in 4 secondi invece di far fallire l'upload e perdere la campanella.
+async function conRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let ultimo: unknown
+  for (let i = 0; i < 3; i++) {
+    try {
+      return await fn()
+    } catch (e) {
+      ultimo = e
+      const msg = String(e)
+      if (!msg.includes('25006') && !msg.includes('read-only')) throw e
+      await new Promise((r) => setTimeout(r, 2000))
+    }
+  }
+  throw ultimo
+}
+
 export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session || session.role !== 'admin') {
@@ -106,7 +125,7 @@ export async function POST(req: NextRequest) {
           const buf = Buffer.from(await file.arrayBuffer())
           await salvaBytes(newKey, buf)
           existingNames.add(newName)
-          await db.uploadDate.upsert({ where: { filePath: newKey }, create: { filePath: newKey }, update: { ts: new Date() } })
+          await conRetry(() => db.uploadDate.upsert({ where: { filePath: newKey }, create: { filePath: newKey }, update: { ts: new Date() } }))
           await azzeraStatoFileLetto(newKey)
           results.push({ nome: newName, key: newKey, size: file.size, status: 'rinominato' })
           continue
@@ -120,7 +139,7 @@ export async function POST(req: NextRequest) {
           await eliminaOggetto(targetKey)
           const buf = Buffer.from(await file.arrayBuffer())
           await salvaBytes(targetKey, buf)
-          await db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } })
+          await conRetry(() => db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } }))
           await azzeraStatoFileLetto(targetKey)
           results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'sostituito' })
           continue
@@ -130,7 +149,7 @@ export async function POST(req: NextRequest) {
       const buf = Buffer.from(await file.arrayBuffer())
       await salvaBytes(targetKey, buf)
       existingNames.add(nomePulito)
-      await db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } })
+      await conRetry(() => db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } }))
       await azzeraStatoFileLetto(targetKey)
       results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'caricato' })
     }
@@ -148,7 +167,7 @@ export async function POST(req: NextRequest) {
         const data = new Date(String(spec.data))
         if (isNaN(data.getTime())) continue
         const anticipo = Number.isFinite(Number(spec.anticipo)) ? Number(spec.anticipo) : 10
-        const scadenza = await db.scadenza.upsert({
+        const scadenza = await conRetry(() => db.scadenza.upsert({
           where: { filePath: r.key },
           create: {
             filePath: r.key,
@@ -167,7 +186,7 @@ export async function POST(req: NextRequest) {
             pushInviata: false,
             emailInviata: false,
           },
-        })
+        }))
         const { notified } = await notifyScadenzaImminente({
           scadenzaId: scadenza.id,
           userId: cliente.id,
@@ -185,16 +204,16 @@ export async function POST(req: NextRequest) {
 
     let pushSent = 0
     if (nCaricati.length > 0) {
-      await db.notification.create({
+      await conRetry(() => db.notification.create({
         data: {
           userId: cliente.id,
           type: 'documento_nuovo',
-          text: `Nuovi documenti caricati in ${cartella}/${anno}`,
+          text: nCaricati.length === 1 ? `Nuovo documento caricato i�p${cartella}/${anno}` : `Nuovi documenti caricati in ${cartella}/${anno}`,
           detail: `${results.length} file`,
           year: anno,
           folder: cartella,
         },
-      })
+      }))
 
       // Notifica push: il Service Worker mostra SEMPRE la notifica di sistema
       // (race-safe, anche a pagina chiusa/in background). Quando la pagina è
@@ -217,6 +236,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, results, pushSent, scadenzeNotificate })
   } catch (err) {
     console.error('[upload] errore:', err)
-    return NextResponse.json({ error: `Errore upload: ${String(err)}` }, { status: 500 })
+    const msg = String(err)
+    if (msg.includes('25006') || msg.includes('read-only')) {
+      return NextResponse.json({ error: 'Database momentaneamente occupato: riprova tra un minuto' }, { status: 503 })
+    }
+    return NextResponse.json({ error: `Errore upload: ${msg}` }, { status: 500 })
   }
 }

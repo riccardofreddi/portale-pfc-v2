@@ -174,7 +174,7 @@ export function ClienteMessaggi() {
             {showArchived
               ? 'Non hai ancora archiviato alcun messaggio.'
               : nArchiviati > 0
-                ? `Hai ${nArchiviati} messaggi archiviati. Clicca "Mostra archiviati" per vederli.`
+                ? (nArchiviati === 1 ? 'Hai 1 messaggio archiviato. Clicca "Mostra archiviati" per vederlo.' : `Hai ${nArchiviati} messaggi archiviati. Clicca "Mostra archiviati" per vederli.`)
                 : 'Lo studio non ha ancora inviato comunicazioni.'}
           </p>
         </CardContent></Card>

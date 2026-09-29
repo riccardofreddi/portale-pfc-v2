@@ -455,7 +455,7 @@ export function ClienteArea() {
                   })}
                   {notifiche.length > 20 && (
                     <p className="text-center text-xs text-slate-400 pt-2">
-                      ... e altre {notifiche.length - 20} notifiche precedenti
+                      ... e altre {notifiche.length - 20} {notifiche.length - 20 === 1 ? 'notifica precedente' : 'notifiche precedenti'}
                     </p>
                   )}
                 </div>

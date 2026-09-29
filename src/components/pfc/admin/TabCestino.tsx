@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,7 +49,7 @@ export function TabCestino() {
     if (keys.length === 0) return
     try {
       const r = await api.cestino.deleteMultiple(keys)
-      toast.success(`${r.deleted} file eliminati definitivamente`)
+      toast.success(r.deleted === 1 ? '1 file eliminato definitivamente' : `${r.deleted} file eliminati definitivamente`)
       await refresh()
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
   }
@@ -57,7 +57,7 @@ export function TabCestino() {
   async function handleDeleteAll() {
     try {
       const r = await api.cestino.deleteAll()
-      toast.success(`${r.deleted} file eliminati. Cestino svuotato.`)
+      toast.success(r.deleted === 1 ? '1 file eliminato. Cestino svuotato.' : `${r.deleted} file eliminati. Cestino svuotato.`)
       await refresh()
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Errore') }
   }

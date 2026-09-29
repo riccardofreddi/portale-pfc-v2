@@ -92,7 +92,7 @@ export function TabGestioneClienti() {
         throw new Error(err.error || 'Errore ' + res.status)
       }
       const data = await res.json()
-      toast.success(data.deleted + ' file spostati nel cestino (' + target + ')')
+      toast.success((data.deleted === 1 ? '1 file spostato' : data.deleted + ' file spostati') + ' nel cestino (' + target + ')')
       await loadArchivioCliente(selectedCliente)
     } catch (err) {
       toast.error('Errore eliminazione: ' + (err instanceof Error ? err.message : 'errore'))

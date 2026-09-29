@@ -98,7 +98,9 @@ export function TabInvioDocumenti() {
       setResults(r)
       const nCaricati = r.filter((x) => x.status === 'caricato' || x.status === 'rinominato' || x.status === 'sostituito').length
       const nSaltati = r.filter((x) => x.status === 'saltato').length
-      toast.success(`${nCaricati} file caricati${nSaltati > 0 ? `, ${nSaltati} saltati` : ''}`)
+      const testoCaricati = nCaricati === 1 ? '1 file caricato' : `${nCaricati} file caricati`
+      const testoSaltati = nSaltati === 1 ? '1 saltato' : `${nSaltati} saltati`
+      toast.success(`${testoCaricati}${nSaltati > 0 ? `, ${testoSaltati}` : ''}`)
       setFiles([])
       api.documenti.list({ username: clienteSelezionato, anno: annoFinale }).then((r2) => {
         const carts = (r2.cartelle ?? []) as unknown as Array<CartellaMeta | string>
