@@ -6,7 +6,18 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const debug: any = { steps: [] }
+  const debug: {
+    steps: unknown[]
+    envVars?: Record<string, unknown>
+    keysMatch?: boolean
+    webpushConfigured?: boolean
+    webpushConfigError?: string
+    testSendSuccess?: boolean
+    testSendError?: { statusCode?: number; message?: string; body?: string }
+    ok?: boolean
+    error?: string
+    stack?: string
+  } = { steps: [] }
 
   try {
     // Step 1: verifica env vars
@@ -54,12 +65,13 @@ export async function GET() {
         agent: new https.Agent({ keepAlive: false }),
       })
       debug.testSendSuccess = true
-    } catch (err: any) {
+    } catch (err) {
       // L'errore qui è OK perché l'endpoint è fittizio, ma se l'errore è "VAPID signature" allora le chiavi non matchano
+      const e = err as { statusCode?: number; message?: string; body?: unknown }
       debug.testSendError = {
-        statusCode: err?.statusCode,
-        message: err?.message,
-        body: typeof err?.body === 'string' ? err.body.substring(0, 200) : JSON.stringify(err?.body)?.substring(0, 200),
+        statusCode: e?.statusCode,
+        message: e?.message,
+        body: typeof e?.body === 'string' ? e.body.substring(0, 200) : JSON.stringify(e?.body)?.substring(0, 200),
       }
     }
 

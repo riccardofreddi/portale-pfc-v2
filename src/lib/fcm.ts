@@ -35,7 +35,7 @@ function loadFcm(): FcmModule {
   }
 
   // Import dinamico: firebase-admin non viene mai caricato se non serve.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const admin = require('firebase-admin')
   if (!admin.apps.length) {
     admin.initializeApp({

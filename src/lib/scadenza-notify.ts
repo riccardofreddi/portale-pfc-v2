@@ -42,6 +42,15 @@ import { sendEmail } from './email'
 export const FINESTRA_PUSH_OGGI_MINUTI = 8 * 60 + 35 // 08:35
 
 /**
+ * v4.78c — Lease dello slot push "Scade OGGI": se un pending 'scadenza_oggi'
+ * e' piu' giovane di cosi', un altro giro sta pushando ORA e tacciamo. Un
+ * pending piu' vecchio e' un giro morto (crash tra presa e chiusura): lo
+ * slot si riprende e la push riparte. 10 minuti e' ben sotto la distanza
+ * tra le chance (45 min) e ben sopra la durata di un giro (maxDuration 60s).
+ */
+export const LEASE_PUSH_OGGI_MINUTI = 10
+
+/**
  * Minuti trascorsi da mezzanotte secondo l'OROLOGIO ITALIANO (Europe/Rome).
  * Il server vive in UTC: su Vercel new Date().getHours() e' l'ora UTC, che
  * cambia con l'ora legale (08:35 it. solare = 07:35 UTC, legale = 06:35).
@@ -323,7 +332,7 @@ export async function notifyScadenzaOggi(params: {
       userId: params.userId,
       detail: params.filePath,
       ts: { gte: inizioGiornata },
-      OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza' }],
+      OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza_oggi_pending' }, { type: 'scadenza' }],
     },
   })
   if (giaOggi) return { notified: false, pushSent: 0, emailSent: false }
@@ -369,14 +378,26 @@ export async function notifyScadenzaOggi(params: {
  * DUE GUARDIE SEPARATE (prima una sola, e morsicava la push: la campanella
  * silenziosa creata la mattina bloccava anche la push successiva):
  *  - guardia PUSH: esiste la campanella 'scadenza_oggi' di oggi? Viene
- *    scritta SEMPRE dopo una push consegnata (v4.78b: se c'e' gia' la
- *    campanella 'scadenza' del mattino viene PROMOSSA a 'scadenza_oggi',
- *    altrimenti si crea), quindi e' il segno "la push di oggi e' gia'
- *    partita" e la chance successiva tace. La campanella 'scadenza' del
- *    mattino da sola NON conta (non blocca la push): e' il segno scritto
- *    DOPO la push a contare.
- *  - UNA campanella sola per file e giorno: la promozione aggiorna quella
- *    esistente invece di aggiungerne una seconda (zero rumore in campana).
+ *    scritta solo alla CHIUSURA della push, quindi e' il segno "la push di
+ *    oggi e' gia' partita" e la chance successiva tace. La campanella
+ *    'scadenza' del mattino da sola NON conta (non blocca la push).
+ *  - UNA campanella sola per file e giorno: la dedupe finale tiene la piu'
+ *    recente (zero rumore in campana).
+ *
+ * v4.78c — PRESA ATOMICA DELLO SLOT (chiude la race tra chance sovrapposte).
+ * Prima il segno si scriveva DOPO la push: due giri sovrapposti leggevano
+ * entrambi "segno assente" e sparavano entrambi. Ora lo slot si prende PRIMA
+ * con updateMany condizionato sul type attuale: la campanella 'scadenza' del
+ * mattino diventa 'scadenza_oggi_pending' SOLO nel giro che vince (chi
+ * arriva secondo trova il type gia' cambiato, count=0, tace). Stati:
+ *   'scadenza' (campanella mattino) -> 'scadenza_oggi_pending' (slot preso,
+ *   push in volo, lease 10 min) -> 'scadenza_oggi' (push accettata).
+ * Se la push NON parte, il pending torna 'scadenza': la chance dopo ritenta
+ * (rete di sicurezza intatta). Se un giro muore a meta' (pending stale), la
+ * chance dopo lo riprende e ripusha: MAI il silenzio, al peggio un doppione
+ * (principio v4.118). Il doppio create a vuoto resta l'unico buco residuo:
+ * richiede cron del mattino morto E chance sovrapposte, e il tag FCM
+ * identico fa sostituire la seconda notifica alla prima nel vassoio.
  *
  * Niente email il giorno stesso (principio v4.63 confermato): questa
  * funzione non tocca l'email. Tag FCM dedicato pfc-scadenza-oggi-<id>,
@@ -395,9 +416,9 @@ export async function notifyScadenzaDiOggi(params: {
   const inizioGiornata = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate())
 
   // v4.118 — GUARDIA PUSH (separata dalla campanella): la campanella
-  // 'scadenza_oggi' nasce solo dopo una push consegnata, quindi e' lei il
-  // segno "push di oggi gia' partita". La campanella 'scadenza' creata
-  // dalla finestra del mattino non deve bloccare la push.
+  // 'scadenza_oggi' nasce solo alla CHIUSURA di una push accettata, quindi
+  // e' lei il segno "push di oggi gia' partita". La campanella 'scadenza'
+  // creata dalla finestra del mattino non deve bloccare la push.
   const giaPushOggi = await db.notification.findFirst({
     where: {
       userId: params.userId,
@@ -411,6 +432,73 @@ export async function notifyScadenzaDiOggi(params: {
   const dataIt = params.dataScadenza.toLocaleDateString('it-IT')
   const text = `${params.titolo}: scade OGGI (${dataIt})`
 
+  // v4.78c — PRESA ATOMICA DELLO SLOT (prima della push, non dopo). Un solo
+  // updateMany condizionato sul type attuale: tra giri concorrenti count=1
+  // per UNO solo, gli altri trovano il type gia' cambiato e tacciono.
+  const adesso = new Date()
+  const presa = await db.notification.updateMany({
+    where: {
+      userId: params.userId,
+      detail: params.filePath,
+      ts: { gte: inizioGiornata },
+      type: 'scadenza',
+    },
+    data: { type: 'scadenza_oggi_pending', text, ts: adesso },
+  })
+
+  if (presa.count === 0) {
+    // Nessuna campanella del mattino da promuovere: o non esiste (cron del
+    // mattino morto), o un giro concorrente ha GIA' preso lo slot (la sua
+    // campanella ora e' 'scadenza_oggi_pending').
+    const pendente = await db.notification.findFirst({
+      where: {
+        userId: params.userId,
+        detail: params.filePath,
+        ts: { gte: inizioGiornata },
+        type: 'scadenza_oggi_pending',
+      },
+      orderBy: { ts: 'desc' },
+    })
+    if (pendente) {
+      const fresco =
+        adesso.getTime() - pendente.ts.getTime() < LEASE_PUSH_OGGI_MINUTI * 60 * 1000
+      if (fresco) {
+        // Un altro giro sta pushando ORA: tacciamo.
+        return { pushSent: 0 }
+      }
+      // Pending STALE: il giro che l'aveva preso e' morto prima di chiudere
+      // (crash tra presa e chiusura). Riprendiamo lo slot con update
+      // ATOMICO: il where richiede che il lease sia ANCORA scaduto, cosi'
+      // tra due giri che lo riprendono insieme count=1 per UNO solo (chi
+      // arriva secondo trova il ts gia' rinnovato e tace).
+      const sogliaStale = new Date(adesso.getTime() - LEASE_PUSH_OGGI_MINUTI * 60 * 1000)
+      const ripresa = await db.notification.updateMany({
+        where: {
+          userId: params.userId,
+          detail: params.filePath,
+          type: 'scadenza_oggi_pending',
+          ts: { gte: inizioGiornata, lt: sogliaStale },
+        },
+        data: { ts: adesso },
+      })
+      if (ripresa.count === 0) return { pushSent: 0 }
+    } else {
+      // Cron del mattino morto: creiamo noi il pending. Due giri
+      // concorrenti possono crearlo insieme (l'unica corsa non atomicabile
+      // senza vincolo UNIQUE sul DB): succede SOLO se manca la campanella del
+      // mattino E le chance si sovrappongono, e il tag FCM identico fa
+      // sostituire la seconda notifica alla prima nel vassoio Android.
+      await db.notification.create({
+        data: {
+          userId: params.userId,
+          type: 'scadenza_oggi_pending',
+          text,
+          detail: params.filePath,
+        },
+      })
+    }
+  }
+
   const esito = await sendPushToUserCanali(params.username, {
     title: '⏰ Scade OGGI',
     body: `"${params.titolo}" scade OGGI (${dataIt}). Aprilo dall'archivio.`,
@@ -423,42 +511,53 @@ export async function notifyScadenzaDiOggi(params: {
   })
   const pushSent = esito.fcm + esito.web
 
-  // v4.78b — IL SEGNO DELLA PUSH VA SCRITTO SEMPRE (fix del doppione tra le
-  // due chance). La campanella e' il segno "push di oggi consegnata": senza
-  // questo segno, la chance dopo (09:30 it) sparava la push di nuovo.
-  // Nel vecchio "if (!giaCampanella)" il segno NON veniva mai scritto quando
-  // la campanella del mattino esisteva gia' (il cron Vercel delle 07:00 it,
-  // fuori finestra, la crea sempre): doppione garantito alle 08:45 E 09:30
-  // per ogni cliente che non aprirebbe l'app il giorno della scadenza.
-  // Ora: se esiste la campanella del mattino la PROMUOVO (type aggiornato,
-  // testo "scade OGGI") — una voce sola in campana e il giro dopo tace.
+  // v4.78c — CHIUSURA o RILASCIO dello slot.
   if (pushSent > 0) {
-    const giaCampanella = await db.notification.findFirst({
+    // CHIUSURA: tutti i pending del giorno diventano il segno finale
+    // 'scadenza_oggi' = "push di oggi accettata". La chance dopo tace.
+    await db.notification.updateMany({
       where: {
         userId: params.userId,
         detail: params.filePath,
         ts: { gte: inizioGiornata },
-        OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza' }],
+        type: 'scadenza_oggi_pending',
+      },
+      data: { type: 'scadenza_oggi' },
+    })
+    // UNA campanella sola per file e giorno (v4.78b): se sono sopravvissuti
+    // gemelli (forceNotifica admin / doppio create), teniamo la piu' recente
+    // e ripuliamo le altre. Nota: si puo' arrivare qui con piu' segni anche
+    // senza gemelli (una push + una creata tra presa e chiusura).
+    const segni = await db.notification.findMany({
+      where: {
+        userId: params.userId,
+        detail: params.filePath,
+        ts: { gte: inizioGiornata },
+        type: 'scadenza_oggi',
+      },
+      orderBy: { ts: 'desc' },
+    })
+    if (segni.length > 1) {
+      await db.notification
+        .deleteMany({ where: { id: { in: segni.slice(1).map((n) => n.id) } } })
+        .catch(() => {})
+    }
+  } else {
+    // RILASCIO: la push non e' stata accettata da nessun canale. Il pending
+    // torna campanella del mattino ('scadenza', testo standard): la chance
+    // dopo ritenta, la rete di sicurezza v4.75 resta intatta.
+    await db.notification.updateMany({
+      where: {
+        userId: params.userId,
+        detail: params.filePath,
+        ts: { gte: inizioGiornata },
+        type: 'scadenza_oggi_pending',
+      },
+      data: {
+        type: 'scadenza',
+        text: buildScadenzaNotificaText(params.titolo, params.dataScadenza, oggi),
       },
     })
-    if (giaCampanella?.type === 'scadenza_oggi') {
-      // Segno gia' presente: niente da scrivere (non succede con la guardia
-      // in cima, resta difensivo per un giro concorrente).
-    } else if (giaCampanella) {
-      await db.notification.update({
-        where: { id: giaCampanella.id },
-        data: { type: 'scadenza_oggi', text },
-      })
-    } else {
-      await db.notification.create({
-        data: {
-          userId: params.userId,
-          type: 'scadenza_oggi',
-          text,
-          detail: params.filePath,
-        },
-      })
-    }
   }
 
   return { pushSent }

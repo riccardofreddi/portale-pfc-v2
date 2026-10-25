@@ -1,0 +1,53 @@
+# CI del portale — gira a ogni push su main e a ogni PR.
+#
+# Perche' esiste: fino alla v4.78c questo repo non aveva NESSUNA verifica
+# automatica (nessun workflow, nessun check sul commit): l'unica rete prima
+# del deploy Vercel era... niente. Un errore di tipo o di lint arrivava dritto
+# in produzione. Ora: type-check + lint server + test unitari + build.
+#
+# Nota su eslint: si limita a src/lib, src/app e test (il server, cioe' dove
+# vivono cron, push e soldi veri). I componenti UI hanno debito tecnico
+# pre-esistente (react-hooks/set-state-in-effect, no-unescaped-entities):
+# si pulira' in un commit dedicato, senza bloccare la CI del server.
+#
+# DATABASE_URL fittizio: il build non tocca il DB (route tutte force-dynamic),
+# serve solo all'avvio lazy di Prisma. I segreti veri restano su Vercel.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verifica:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Installa dipendenze
+        run: npm install --no-audit --no-fund
+
+      - name: Genera client Prisma
+        run: npx prisma generate
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint (server + test)
+        run: npx eslint src/lib src/app test
+
+      - name: Test unitari
+        run: npm test -- --ci
+
+      - name: Build (stesso passo che fa Vercel)
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci

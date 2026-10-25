@@ -6,7 +6,12 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const debug: any = { steps: [] }
+  const debug: {
+    steps: Array<Record<string, unknown>>
+    error?: string
+    stack?: string
+    ok?: boolean
+  } = { steps: [] }
 
   try {
     const session = await getSession()

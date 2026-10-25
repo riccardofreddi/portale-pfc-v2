@@ -31,7 +31,10 @@ export async function GET(req: NextRequest) {
   const usernameFilter = searchParams.get('username')
   const actionFilter = searchParams.get('action')
 
-  const where: { username?: any; action?: any } = {
+  const where: {
+    username?: string | { not: string }
+    action?: string | { notIn: string[] }
+  } = {
     username: { not: 'admin' },
     action: { notIn: ADMIN_ACTIONS },
   }
