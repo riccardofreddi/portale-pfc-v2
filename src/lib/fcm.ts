@@ -118,10 +118,12 @@ export async function sendFcmToUser(
               // la notifica la disegna Google Play services, che legge i
               // meta-data del manifest (v4.119): mettendoli anche qui,
               // il rendering non dipende piu' dal merge del manifest.
-              // "ic_stat_notification" e' la campana bianca in res/drawable-*
-              // dell'app (nome della risorsa SENZA estensione), l'oro e'
-              // il colore del brand. A app APERTA non cambia nulla: la
-              // mostra l'app stessa (e da v4.120 usa la stessa icona).
+              // "ic_stat_notification" e' il logo PF monocromo in
+              // res/drawable-* dell'app (nome della risorsa SENZA
+              // estensione; dalla v4.122 client e' il glifo PF, prima
+              // era una campana), l'oro e' il colore del brand. A app
+              // APERTA non cambia nulla: la mostra l'app stessa (e da
+              // v4.120 usa la stessa icona).
               icon: 'ic_stat_notification',
               color: '#D4AF37',
               defaultSound: true,

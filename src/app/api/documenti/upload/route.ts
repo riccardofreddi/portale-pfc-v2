@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
         data: {
           userId: cliente.id,
           type: 'documento_nuovo',
-          text: nCaricati.length === 1 ? `Nuovo documento caricato i�p${cartella}/${anno}` : `Nuovi documenti caricati in ${cartella}/${anno}`,
+          text: nCaricati.length === 1 ? `Nuovo documento caricato in ${cartella}/${anno}` : `Nuovi documenti caricati in ${cartella}/${anno}`,
           detail: `${results.length} file`,
           year: anno,
           folder: cartella,
@@ -223,7 +223,11 @@ export async function POST(req: NextRequest) {
       // con la funzione, quindi l'invio va completato nell'arco di vita dell'handler.
       pushSent = await sendPushToUser(username, {
         title: 'Nuovo documento disponibile',
-        body: `Nuovi documenti caricati in ${cartella}/${anno}`,
+        // v4.82: il corpo della push rispecchia il singolare/plurale della
+        // campanella (prima diceva sempre "Nuovi documenti" anche per 1 file).
+        body: nCaricati.length === 1
+          ? `Nuovo documento caricato in ${cartella}/${anno}`
+          : `Nuovi documenti caricati in ${cartella}/${anno}`,
         url: `/?tab=archivio&anno=${encodeURIComponent(anno)}&cartella=${encodeURIComponent(cartella)}`,
         tag: 'pfc-documento',
       }).catch((e) => {

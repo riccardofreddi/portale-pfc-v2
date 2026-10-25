@@ -4,6 +4,15 @@ import { getSession } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+// v4.82: le voci di notifica nate prima della correzione portano un
+// carattere di sostituzione U+FFFD nel testo ("caricato i<FFFD>p..."):
+// corruzione nata con v4.77-web nella riga del singolare. Le voci VECCHIE
+// gia' in database guariscono a tempo di lettura, senza migrazioni:
+// il caso noto "i<FFFD>p" torna "in ", ogni altro FFFD residuo si toglie.
+function ripulisciTestoNotifica(text: string): string {
+  return text.replace('i\uFFFDp', 'in ').replace(/\uFFFD/g, '')
+}
+
 export async function GET() {
   const session = await getSession()
   if (!session) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
@@ -18,7 +27,7 @@ export async function GET() {
     notifiche: notifiche.map((n) => ({
       id: n.id,
       type: n.type,
-      text: n.text,
+      text: ripulisciTestoNotifica(n.text),
       detail: n.detail,
       ts: n.ts,
       read: n.read,
