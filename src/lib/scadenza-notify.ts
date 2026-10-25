@@ -369,11 +369,14 @@ export async function notifyScadenzaOggi(params: {
  * DUE GUARDIE SEPARATE (prima una sola, e morsicava la push: la campanella
  * silenziosa creata la mattina bloccava anche la push successiva):
  *  - guardia PUSH: esiste la campanella 'scadenza_oggi' di oggi? Viene
- *    creata SOLO dopo una push consegnata, quindi e' il segno "la push di
- *    oggi e' gia' partita". La campanella 'scadenza' del mattino NON conta.
- *  - campanella 'scadenza_oggi' creata solo dopo push riuscita E solo se
- *    l'utente non ha GIA' una campanella per questo file oggi (quella del
- *    mattino resta la buona: due campanelle = rumore).
+ *    scritta SEMPRE dopo una push consegnata (v4.78b: se c'e' gia' la
+ *    campanella 'scadenza' del mattino viene PROMOSSA a 'scadenza_oggi',
+ *    altrimenti si crea), quindi e' il segno "la push di oggi e' gia'
+ *    partita" e la chance successiva tace. La campanella 'scadenza' del
+ *    mattino da sola NON conta (non blocca la push): e' il segno scritto
+ *    DOPO la push a contare.
+ *  - UNA campanella sola per file e giorno: la promozione aggiorna quella
+ *    esistente invece di aggiungerne una seconda (zero rumore in campana).
  *
  * Niente email il giorno stesso (principio v4.63 confermato): questa
  * funzione non tocca l'email. Tag FCM dedicato pfc-scadenza-oggi-<id>,
@@ -420,9 +423,15 @@ export async function notifyScadenzaDiOggi(params: {
   })
   const pushSent = esito.fcm + esito.web
 
-  // Campanella SOLO dopo push riuscita e SOLO se l'utente non ha GIA' una
-  // campanella per questo file oggi (la silenziosa del mattino resta quella
-  // buona: due campanelle per lo stesso documento sarebbero rumore).
+  // v4.78b — IL SEGNO DELLA PUSH VA SCRITTO SEMPRE (fix del doppione tra le
+  // due chance). La campanella e' il segno "push di oggi consegnata": senza
+  // questo segno, la chance dopo (09:30 it) sparava la push di nuovo.
+  // Nel vecchio "if (!giaCampanella)" il segno NON veniva mai scritto quando
+  // la campanella del mattino esisteva gia' (il cron Vercel delle 07:00 it,
+  // fuori finestra, la crea sempre): doppione garantito alle 08:45 E 09:30
+  // per ogni cliente che non aprirebbe l'app il giorno della scadenza.
+  // Ora: se esiste la campanella del mattino la PROMUOVO (type aggiornato,
+  // testo "scade OGGI") — una voce sola in campana e il giro dopo tace.
   if (pushSent > 0) {
     const giaCampanella = await db.notification.findFirst({
       where: {
@@ -432,7 +441,15 @@ export async function notifyScadenzaDiOggi(params: {
         OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza' }],
       },
     })
-    if (!giaCampanella) {
+    if (giaCampanella?.type === 'scadenza_oggi') {
+      // Segno gia' presente: niente da scrivere (non succede con la guardia
+      // in cima, resta difensivo per un giro concorrente).
+    } else if (giaCampanella) {
+      await db.notification.update({
+        where: { id: giaCampanella.id },
+        data: { type: 'scadenza_oggi', text },
+      })
+    } else {
       await db.notification.create({
         data: {
           userId: params.userId,
