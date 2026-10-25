@@ -59,6 +59,32 @@ export async function GET(req: NextRequest) {
     return giorniLista != null ? giorni <= giorniLista : giorni <= s.anticipoGiorni
   })
 
+  // v4.81 — LA LISTA DICE SE LA PUSH "SCADE OGGI" È GIÀ STATA CONSEGNATA.
+  // L'app, aprendosi DOPO le 08:30, non deve ripetere l'avviso locale di
+  // recupero quando l'utente ha già ricevuto (e magari svazzato via) la
+  // push di riserva: era il doppione garantito per chi svuota il vassoio
+  // al mattino. Il segno è la campanella 'scadenza_oggi' di OGGI (scritta
+  // solo DOPO una push accettata, v4.78c — i pending 'scadenza_oggi_pending'
+  // NON contano: push ancora in volo o morta). Solo le scadenze del giorno
+  // stesso sono rilevanti: una query sola, e solo se ce ne sono.
+  const inizioDomani = new Date(inizioOggi.getTime() + 24 * 60 * 60 * 1000)
+  const scadenzeDiOggi = imminenti.filter(
+    (s) => s.dataScadenza >= inizioOggi && s.dataScadenza < inizioDomani
+  )
+  let dettagliConPushOggi = new Set<string>()
+  if (scadenzeDiOggi.length > 0) {
+    const segni = await db.notification.findMany({
+      where: {
+        userId: user.id,
+        type: 'scadenza_oggi',
+        detail: { in: scadenzeDiOggi.map((s) => s.filePath) },
+        ts: { gte: inizioOggi },
+      },
+      select: { detail: true },
+    })
+    dettagliConPushOggi = new Set(segni.map((n) => n.detail))
+  }
+
   return NextResponse.json({
     scadenze: imminenti.map((s) => ({
       id: s.id,
@@ -67,6 +93,8 @@ export async function GET(req: NextRequest) {
       dataScadenza: s.dataScadenza,
       anticipoGiorni: s.anticipoGiorni,
       pagata: s.pagata,
+      // v4.81: campo nuovo; le app vecchie lo ignorano da sole.
+      pushInviataOggi: dettagliConPushOggi.has(s.filePath),
     })),
   })
 }

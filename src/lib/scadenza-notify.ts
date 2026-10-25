@@ -423,8 +423,11 @@ export async function notifyScadenzaOggi(params: {
  * identico fa sostituire la seconda notifica alla prima nel vassoio.
  *
  * Niente email il giorno stesso (principio v4.63 confermato): questa
- * funzione non tocca l'email. Tag FCM dedicato pfc-scadenza-oggi-<id>,
- * distinto dal preavviso: i due avvisi non si sovrascrivono mai.
+ * funzione non tocca l'email. Tag FCM "pfc-scad-<id>" (v4.81: allineato
+ * all'identifier della sveglia locale dell'app, così la push può
+ * sostituirla nel vassoio; è distinto dal tag del preavviso
+ * "pfc-scadenza-<id>": i due avvisi di giorni diversi non si
+ * sovrascrivono mai).
  */
 export async function notifyScadenzaDiOggi(params: {
   scadenzaId: string
@@ -543,7 +546,18 @@ export async function notifyScadenzaDiOggi(params: {
     title: '⏰ Scade OGGI',
     body: `"${params.titolo}" scade OGGI (${dataIt}). Aprilo dall'archivio.`,
     url: scadenzaPushUrl(params.filePath),
-    tag: 'pfc-scadenza-oggi-' + params.scadenzaId,
+    // v4.81 — TAG ALLINEATO ALLA SVEGLIA LOCALE. L'app (expo-notifications,
+    // verificato su ExpoPresentationDelegate.kt 0.29) posta le sue notifiche
+    // locali con tag = identifier e id numerico 0 (costante interna): la
+    // sveglia del giorno stesso usa identifier "pfc-scad-<id>". Con lo
+    // STESSO tag, se il display FCM usa anch'esso id 0 la push può
+    // SOSTITUIRE la sveglia nel vassoio invece di affiancarla (chi aveva
+    // l'allarme davanti non vede due righe "Scade OGGI" per lo stesso
+    // file). Se l'id di display non coincide, non accade nulla di nuovo:
+    // le push con lo stesso tag si sostituiscono tra loro, com'era già col
+    // vecchio tag. Comportamento mai peggiore; la verifica vera è sul
+    // telefono (sveglia visibile + app chiusa + push dopo le 08:35).
+    tag: 'pfc-scad-' + params.scadenzaId,
     data: {
       testo: text,
       tipo: 'scadenza_oggi',
