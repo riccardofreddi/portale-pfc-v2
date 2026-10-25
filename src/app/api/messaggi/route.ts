@@ -76,7 +76,10 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  await db.notification.create({
+  // v4.118: la notifica creata si conserva: il suo ID viaggia nel data
+  // della push e l'app lo usa per "Segna come letto" SOLO su questa
+  // notifica (prima il pulsante azzerava tutta la campanella).
+  const notifica = await db.notification.create({
     data: {
       userId: user.id,
       type: richiedeUpload ? 'richiesta_upload' : 'messaggio',
@@ -94,6 +97,12 @@ export async function POST(req: NextRequest) {
     body: text.slice(0, 100),
     url: '/?tab=messaggi',
     tag: 'pfc-messaggio',
+    // v4.118: id campanella nel data (pulsante "Segna come letto"
+    // chirurgico nell'app) + tipo per il riconoscimento senza indovini.
+    data: {
+      id: notifica.id,
+      tipo: richiedeUpload ? 'richiesta_upload' : 'messaggio',
+    },
   }).catch((e) => {
     console.error('[PUSH] messaggi errore:', e)
     return 0

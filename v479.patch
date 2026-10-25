@@ -1,0 +1,163 @@
+diff --git a/src/app/api/avvisi/route.ts b/src/app/api/avvisi/route.ts
+old mode 100644
+new mode 100755
+index c1b9a97..57a7474
+--- a/src/app/api/avvisi/route.ts
++++ b/src/app/api/avvisi/route.ts
+@@ -53,7 +53,12 @@ export async function POST(req: NextRequest) {
+     body: testo.slice(0, 100),
+     url: '/',
+     tag: 'pfc-avviso',
+-    data: { avviso: { text: testo } },
++    // v4.118: TIPO 'avviso' nel data: l'app nativa riconosce l'avviso
++    // pubblico dal tipo e NON piu' cercando "Nuovo avviso" nel titolo
++    // (che si rompeva se il testo cambiava). Il tap apre la Bacheca come
++    // sempre. Il blocco "avviso" resta: il client WEB lo legge per il
++    // toast in-app (useNotificationBadge).
++    data: { tipo: 'avviso', avviso: { text: testo } },
+   }).catch((e) => {
+     console.error('[PUSH] avvisi errore:', e)
+     return 0
+diff --git a/src/app/api/messaggi/route.ts b/src/app/api/messaggi/route.ts
+old mode 100644
+new mode 100755
+index 791831f..1519974
+--- a/src/app/api/messaggi/route.ts
++++ b/src/app/api/messaggi/route.ts
+@@ -76,7 +76,10 @@ export async function POST(req: NextRequest) {
+     },
+   })
+ 
+-  await db.notification.create({
++  // v4.118: la notifica creata si conserva: il suo ID viaggia nel data
++  // della push e l'app lo usa per "Segna come letto" SOLO su questa
++  // notifica (prima il pulsante azzerava tutta la campanella).
++  const notifica = await db.notification.create({
+     data: {
+       userId: user.id,
+       type: richiedeUpload ? 'richiesta_upload' : 'messaggio',
+@@ -94,6 +97,12 @@ export async function POST(req: NextRequest) {
+     body: text.slice(0, 100),
+     url: '/?tab=messaggi',
+     tag: 'pfc-messaggio',
++    // v4.118: id campanella nel data (pulsante "Segna come letto"
++    // chirurgico nell'app) + tipo per il riconoscimento senza indovini.
++    data: {
++      id: notifica.id,
++      tipo: richiedeUpload ? 'richiesta_upload' : 'messaggio',
++    },
+   }).catch((e) => {
+     console.error('[PUSH] messaggi errore:', e)
+     return 0
+diff --git a/src/app/api/push/retry/route.ts b/src/app/api/push/retry/route.ts
+old mode 100644
+new mode 100755
+index 3fd4ef0..c0baa06
+--- a/src/app/api/push/retry/route.ts
++++ b/src/app/api/push/retry/route.ts
+@@ -66,6 +66,9 @@ export async function POST(req: NextRequest) {
+         body: latest.text.slice(0, 100),
+         url,
+         tag: "pfc-retry-" + latest.id,
++        // v4.118: id campanella nel data: il pulsante "Segna come letto"
++        // dell'app segnala SOLO questa notifica, anche sulle ripetizioni.
++        data: { id: latest.id, tipo: latest.type },
+       })
+       totalSent += sent
+       results.push({ username, sent })
+diff --git a/src/lib/scadenza-notify.ts b/src/lib/scadenza-notify.ts
+index 3a86b2f..0743795 100644
+--- a/src/lib/scadenza-notify.ts
++++ b/src/lib/scadenza-notify.ts
+@@ -148,12 +148,18 @@ export async function notifyScadenzaImminente(params: {
+   // La campanella (Notification DB) la creiamo UNA SOLA VOLTA: evita duplicati
+   // se il cron ritenta giorno dopo giorno. Se l'admin ricarica la stessa
+   // scadenza (forceNotifica) la ricreiamo per "riaccendere" il badge.
++  //
++  // v4.119 (audit) — l'ID della campanella viaggia anche nel DATA della
++  // push: il pulsante "Segna come letto" dell'app lo usa per segnare SOLO
++  // questa notifica (prima segnava tutta la campanella). Se la campanella
++  // esiste già (ritento push), la ritroviamo invece di ricrearla.
+   const giaNotificata = await db.scadenza.findUnique({
+     where: { id: params.scadenzaId },
+     select: { notificata: true },
+   })
++  let notificaId: string | null = null
+   if (!giaNotificata?.notificata || params.forceNotifica) {
+-    await db.notification.create({
++    const creata = await db.notification.create({
+       data: {
+         userId: params.userId,
+         type: 'scadenza',
+@@ -161,6 +167,15 @@ export async function notifyScadenzaImminente(params: {
+         detail: params.filePath,
+       },
+     })
++    notificaId = creata.id
++  } else {
++    notificaId = (
++      await db.notification.findFirst({
++        where: { userId: params.userId, type: 'scadenza', detail: params.filePath },
++        orderBy: { ts: 'desc' },
++        select: { id: true },
++      })
++    )?.id ?? null
+   }
+ 
+   // La push la inviamo SOLO se non e gia stata consegnata con successo.
+@@ -208,7 +223,15 @@ export async function notifyScadenzaImminente(params: {
+       body: text,
+       url: scadenzaPushUrl(params.filePath),
+       tag: 'pfc-scadenza-' + params.scadenzaId,
+-      data: { testo: text, tipo: 'scadenza' },
++      data: {
++        testo: text,
++        tipo: 'scadenza',
++        // v4.119 (audit): id della campanella (pulsante "Segna come letto"
++        // chirurgico nell'app) e id della scadenza (per la regola unica
++        // lato telefono: la sveglia locale si tacita quando arriva la push).
++        ...(notificaId ? { id: notificaId } : {}),
++        scadenzaId: params.scadenzaId,
++      },
+     }).catch((e) => {
+       console.error('[SCADENZA] push errore:', e)
+       return { fcm: 0, web: 0 }
+@@ -499,12 +522,37 @@ export async function notifyScadenzaDiOggi(params: {
+     }
+   }
+ 
++  // v4.119 (audit) — ID della campanella per il data della push. Nello slot
++  // v4.78c il pending È la campanella finale: alla chiusura diventa
++  // 'scadenza_oggi' restando la STESSA riga, quindi il suo id è stabile e
++  // il pulsante "Segna come letto" dell'app segna la notifica giusta.
++  const pendingId = (
++    await db.notification.findFirst({
++      where: {
++        userId: params.userId,
++        detail: params.filePath,
++        ts: { gte: inizioGiornata },
++        type: 'scadenza_oggi_pending',
++      },
++      orderBy: { ts: 'desc' },
++      select: { id: true },
++    })
++  )?.id ?? null
++
+   const esito = await sendPushToUserCanali(params.username, {
+     title: '⏰ Scade OGGI',
+     body: `"${params.titolo}" scade OGGI (${dataIt}). Aprilo dall'archivio.`,
+     url: scadenzaPushUrl(params.filePath),
+     tag: 'pfc-scadenza-oggi-' + params.scadenzaId,
+-    data: { testo: text, tipo: 'scadenza_oggi' },
++    data: {
++      testo: text,
++      tipo: 'scadenza_oggi',
++      // v4.119 (audit): id campanella (pulsante chirurgico) + scadenzaId
++      // (regola unica lato telefono: la sveglia locale delle 08:30 si
++      // tacita quando questa push arriva a app aperta).
++      ...(pendingId ? { id: pendingId } : {}),
++      scadenzaId: params.scadenzaId,
++    },
+   }).catch((e) => {
+     console.error('[SCADENZA-OGGI] push errore:', e)
+     return { fcm: 0, web: 0 }

@@ -53,7 +53,12 @@ export async function POST(req: NextRequest) {
     body: testo.slice(0, 100),
     url: '/',
     tag: 'pfc-avviso',
-    data: { avviso: { text: testo } },
+    // v4.118: TIPO 'avviso' nel data: l'app nativa riconosce l'avviso
+    // pubblico dal tipo e NON piu' cercando "Nuovo avviso" nel titolo
+    // (che si rompeva se il testo cambiava). Il tap apre la Bacheca come
+    // sempre. Il blocco "avviso" resta: il client WEB lo legge per il
+    // toast in-app (useNotificationBadge).
+    data: { tipo: 'avviso', avviso: { text: testo } },
   }).catch((e) => {
     console.error('[PUSH] avvisi errore:', e)
     return 0

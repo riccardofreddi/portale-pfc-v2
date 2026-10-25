@@ -66,6 +66,9 @@ export async function POST(req: NextRequest) {
         body: latest.text.slice(0, 100),
         url,
         tag: "pfc-retry-" + latest.id,
+        // v4.118: id campanella nel data: il pulsante "Segna come letto"
+        // dell'app segnala SOLO questa notifica, anche sulle ripetizioni.
+        data: { id: latest.id, tipo: latest.type },
       })
       totalSent += sent
       results.push({ username, sent })
