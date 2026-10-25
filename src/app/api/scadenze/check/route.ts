@@ -12,10 +12,25 @@
  * NOTA: Vercel chiama i cron job con una richiesta GET (non POST). Esponiamo
  * entrambi i metodi verso la stessa logica, così funziona sia il cron automatico
  * di produzione (GET) sia i test manuali (POST con Bearer).
+ *
+ * v4.118 — GIORNO DELLA SCADENZA, logica unificata in un solo ramo:
+ *  - campanella silenziosa sempre (una al giorno per file, guardia interna);
+ *  - push "Scade OGGI" SOLO se: finestra aperta (dopo le 08:35 ora
+ *    italiana, calcolata su Europe/Rome), il telefono NON ha confermato
+ *    l'allarme locale (scadenze.allarme_locale_il di oggi) e la push non
+ *    e' gia' consegnata oggi (guardia separata, type 'scadenza_oggi').
+ *    Il vecchio requisito notificata && pushInviata e' VIA: prima chi non
+ *    aveva ricevuto il preavviso non riceveva NIENTE il giorno stesso, e
+ *    la guardia confondeva la campanella del mattino con la push.
+ *  - gli scheduler restano: cron Vercel 06:00 UTC (preavvisi, la finestra
+ *    chiusa lo tiene a campanelle) + chance GitHub Actions (06:05 riserva
+ *    preavvisi, 07:45 e 08:30 UTC dentro la finestra). Una chance in
+ *    ritardo si auto-corregge: dopo le 08:35 italiane qualunque giro
+ *    tenta la push, le guardie rendono tutto idempotente.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { giorniMancanti, notifyScadenzaDiOggi, notifyScadenzaImminente } from '@/lib/scadenza-notify'
+import { giorniMancanti, notifyScadenzaDiOggi, notifyScadenzaOggi, notifyScadenzaImminente, FINESTRA_PUSH_OGGI_MINUTI, oraItaliaMinuti } from '@/lib/scadenza-notify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -65,33 +80,45 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       const giorni = giorniMancanti(s.dataScadenza, oggi)
       if (giorni > s.anticipoGiorni) continue // ancora troppo presto
 
-      // v4.75 — GIORNO DELLA SCADENZA con preavviso gia' consegnato: qui
-      // prima il server taceva del tutto (la query li escludeva) e tutto
-      // dipendeva dall'allarme locale del telefono. Ora push dedicata
-      // "Scade OGGI", una sola al giorno, ritentata dalle 3 sveglie
-      // mattutine finche' non arriva.
-      if (giorni === 0 && s.notificata && s.pushInviata) {
-        const giaAvvisatoOggi = await db.notification.findFirst({
-          where: {
-            userId: s.userId,
-            detail: s.filePath,
-            ts: { gte: inizioOggi },
-            OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza' }],
-          },
-        })
-        if (giaAvvisatoOggi) continue
-        const esitoOggi = await notifyScadenzaDiOggi({
+      // v4.118 — GIORNO DELLA SCADENZA: un solo ramo per TUTTE le scadenze
+      // di oggi, con o senza preavviso consegnato.
+      if (giorni === 0) {
+        // Campanella silenziosa SEMPRE (una al giorno per file, guardia
+        // interna a notifyScadenzaOggi): il giorno resta visibile dentro
+        // l'app anche se la push non parte.
+        await notifyScadenzaOggi({
           scadenzaId: s.id,
           userId: s.userId,
           username: s.user.username,
           titolo: s.titolo,
           filePath: s.filePath,
           dataScadenza: s.dataScadenza,
+          oggi,
         })
-        pushInviate += esitoOggi.pushSent
-        if (esitoOggi.pushSent > 0) {
-          avvisiOggi++
-          dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
+
+        // Push "Scade OGGI": la riserva della sveglia locale, dentro la
+        // finestra. Prima (v4.75-4.77) partiva solo con notificata &&
+        // pushInviata e la guardia confondeva la campanella con la push:
+        // chi non aveva ricevuto il preavviso restava SENZA AVVISI il
+        // giorno stesso, e una campanella del mattino ammazzava la push.
+        const finestraAperta = oraItaliaMinuti(oggi) >= FINESTRA_PUSH_OGGI_MINUTI
+        const allarmeConfermatoOggi =
+          s.allarmeLocaleIl != null && s.allarmeLocaleIl >= inizioOggi
+        if (finestraAperta && !allarmeConfermatoOggi) {
+          const esitoOggi = await notifyScadenzaDiOggi({
+            scadenzaId: s.id,
+            userId: s.userId,
+            username: s.user.username,
+            titolo: s.titolo,
+            filePath: s.filePath,
+            dataScadenza: s.dataScadenza,
+            oggi,
+          })
+          pushInviate += esitoOggi.pushSent
+          if (esitoOggi.pushSent > 0) {
+            avvisiOggi++
+            dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
+          }
         }
         continue
       }

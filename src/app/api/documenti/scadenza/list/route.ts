@@ -36,10 +36,28 @@ export async function GET(req: NextRequest) {
     orderBy: { dataScadenza: 'asc' },
   })
 
-  // Solo scadenze nel periodo di preavviso (banner "Scadenze imminenti").
-  const imminenti = scadenze.filter(
-    (s) => giorniMancanti(s.dataScadenza, oggi) <= s.anticipoGiorni
-  )
+  // v4.118 — Finestra della lista. Default (senza parametro): solo le
+  // scadenze dentro il periodo di preavviso di ognuna, il comportamento
+  // storico del banner "Scadenze imminenti" del web (nessun cliente vede
+  // niente di nuovo). Con ?giorni=N (l'app RN passa 90) la lista si
+  // allarga a N giorni: l'app arma le sveglie locali delle 08:30 per
+  // TUTTE le scadenze conosciute, non solo per quelle della finestra di
+  // preavviso — se il cliente non apre l'app per due settimane, gli
+  // allarmi delle scadenze successive restano programmati lo stesso
+  // (punto 4 della verifica del 25/10/2026). La forma della risposta non
+  // cambia: cambia solo quante righe entrano.
+  const giorniParam = Number(req.nextUrl.searchParams.get('giorni'))
+  const giorniLista =
+    Number.isInteger(giorniParam) && giorniParam > 0 && giorniParam <= 366
+      ? giorniParam
+      : null
+
+  // Solo scadenze nel periodo di preavviso (banner "Scadenze imminenti"),
+  // oppure nelle N giorni chiesti dall'app (?giorni=90).
+  const imminenti = scadenze.filter((s) => {
+    const giorni = giorniMancanti(s.dataScadenza, oggi)
+    return giorniLista != null ? giorni <= giorniLista : giorni <= s.anticipoGiorni
+  })
 
   return NextResponse.json({
     scadenze: imminenti.map((s) => ({

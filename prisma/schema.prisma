@@ -211,6 +211,12 @@ model Scadenza {
   pagataDa        String?  @map("pagata_da")
   pagataIl        DateTime? @map("pagata_il")
   emailInviata    Boolean  @default(false) @map("email_inviata")
+  // v4.118: quando il telefono ha confermato l'avviso locale del giorno di
+  // scadenza (sveglia 8:30 erogata: POST /api/documenti/scadenza/
+  // allarme-confermato). Se il segno è di OGGI il cron non manda la push
+  // di riserva "Scade OGGI": l'utente è già stato avvisato, niente doppioni.
+  // Null = nessuna conferma (la push di riserva parte nella finestra).
+  allarmeLocaleIl DateTime? @map("allarme_locale_il")
   createdAt       DateTime @default(now()) @map("created_at")
 
   @@index([userId])

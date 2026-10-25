@@ -9,10 +9,56 @@
  * il giorno della scadenza quando il preavviso e' gia' stato consegnato:
  * e' la rete di sicurezza per l'allarme locale 8:30 perso dall'Android
  * (caso reale 24/9/2026). Tutto il resto non e' toccato.
+ *
+ * v4.118 — IL GIORNO STESSO FUNZIONA DAVVERO, UN AVVISO ALLA VOLTA:
+ *  - la push "Scade OGGI" parte SOLO dentro la finestra dopo le 08:35 ora
+ *    italiana (FINESTRA_PUSH_OGGI_MINUTI + oraItaliaMinuti): la sveglia
+ *    locale delle 08:30 ha sempre il campo libero, la push entra come
+ *    riserva dopo di lei, non piu' "quando capitava" (21/9/2026: 14:38);
+ *  - parte anche se il preavviso non e' mai stato consegnato (prima il
+ *    ramo del cron richiedeva notificata && pushInviata: chi non aveva
+ *    ricevuto il preavviso non riceveva NIENTE il giorno stesso);
+ *  - il telefono puo' CONFERMARE l'allarme locale (POST
+ *    /api/documenti/scadenza/allarme-confermato, colonna
+ *    scadenze.allarme_locale_il): con la conferma di oggi la push di
+ *    riserva tace — un avviso solo, mai il doppione;
+ *  - le guardie campanella e push sono SEPARATE: prima "campanella creata
+ *    oggi" bloccava anche la push (verifica del 25/10/2026);
+ *  - le push portano ora &documento= nel deep-link: toccandole l'app si
+ *    apre direttamente sul file in scadenza (come le sveglie locali dalla
+ *    v4.6), non solo sulla cartella.
  */
 import { db } from './db'
 import { sendPushToUserCanali } from './push'
 import { sendEmail } from './email'
+
+/**
+ * v4.118 — Finestra della push "Scade OGGI": la push del giorno stesso parte
+ * SOLO a partire dalle 08:35 ora italiana (Europe/Rome). Prima il cron
+ * sparava a qualunque ora gli capitasse (le chance di riserva su GitHub
+ * partono con ritardi di ore) e la sveglia locale delle 08:30 rischiava il
+ * doppione; ora lei ha il campo libero e la push entra dopo.
+ */
+export const FINESTRA_PUSH_OGGI_MINUTI = 8 * 60 + 35 // 08:35
+
+/**
+ * Minuti trascorsi da mezzanotte secondo l'OROLOGIO ITALIANO (Europe/Rome).
+ * Il server vive in UTC: su Vercel new Date().getHours() e' l'ora UTC, che
+ * cambia con l'ora legale (08:35 it. solare = 07:35 UTC, legale = 06:35).
+ * Intl con timeZone rende la finestra corretta tutto l'anno, senza
+ * librerie esterne.
+ */
+export function oraItaliaMinuti(oggi: Date = new Date()): number {
+  const parti = new Intl.DateTimeFormat('it-IT', {
+    timeZone: 'Europe/Rome',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(oggi)
+  const ore = Number(parti.find((p) => p.type === 'hour')?.value ?? '0')
+  const minuti = Number(parti.find((p) => p.type === 'minute')?.value ?? '0')
+  return ore * 60 + minuti
+}
 
 export function giorniMancanti(data: Date, oggi: Date): number {
   const msAlGiorno = 24 * 60 * 60 * 1000
@@ -37,11 +83,28 @@ export function buildScadenzaNotificaText(titolo: string, dataScadenza: Date, og
   return `${titolo}: ${quando} (${dataScadenza.toLocaleDateString('it-IT')})`
 }
 
-/** URL deep-link per aprire l'archivio sulla cartella del documento in scadenza. */
+/**
+ * URL deep-link per aprire l'archivio sulla cartella del documento in
+ * scadenza.
+ * v4.118 — entra anche &documento= (tutto cio' che segue anno/cartella,
+ * "nome.pdf" o "Sotto/nome.pdf" per le sottocartelle): toccando la push
+ * l'app si apre DIRETTAMENTE sul documento in scadenza, non solo sulla
+ * cartella. Stessa costruzione di partiFilePath dell'app (v4.6): il
+ * risolutore dell'Archivio riconosce il parametro da li'. Percorso non
+ * riconoscibile = fallback alla sola cartella (comportamento vecchio).
+ */
 export function scadenzaPushUrl(filePath: string): string {
   const parts = filePath.split('/')
   const anno = parts[2]
   const cartella = parts[3]
+  const documento = parts.slice(4).join('/')
+  if (anno && cartella && documento) {
+    return (
+      `/?tab=archivio&anno=${encodeURIComponent(anno)}` +
+      `&cartella=${encodeURIComponent(cartella)}` +
+      `&documento=${encodeURIComponent(documento)}`
+    )
+  }
   if (anno && cartella) {
     return `/?tab=archivio&anno=${encodeURIComponent(anno)}&cartella=${encodeURIComponent(cartella)}`
   }
@@ -100,19 +163,23 @@ export async function notifyScadenzaImminente(params: {
   })
   let pushSent = 0
   let consegnataATutti = false
-  // v4.62 — IL GIORNO STESSO DELLA SCADENZA IL SERVER NON MANDA PUSH, MAI.
-  // Il promemoria del giorno X e' la sveglia LOCALE dell'app (8:30, scatta
-  // anche a app chiusa: la fa l'orologio di Android). La push del cron
-  // arrivava "quando capitava": alle 8 con le sveglie puntuali, nel pieno
-  // pomeriggio quando la sveglia di riserva su GitHub parte in ritardo
-  // (caso reale 21/9/2026: push alle 14:38) = doppione percepito. Da oggi
-  // il giorno stesso: solo sveglia 8:30 + campanella silenziosa. Chi non
-  // ha l'app resta coperto dalle push di anticipo e dall'email di fallback
-  // piu' sotto. Per le scadenze dei giorni FUTURI (giorni >= 1) la push
-  // resta come sempre: sono preavvisi, non doppioni. (v4.75b: l'unica
-  // eccezione resta la push dedicata "Scade OGGI" del cron, notifyScadenzaDiOggi,
-  // che parte alle 8:05/8:35/8:55 — non "quando capitava" — e l'app v4.75
-  // deduplica lato telefono. La via di questa funzione resta senza push.)
+  // v4.62 — SU QUESTA VIA, il giorno stesso della scadenza, il server non
+  // manda push, MAI. Il promemoria del giorno X e' la sveglia LOCALE
+  // dell'app (8:30, scatta anche a app chiusa: la fa l'orologio di
+  // Android). La push del cron arrivava "quando capitava": alle 8 con le
+  // sveglie puntuali, nel pieno pomeriggio quando la sveglia di riserva su
+  // GitHub parte in ritardo (caso reale 21/9/2026: push alle 14:38) =
+  // doppione percepito. Per le scadenze dei giorni FUTURI (giorni >= 1) la
+  // push resta come sempre: sono preavvisi, non doppioni.
+  //
+  // v4.118 — NOTA ONESTA (il commento vecchio diceva "l'app v4.75 deduplica
+  // lato telefono": NON e' vero — l'app controlla solo i PROPRI allarmi
+  // locali, le push del server non le tocca). La push del giorno stesso
+  // esiste da un'altra via: notifyScadenzaDiOggi, chiamata dal ramo
+  // dedicato del cron (/api/scadenze/check) SOLO dopo le 08:35 italiane e
+  // SOLO se il telefono non ha confermato l'allarme locale. Questa
+  // funzione resta senza push il giorno stesso perche' serve alla via
+  // immediata (upload / admin imposta la scadenza), non al cron.
   const scadeOggi = giorniMancanti(params.dataScadenza, oggi) === 0
   if (!stato?.pushInviata && !scadeOggi) {
     // v4.58: consegna contata PER CANALE. Prima la push era "consegnata" se la
@@ -247,12 +314,16 @@ export async function notifyScadenzaOggi(params: {
 
   // Guardia anti-doppione: una campanella per questo file esiste GIA' creata
   // oggi? (copre sia il promemoria normale sia un eventuale "oggi" gemello)
+  // v4.118 — la guardia guarda ENTRAMBI i tipi ('scadenza' e 'scadenza_oggi'):
+  // prima vedeva solo 'scadenza' e, se la push di mattina presto aveva gia'
+  // creato la sua campanella 'scadenza_oggi', questa funzione ne aggiungeva
+  // una seconda per lo stesso documento.
   const giaOggi = await db.notification.findFirst({
     where: {
       userId: params.userId,
-      type: 'scadenza',
       detail: params.filePath,
       ts: { gte: inizioGiornata },
+      OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza' }],
     },
   })
   if (giaOggi) return { notified: false, pushSent: 0, emailSent: false }
@@ -278,24 +349,35 @@ export async function notifyScadenzaOggi(params: {
 }
 
 /**
- * v4.75b — PUSH DEDICATA "Scade OGGI" per il GIORNO della scadenza quando il
- * preavviso e' gia' stato consegnato nei giorni precedenti (notificata e
- * pushInviata a true). Prima (v4.62-4.63) il server qui taceva del tutto e
- * tutto dipendeva dall'allarme locale delle 08:30 del telefono, che Android
+ * PUSH DEDICATA "Scade OGGI" per il GIORNO della scadenza (v4.75b, rifatta
+ * v4.118). Prima (v4.62-4.63) il server qui taceva del tutto e tutto
+ * dipendeva dall'allarme locale delle 08:30 del telefono, che Android
  * puo' perdere in risparmio batteria: e' il caso reale del 24/9/2026
  * ("Scade OGGI" mai arrivato nonostante il preavviso del giorno prima).
- * Da oggi il server riparte dalla STESSA via FCM del preavviso, che
- * funziona, con le sveglie mattutine del cron (8:05, 8:35, 8:55 ora
- * italiana) che ritentano finche' la push arriva — non "quando capitava",
- * percio' non rinasce il doppione del pomeriggio che la v4.62 aveva tolto.
+ *
+ * v4.118 — QUANDO parte (deciso dal ramo del giorno stesso in
+ * /api/scadenze/check, che e' l'unico chiamante):
+ *   1. finestra aperta: dopo le 08:35 ora italiana (la sveglia locale
+ *      delle 08:30 ha avuto il suo spazio);
+ *   2. il telefono NON ha confermato l'allarme locale (allarme_locale_il
+ *      di oggi): se l'utente ha avuto la sveglia, la push tace;
+ *   3. la push non e' gia' stata consegnata oggi (guardia qui sotto).
+ * NON serve piu' che il preavviso sia stato consegnato (il vecchio
+ * requisito notificata && pushInviata del cron e' stato tolto: chi non
+ * aveva ricevuto il preavviso non riceveva NIENTE il giorno stesso).
+ *
+ * DUE GUARDIE SEPARATE (prima una sola, e morsicava la push: la campanella
+ * silenziosa creata la mattina bloccava anche la push successiva):
+ *  - guardia PUSH: esiste la campanella 'scadenza_oggi' di oggi? Viene
+ *    creata SOLO dopo una push consegnata, quindi e' il segno "la push di
+ *    oggi e' gia' partita". La campanella 'scadenza' del mattino NON conta.
+ *  - campanella 'scadenza_oggi' creata solo dopo push riuscita E solo se
+ *    l'utente non ha GIA' una campanella per questo file oggi (quella del
+ *    mattino resta la buona: due campanelle = rumore).
  *
  * Niente email il giorno stesso (principio v4.63 confermato): questa
- * funzione non tocca l'email. La campanella (type 'scadenza_oggi') e' il
- * SEGNALE "oggi e' stato avvisato": viene creata SOLO DOPO una push
- * consegnata (almeno un canale). Se la push fallisce nessun segnale resta
- * scritto e le sveglie successive ritentano. Tag FCM dedicato
- * pfc-scadenza-oggi-<id>, distinto dal preavviso: i due avvisi non si
- * sovrascrivono mai.
+ * funzione non tocca l'email. Tag FCM dedicato pfc-scadenza-oggi-<id>,
+ * distinto dal preavviso: i due avvisi non si sovrascrivono mai.
  */
 export async function notifyScadenzaDiOggi(params: {
   scadenzaId: string
@@ -309,19 +391,19 @@ export async function notifyScadenzaDiOggi(params: {
   const oggi = params.oggi ?? new Date()
   const inizioGiornata = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate())
 
-  // Guardia anti-doppione (stessa regola del check del cron, ma dentro la
-  // funzione: cosi' resta idempotente da qualunque via venga chiamata).
-  // Se oggi e' gia' comparso un avviso per questo file (campanella
-  // 'scadenza' o 'scadenza_oggi'), non si ripete nulla.
-  const giaOggi = await db.notification.findFirst({
+  // v4.118 — GUARDIA PUSH (separata dalla campanella): la campanella
+  // 'scadenza_oggi' nasce solo dopo una push consegnata, quindi e' lei il
+  // segno "push di oggi gia' partita". La campanella 'scadenza' creata
+  // dalla finestra del mattino non deve bloccare la push.
+  const giaPushOggi = await db.notification.findFirst({
     where: {
       userId: params.userId,
+      type: 'scadenza_oggi',
       detail: params.filePath,
       ts: { gte: inizioGiornata },
-      OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza' }],
     },
   })
-  if (giaOggi) return { pushSent: 0 }
+  if (giaPushOggi) return { pushSent: 0 }
 
   const dataIt = params.dataScadenza.toLocaleDateString('it-IT')
   const text = `${params.titolo}: scade OGGI (${dataIt})`
@@ -338,18 +420,28 @@ export async function notifyScadenzaDiOggi(params: {
   })
   const pushSent = esito.fcm + esito.web
 
-  // Campanella SOLO dopo push riuscita (almeno un canale): e' il segnale
-  // "avvisato oggi" che le sveglie successive e il cron leggeranno per non
-  // ripetere nulla.
+  // Campanella SOLO dopo push riuscita e SOLO se l'utente non ha GIA' una
+  // campanella per questo file oggi (la silenziosa del mattino resta quella
+  // buona: due campanelle per lo stesso documento sarebbero rumore).
   if (pushSent > 0) {
-    await db.notification.create({
-      data: {
+    const giaCampanella = await db.notification.findFirst({
+      where: {
         userId: params.userId,
-        type: 'scadenza_oggi',
-        text,
         detail: params.filePath,
+        ts: { gte: inizioGiornata },
+        OR: [{ type: 'scadenza_oggi' }, { type: 'scadenza' }],
       },
     })
+    if (!giaCampanella) {
+      await db.notification.create({
+        data: {
+          userId: params.userId,
+          type: 'scadenza_oggi',
+          text,
+          detail: params.filePath,
+        },
+      })
+    }
   }
 
   return { pushSent }

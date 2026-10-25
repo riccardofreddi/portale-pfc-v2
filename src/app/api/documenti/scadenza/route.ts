@@ -70,16 +70,21 @@ export async function POST(req: NextRequest) {
       anticipoGiorni: anticipo,
       notificata: false,
       pushInviata: false,
+      allarmeLocaleIl: null,
     },
     update: {
       titolo: titoloFinal,
       dataScadenza: data,
       anticipoGiorni: anticipo,
       // Reset completo: se l'admin cambia la data, il cliente deve ricevere
-      // di nuovo il promemoria (campanella + push + email fallback) per la nuova scadenza.
+      // di nuovo il promemoria (campanella + push + email fallback) per la
+      // nuova scadenza. v4.118: si azzera anche il feedback dell'allarme
+      // locale — un segno vecchio non deve zittire la push di riserva di
+      // una scadenza cambiata.
       notificata: false,
       pushInviata: false,
       emailInviata: false,
+      allarmeLocaleIl: null,
     },
   })
 
