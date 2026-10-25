@@ -1,0 +1,455 @@
+diff --git a/App.tsx b/App.tsx
+index 9eb6acc..3e89463 100644
+--- a/App.tsx
++++ b/App.tsx
+@@ -15,7 +15,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
+ import { api, ApiError } from '@/api/client';
+ import { useAppStore } from '@/store/auth';
+ import { riRegistraPushSilenziosa, setupPushListeners } from '@/lib/push';
+-import { aggiornaPromemoriaScadenze } from '@/lib/scadenze-locali';
++// v4.121: entra promemoriaAttivi (il toast "notifiche spente" al login).
++import {
++  aggiornaPromemoriaScadenze,
++  promemoriaAttivi,
++} from '@/lib/scadenze-locali';
+ import { AppNavigator } from '@/navigation/AppNavigator';
+ import { Toaster, toast } from '@/components/Toaster';
+ import { ThemeProvider } from '@/theme/ThemeContext';
+@@ -174,7 +178,26 @@ export default function App() {
+ 
+     const sincronizza = () => {
+       const ora = Date.now();
+-      if (ora - ultimaSyncScadenze.current < 30 * 60 * 1000) return;
++      if (ora - ultimaSyncScadenze.current < 30 * 60 * 1000) {
++        // v4.121: il freno di 30 minuti NON deve far dormire il recupero
++        // della sveglia persa. Caso reale: aperta alle 08:10 (sync partita),
++        // sveglia delle 08:30 persa da Android, riaperta alle 08:35: il
++        // freno (scaduto alle 08:40) taceva e l'avviso "Scade oggi" recuperato
++        // ritardava fino a mezz'ora — proprio nella finestra che conta. Se
++        // tra l'ultima sync e adesso è PASSATO il confine delle 08:30 di
++        // oggi, il giro parte lo stesso (poi il freno torna a valere:
++        // il confine non si ripassa due volte nello stesso giorno).
++        const confine = new Date();
++        confine.setHours(8, 30, 0, 0);
++        if (
++          !(
++            ultimaSyncScadenze.current < confine.getTime() &&
++            ora >= confine.getTime()
++          )
++        ) {
++          return;
++        }
++      }
+       // v4.118 — CONTATORE ONESTO: prima il momento veniva segnato PRIMA di
+       // chiamare la sync, che e' asincrona e non veniva attesa: una sync
+       // lunga (rete lenta) spostava la successiva a "30 minuti + durata
+@@ -200,6 +223,38 @@ export default function App() {
+     return () => sub.remove();
+   }, [user]);
+ 
++  // v4.121: L'INTERRUTTORE NOTIFICHE È DEL TELEFONO, NON DELL'ACCOUNT
++  // (scelta v4.12/v4.13: una sola chiave su AsyncStorage, nessun tracciamento
++  // per utente). Contropartita: se A lo spegne e poi entra B sullo stesso
++  // telefono, B non riceve niente SENZA saperne il motivo (la registrazione
++  // al login salta in silenzio). Ora al login (e al ripristino di sessione)
++  // l'app lo DICE: un toast, una volta per sessione, solo se l'interruttore
++  // è spento. Il permesso negato invece NON viene anticipato qui: al login
++  // la finestra di sistema sta per comparire — scriverlo prima sarebbe solo
++  // rumore (lo stato vero resta leggibile in Impostazioni, ormai live).
++  const toastSpenteMostrato = useRef(false);
++  useEffect(() => {
++    if (!user) {
++      toastSpenteMostrato.current = false;
++      return;
++    }
++    if (toastSpenteMostrato.current) return;
++    toastSpenteMostrato.current = true;
++    // Piccola pausa: il toast di benvenuto ha già la scena (due toast
++    // sovrapposti si coprono a vicenda e l'importante resta invisibile).
++    const timer = setTimeout(() => {
++      void promemoriaAttivi().then((attivi) => {
++        if (!attivi) {
++          toast.info(
++            'Notifiche spente su questo telefono',
++            'Se ti aspettavi avvisi dello studio, riaccendile in Impostazioni → Notifiche.',
++          );
++        }
++      });
++    }, 2500);
++    return () => clearTimeout(timer);
++  }, [user]);
++
+   // v4.51: auto-riparazione notifiche. Al login e a ogni ritorno sull'app
+   // (max 1 volta ogni 10 minuti) l'app ridice al server "l'indirizzo di
+   // questo telefono e' questo". Silenziosa: se il permesso non c'e' gia',
+diff --git a/README.md b/README.md
+index 77a35da..39f4475 100644
+--- a/README.md
++++ b/README.md
+@@ -8,7 +8,7 @@ Documenti, messaggi e scadenze in un unico posto — con notifiche che aprono
+ subito il contenuto giusto, anche a telefono bloccato.
+ 
+ ![CI](https://github.com/riccardofreddi/portale-pfc-rn/actions/workflows/ci.yml/badge.svg)
+-![Versione](https://img.shields.io/badge/versione-1.88.22-1E3A5F)
++![Versione](https://img.shields.io/badge/versione-1.88.23-1E3A5F)
+ ![Piattaforma](https://img.shields.io/badge/Android-APK%20diretto-3DDC84?logo=android&logoColor=white)
+ 
+ </div>
+@@ -100,11 +100,11 @@ Ogni versione ha tre nomi che dicono la stessa cosa:
+ 
+ | Dove la vedi | Esempio | Cosa indica |
+ |---|---|---|
+-| Tacca in **Impostazioni** | `1.88.22 / js4120` | La versione che gira davvero sul telefono |
+-| Pagina **Releases** | `Versione: 1.88.22` | L'ultima APK pubblicata |
+-| Messaggio di commit | `v4.120` | Il numero progressivo delle versioni |
++| Tacca in **Impostazioni** | `1.88.23 / js4121` | La versione che gira davvero sul telefono |
++| Pagina **Releases** | `Versione: 1.88.23` | L'ultima APK pubblicata |
++| Messaggio di commit | `v4.121` | Il numero progressivo delle versioni |
+ 
+-La corrispondenza è fissa: **v4.120 ↔ build 120 ↔ js4120 ↔ 1.88.22**.
++La corrispondenza è fissa: **v4.121 ↔ build 121 ↔ js4121 ↔ 1.88.23**.
+ La versione tecnica sale di spuntino (`1.88.3 → 1.88.4`); quando la coda
+ arriva a 9 rotola (`1.88.9 → 1.89.0`).
+ 
+diff --git a/android/app/build.gradle b/android/app/build.gradle
+index aafa82b..421f8fd 100644
+--- a/android/app/build.gradle
++++ b/android/app/build.gradle
+@@ -19,8 +19,8 @@ android {
+         applicationId "com.portalepfcrn"
+         minSdkVersion rootProject.ext.minSdkVersion
+         targetSdkVersion rootProject.ext.targetSdkVersion
+-        versionCode 120
+-        versionName "1.88.22"
++        versionCode 121
++        versionName "1.88.23"
+     }
+     signingConfigs {
+         debug {
+diff --git a/app.json b/app.json
+index 4d05c6b..86659c5 100644
+--- a/app.json
++++ b/app.json
+@@ -4,7 +4,7 @@
+   "expo": {
+     "name": "Portale Studio",
+     "slug": "portale-pfc",
+-    "version": "1.88.22",
++    "version": "1.88.23",
+     "orientation": "portrait",
+     "userInterfaceStyle": "automatic",
+     "android": {
+diff --git a/package.json b/package.json
+index 82ffbb8..df02370 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "PortalePFCRN",
+-  "version": "1.88.22",
++  "version": "1.88.23",
+   "private": true,
+   "main": "index.js",
+   "scripts": {
+diff --git a/src/api/client.ts b/src/api/client.ts
+index d8bf5f4..5661719 100644
+--- a/src/api/client.ts
++++ b/src/api/client.ts
+@@ -288,6 +288,10 @@ export const api = {
+         dataScadenza: String(s.dataScadenza ?? ''),
+         anticipoGiorni: Number(s.anticipoGiorni ?? 10),
+         pagata: Boolean(s.pagata),
++        // v4.121: la push "Scade OGGI" del server è già stata consegnata
++        // oggi? (assente/false = non noto: il recupero locale procede come
++        // sempre — mai il silenzio per un campo mancante).
++        pushInviataOggi: s.pushInviataOggi === true,
+       }));
+       return { scadenze: mapped };
+     },
+diff --git a/src/lib/notifiche.ts b/src/lib/notifiche.ts
+index 1538695..2fdfa4b 100644
+--- a/src/lib/notifiche.ts
++++ b/src/lib/notifiche.ts
+@@ -165,6 +165,55 @@ export async function caricaModuloNotifiche(): Promise<ModuloNotifiche | null> {
+   return caricaModulo();
+ }
+ 
++/**
++ * v4.121 — UNA SOLA FINESTRA "Consenti notifiche" PER TUTTA L'APP.
++ *
++ * Il problema reale: al login il permesso veniva chiesto DUE volte quasi
++ * insieme, da due librerie diverse — registerPushForCurrentUser lo chiedeva
++ * con Firebase (messaging().requestPermission) e, un attimo dopo, la sync
++ * delle scadenze lo richiedeva di nuovo con expo (preparaNotifiche). Su
++ * Android 13+ due richieste POST_NOTIFICATIONS ravvicinate possono farne
++ * ignorare una e registrare l'esito come NEGATO anche quando l'utente ha
++ * detto sì alla prima finestra: il permesso sembrava perso finché l'utente
++ * non lo ridava a mano dalle impostazioni.
++ *
++ * Ora tutti i percorsi passano da qui: chi arriva mentre la richiesta è in
++ * volo riceve la STESSA Promise (mutex) — un dialogo solo, un esito solo.
++ * Semantica invariata rispetto a v4.118: la finestra si apre UNA volta sola
++ * nella vita dell'app; se negata, le chiamate successive NON insistono (si
++ * rilegge solo lo stato del sistema, così se l'utente concede dopo dalle
++ * impostazioni, tutto riparte da solo).
++ */
++let richiestaPermessoInCorso: Promise<boolean> | null = null;
++
++export function assicuraPermessoNotifiche(): Promise<boolean> {
++  if (permessoOk === true) return Promise.resolve(true);
++  if (richiestaPermessoInCorso) return richiestaPermessoInCorso;
++  richiestaPermessoInCorso = (async () => {
++    try {
++      const Notifications = await caricaModulo();
++      if (!Notifications) return false;
++      const stato = await Notifications.getPermissionsAsync();
++      if (stato.granted) {
++        permessoOk = true;
++        return true;
++      }
++      if (permessoOk === null) {
++        // Prima richiesta della vita dell'app: apre il dialogo di sistema.
++        permessoOk = (await Notifications.requestPermissionsAsync()).granted;
++        return permessoOk;
++      }
++      // Già chiesto e negato: niente finestra, false onesto.
++      return false;
++    } catch {
++      return false;
++    } finally {
++      richiestaPermessoInCorso = null;
++    }
++  })();
++  return richiestaPermessoInCorso;
++}
++
+ /**
+  * Prepara tutto il necessario (gestore, permesso, canale "Download").
+  * Idempotente: si puo' chiamare a ogni download senza sprechi.
+@@ -192,25 +241,14 @@ export async function preparaNotifiche(): Promise<boolean> {
+       gestorePronto = true;
+     }
+ 
+-    if (permessoOk !== true) {
+-      const stato = await Notifications.getPermissionsAsync();
+-      if (stato.granted) {
+-        permessoOk = true;
+-      } else if (permessoOk === null) {
+-        // Su Android 13+ apre la finestra di sistema "Consenti notifiche"
+-        // UNA volta sola nella vita dell'app: serve per vedere le
+-        // notifiche in alto. Se viene negato, qui sotto restiamo a false
+-        // e le chiamate successive NON insistono (nessuna finestra che
+-        // riappare): rileggono solo lo stato, così se l'utente concede
+-        // dopo dalle impostazioni del telefono, tutto riparte da solo.
+-        permessoOk = (await Notifications.requestPermissionsAsync()).granted;
+-        if (!permessoOk) return false;
+-      } else {
+-        // Già chiesto e negato: niente finestra, niente canali spacciati
+-        // per pronti. False onesto.
+-        return false;
+-      }
+-    }
++    // v4.121: il permesso passa dal MUTEX condiviso (assicuraPermessoNotifiche
++    // qui sopra): stessa semantica di prima — la finestra di sistema si apre
++    // UNA volta sola, poi solo rilettura dello stato — ma se il login sta
++    // GIÀ chiedendo il permesso (registerPushForCurrentUser usa la stessa
++    // funzione), qui non si apre un secondo dialogo: si aspetta l'esito di
++    // quello già aperto (prima due richieste ravvicinate potevano farne
++    // ignorare una e registrare un "negato" falso).
++    if (!(await assicuraPermessoNotifiche())) return false;
+ 
+     // v4.118: il canale "download" non esiste più: la sua unica
+     // utente (notificaDownload, rimossa — codice morto) non lo indicava
+@@ -321,6 +359,13 @@ export function sulToccoNotifica(
+   cb: (dati: Record<string, unknown>, azione?: string, notifId?: string) => void,
+ ): () => void {
+   let stacca: (() => void) | null = null;
++  // v4.121: se il cleanup arriva PRIMA che caricaModulo() risolva (in dev
++  // capita a ogni rimontaggio rapido: lo smontaggio corre più veloce del
++  // import dinamico), "stacca" era ancora null e il listener restava
++  // attaccato PER SEMPRE — a ogni remount se ne aggiungeva uno nuovo e un
++  // tocco sull'avviso veniva gestito più volte. Ora il segno "già staccato"
++  // sopravvive all'attesa: il listener nato tardi viene rimosso subito.
++  let giaStaccato = false;
+   caricaModulo()
+     .then((Notifications) => {
+       if (!Notifications) return;
+@@ -335,6 +380,10 @@ export function sulToccoNotifica(
+         },
+       );
+       stacca = () => sub.remove();
++      if (giaStaccato) {
++        stacca();
++        return;
++      }
+       // Avvio "freddo": se l'app era CHIUSA e il cliente ha aperto
+       // toccando l'avviso, lo intercettiamo qui (una sola volta).
+       Notifications.getLastNotificationResponseAsync()
+@@ -351,6 +400,7 @@ export function sulToccoNotifica(
+     })
+     .catch(() => {});
+   return () => {
++    giaStaccato = true;
+     if (stacca) stacca();
+   };
+ }
+diff --git a/src/lib/push.ts b/src/lib/push.ts
+index 4d60f51..207efeb 100644
+--- a/src/lib/push.ts
++++ b/src/lib/push.ts
+@@ -40,7 +40,14 @@ import messaging from '@react-native-firebase/messaging';
+ import { DeviceEventEmitter, Platform } from 'react-native';
+ import { api } from '@/api/client';
+ import { parseDeepLink, type DeepLinkTarget } from '@/lib/deeplink';
+-import { mostraAvvisoLocale, sulToccoNotifica, togliNotifica } from '@/lib/notifiche';
++// v4.121: entra assicuraPermessoNotifiche (il permesso è UNO per tutta
++// l'app, chiesto con finestra sola e mutex condiviso — vedi notifiche.ts).
++import {
++  assicuraPermessoNotifiche,
++  mostraAvvisoLocale,
++  sulToccoNotifica,
++  togliNotifica,
++} from '@/lib/notifiche';
+ import {
+   promemoriaAttivi,
+   segnaPushScadenzaOggiEroga,
+@@ -229,12 +236,17 @@ export async function registerPushForCurrentUser(): Promise<boolean> {
+       return false;
+     }
+ 
+-    const authStatus = await messaging().requestPermission();
+-    const enabled =
+-      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+-      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+-
+-    if (!enabled) {
++    // v4.121: UNA SOLA finestra "Consenti notifiche". Prima qui il permesso
++    // si chiedeva con Firebase E, quasi nello stesso istante, la sync delle
++    // scadenze lo richiedeva con expo (preparaNotifiche -> requestPermissions):
++    // su Android 13+ due richieste POST_NOTIFICATIONS ravvicinate possono
++    // farne ignorare una e registrare l'esito come negato anche quando
++    // l'utente aveva detto sì (il permesso sembrava perso finché non lo
++    // ridava a mano). Ora si passa dal MUTEX condiviso di notifiche.ts: il
++    // secondo chiamante aspetta l'esito della prima finestra, senza aprirne
++    // altre. Firebase legge lo stesso stato del sistema: nessun controllo
++    // in più necessario qui.
++    if (!(await assicuraPermessoNotifiche())) {
+       pushState.error = 'Permesso notifiche negato';
+       console.log('[PUSH] permesso negato');
+       return false;
+diff --git a/src/lib/scadenze-locali.ts b/src/lib/scadenze-locali.ts
+index e1d8cd0..8fb028d 100644
+--- a/src/lib/scadenze-locali.ts
++++ b/src/lib/scadenze-locali.ts
+@@ -578,6 +578,27 @@ async function syncPromemoriaScadenze(): Promise<number> {
+             continue;
+           }
+ 
++          // v4.121 — IL RECUPERO NON RIPETE QUANTO IL SERVER HA GIÀ DETTO.
++          // Il caso comune che restava scoperto: sveglia scattata alle 08:30,
++          // push di riserva del server arrivata dopo le 08:35, l'utente ha
++          // SVAZZATO via gli avvisi e riapre l'app alle 09:15: il vassoio è
++          // vuoto (il controllo qui sotto non vede più nulla) e il recupero
++          // ripeteva l'avviso = doppione garantito proprio per chi svuota
++          // il vassoio al mattino. Ora il server dice in LISTA se la push
++          // "Scade OGGI" di oggi è già stata consegnata (campo
++          // pushInviataOggi): in quel caso l'utente l'avviso L'HA avuto —
++          // si segna erogato e si tace. Se il server è vecchio (campo
++          // assente = false) il comportamento resta quello di prima.
++          if (giorno === oggiLocale && scadenza.pushInviataOggi === true) {
++            await AsyncStorage.setItem(chiaveErogato, giorno).catch(() => {});
++            console.log(
++              '[SCADENZE-LOCALI] push "Scade OGGI" già consegnata dal server per',
++              scadenza.titolo,
++              ': niente recupero',
++            );
++            continue;
++          }
++
+           // Il vassoio dice se la sveglia e' SCATTATA (notifica presente).
+           // API mancante o errore = non sappiamo: comportamento sicuro,
+           // l'avviso immediato esce comunque (mai piu' il silenzio totale).
+diff --git a/src/lib/updates.ts b/src/lib/updates.ts
+index f114e3f..daea5e0 100644
+--- a/src/lib/updates.ts
++++ b/src/lib/updates.ts
+@@ -107,7 +107,7 @@ export const APP_VERSION: string =
+ /** Sigillo dell'interfaccia JS: cambia a ogni release e viaggia
+  *  col codice, non col build (segue il versionCode: 4101 = versionCode
+  *  100). Unica fonte: la tacca di versione, ora in Impostazioni. */
+-export const CODICE_INTERFACCIA = 4120;
++export const CODICE_INTERFACCIA = 4121;
+ 
+ interface ReleaseInfo {
+   version: string | null;
+diff --git a/src/screens/SettingsModal.tsx b/src/screens/SettingsModal.tsx
+index dce72a4..14a9311 100644
+--- a/src/screens/SettingsModal.tsx
++++ b/src/screens/SettingsModal.tsx
+@@ -37,6 +37,10 @@
+  */
+ import React, { useEffect, useState } from 'react';
+ import {
++  // v4.121: serve per rileggere lo stato al RIENTRO nel pannello (l'utente
++  // concede il permesso dalle impostazioni di sistema e torna: il rientro è
++  // un evento 'active') e per aggiornare la diagnostica dopo il toggle.
++  AppState,
+   Linking,
+   Pressable,
+   ScrollView,
+@@ -154,6 +158,22 @@ export function SettingsModal() {
+     void leggiStatoNotifiche();
+   }, [visible]);
+ 
++  // v4.121: il pannello NON resta più appeso allo stato di minuti prima.
++  // Due casi reali: (1) l'utente tocca "Apri impostazioni", concede il
++  // permesso e torna: il rientro è un evento 'active' e qui lo stato si
++  // rilegge, così la pillola passa subito a "Permesso concesso" senza
++  // chiudere e riaprire il pannello (prima leggiStatoNotifiche girava SOLO
++  // all'apertura: il pannello diceva "Permesso negato" anche dopo averlo
++  // concesso); (2) la diagnostica si aggiorna da sola anche se lo stato
++  // cambia mentre il pannello sta aperto.
++  useEffect(() => {
++    if (!visible) return;
++    const sub = AppState.addEventListener('change', (stato) => {
++      if (stato === 'active') void leggiStatoNotifiche();
++    });
++    return () => sub.remove();
++  }, [visible]);
++
+   // v4.118: invia una notifica DI PROVA dal server (endpoint esistente,
+   // usato finora solo dalla diagnostica web): la prova vera e propria
+   // che il telefono è agganciato e che la push arriva fin qui.
+@@ -239,6 +259,14 @@ export function SettingsModal() {
+           : 'Spente su questo telefono: l\'uscita dal registro dello studio si completerà appena torna la rete.',
+       );
+     }
++
++    // v4.121: la diagnostica si RILEGGE dopo il toggle: prima restava il
++    // vecchio esito ("Telefono registrato: no" anche dopo una riuscita,
++    // pillola del permesso ferma al vecchio stato) e il pannello sembrava
++    // dire che nulla funzionava anche quando invece era andato tutto a
++    // posto. Il rientro 'active' (effetto qui sotto) non basta: il pannello
++    // resta 'active' durante il toggle.
++    void leggiStatoNotifiche();
+   }
+ 
+   // v4.83: riapre la guida introduttiva (la intro della prima volta),
+diff --git a/src/types/api.ts b/src/types/api.ts
+index 5b28cd2..a34230f 100644
+--- a/src/types/api.ts
++++ b/src/types/api.ts
+@@ -179,4 +179,12 @@ export interface ScadenzaItem {
+   dataScadenza: string;
+   anticipoGiorni: number;
+   pagata: boolean;
++  /**
++   * v4.121: true se il server ha GIÀ consegnato oggi la push "Scade OGGI"
++   * per questa scadenza: il telefono non deve ripetere l'avviso di recupero
++   * (l'utente l'avviso l'ha avuto, anche se ha svuotato il vassoio).
++   * Opzionale: un server vecchio non lo manda (undefined = comportamento
++   * di prima: il recupero parte come sempre).
++   */
++  pushInviataOggi?: boolean;
+ }
+\ No newline at end of file
