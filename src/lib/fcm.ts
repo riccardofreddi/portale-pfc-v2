@@ -114,6 +114,16 @@ export async function sendFcmToUser(
             priority: 'high',
             notification: {
               channelId: 'pfc-alerts-v2',
+              // v4.80: icona e colore ESPLICITI in ogni push. A app CHIUSA
+              // la notifica la disegna Google Play services, che legge i
+              // meta-data del manifest (v4.119): mettendoli anche qui,
+              // il rendering non dipende piu' dal merge del manifest.
+              // "ic_stat_notification" e' la campana bianca in res/drawable-*
+              // dell'app (nome della risorsa SENZA estensione), l'oro e'
+              // il colore del brand. A app APERTA non cambia nulla: la
+              // mostra l'app stessa (e da v4.120 usa la stessa icona).
+              icon: 'ic_stat_notification',
+              color: '#D4AF37',
               defaultSound: true,
               defaultVibrateTimings: true,
               visibility: 'public',
