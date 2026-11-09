@@ -40,6 +40,28 @@
  * l'email di cortesia. Il GIORNO STESSO non cambia: sveglia locale 08:30 +
  * push di riserva "Scade OGGI" dopo le 08:35 solo se l'allarme non e'
  * stato confermato (v4.118-4.124, intoccato).
+ *
+ * v4.84 — RETE DI SICUREZZA DEL PREAVVISO (caso reale 9/11/2026, cliente
+ * Freddi): il documento in scadenza il 13/11 con anticipo 4 giorni e'
+ * arrivato l'8/11 alle 18:30, con l'app chiusa da due giorni. La sveglia
+ * locale "Scade tra 4 giorni" del 9/11 alle 08:30 non e' MAI stata armata
+ * (la sync che arma le sveglie gira solo a app aperta) e dalla v4.83 il
+ * server non pusha piu' in anticipo: silenzio totale, solo la campanella
+ * alla prima apertura. Ma il preavviso DEVE funzionare anche se l'app non
+ * viene aperta per giorni o mesi. Da oggi il server rimanda la push
+ * "⏰ Scade tra N giorni" (stesso testo della sveglia locale, deep-link al
+ * documento) MA SOLO quando la sveglia locale NON PUO' esistere: l'app non
+ * e' stata riaperta dopo la creazione della scadenza (l'app ripresenta il
+ * token FCM a ogni apertura/ritorno in primo piano v4.51, quindi il max
+ * di fcm_tokens.updated_at e' l'ultima apertura certa; vedi
+ * notifyPreavvisoDiOggi). Chi apre l'app ha la sveglia armata e resta
+ * coperto da lei — un solo avviso, mai il doppione (principio v4.83).
+ * La push parte dentro la stessa finestra del giorno stesso (dopo le 08:35
+ * italiane: chance GitHub 07:45/08:30 UTC), una sola volta per scadenza
+ * (flag pushInviata, il significato storico v4.58) e con lo stesso tag
+ * della sveglia locale del preallarme ("pfc-scad-<id>-p<N>"): anche nel
+ * caso limite entrambe finiscono nella stessa riga del vassoio, non
+ * affiancate.
  */
 import { db } from './db'
 import { sendPushToUserCanali } from './push'
@@ -588,4 +610,126 @@ export async function notifyScadenzaDiOggi(params: {
   }
 
   return { pushSent }
+}
+
+/**
+ * v4.84 — I giorni di PREAVVISO di una scadenza, STESSA regola dell'app
+ * (src/lib/scadenze-locali.ts v4.124): l'anticipo scelto dallo studio entra
+ * lui stesso nei preavvisi, insieme alle tacche fisse 10/3/1, filtrate a
+ * [1..anticipo] e senza doppioni. Esempi: anticipo 4 -> [4, 3, 1];
+ * anticipo 10 -> [10, 3, 1]; anticipo 2 -> [2, 1]; anticipo 1 -> [1].
+ * Difesa NaN come l'app: anticipo non valido = 10 (il default del server).
+ */
+export function giorniDiPreavviso(anticipoGiorni: number): number[] {
+  const anticipo =
+    Number.isFinite(anticipoGiorni) && anticipoGiorni > 0 ? anticipoGiorni : 10
+  return Array.from(new Set([anticipo, 10, 3, 1]))
+    .filter((n) => n >= 1 && n <= anticipo)
+    .sort((a, b) => b - a)
+}
+
+/**
+ * v4.84 — PUSH "Scade tra N giorni" DEL SERVER: la rete di sicurezza del
+ * preavviso per i telefoni che NON possono avere la sveglia locale armata.
+ *
+ * PERCHE' ESISTE (caso Freddi 9/11/2026): la sveglia locale "Scade tra N
+ * giorni" delle 08:30 viene armata SOLAMENTE dalla sync dell'app (a ogni
+ * apertura l'app scarica la lista scadenze a 90 giorni e programma tutti i
+ * preallarmi futuri, v4.118/v4.124). Un documento caricato mentre l'app e'
+ * chiusa (sera, weekend, settimane intere) NON ha nessuna sveglia armata
+ * fino alla prossima apertura: se l'apertura arriva dopo il giorno di
+ * preavviso, l'avviso e' perso per sempre. La v4.83 aveva tolto la push di
+ * preavviso del server perche' RADDOPPIAVA la sveglia di chi apre l'app;
+ * questa funzione la riaccende SOLO per chi la sveglia non puo' averla.
+ *
+ * LA GUARDIA (un solo avviso, mai il doppione): l'app ripresenta il token
+ * FCM al server a ogni apertura e a ogni ritorno in primo piano (v4.51,
+ * throttle 10 minuti) con un upsert che rinfresca fcm_tokens.updated_at.
+ * Quindi max(fcm_tokens.updated_at) dell'utente e' l'ULTIMA APERTA certa:
+ *   - aggiornata DOPO la creazione della scadenza -> la sync e' girata e le
+ *     sveglie dei preallarmi futuri sono armate: la push tace (la sveglia
+ *     ha il campo libero, principio v4.83);
+ *   - aggiornata PRIMA (app chiusa da allora) oppure nessun token -> nessuna
+ *     sync puo' aver armato la sveglia: la push parte.
+ * Correzione automatica giorno per giorno: se l'utente apre l'app tra un
+ * preavviso e l'altro, i preavvisi successivi tornano ad essere della
+ * sveglia locale (guardia qui sopra) senza mai raddoppiare.
+ *
+ * QUANDO la chiama il cron (/api/scadenze/check, unico chiamante): il giorno
+ * e' uno dei giorni di preavviso (giorniDiPreavviso) e l'ora italiana e'
+ * dentro la finestra del mattino (dopo le 08:35, FINESTRA_PUSH_OGGI_MINUTI:
+ * la stessa del giorno stesso — chi la sveglia ce l'ha scattata alle 08:30,
+ * chi no riceve la rete). Il cron Vercel delle 06:00 UTC (07:00 italiane) e'
+ * fuori finestra: fa solo le campanelle; le chance GitHub Actions 07:45 e
+ * 08:30 UTC sono dentro e portano la push.
+ *
+ * UNA SOLA VOLTA PER SCADENZA: push consegnata (fcm+web > 0) ->
+ * scadenze.push_inviata = true (il significato storico v4.58, riportato in
+ * vita): la guardia "notificata && pushInviata" del cron saltera' questa
+ * scadenza nei giorni successivi. Push NON consegnata -> flag non scritto ->
+ * la chance dopo (o il giorno di preavviso successivo, col testo aggiornato
+ * "Scade tra M giorni") ritenta: mai il silenzio.
+ *
+ * Il payload e' un NOTIFICATION message (titolo+corpo+canale pfc-alerts-v2):
+ * lo mostra Google Play services anche a app chiusa da mesi, senza eseguire
+ * codice dell'app. Tag identico all'identifier della sveglia locale del
+ * preallarme ("pfc-scad-<id>-p<N>", v4.119): nel caso limite in cui anche la
+ * sveglia fosse in vassoio, la push la SOSTITUISCE invece di affiancarsi.
+ * data.tipo resta 'scadenza' (riconosciuta dal client v4.124: il tocco apre
+ * il documento in deep-link) — nessuna modifica client necessaria.
+ */
+export async function notifyPreavvisoDiOggi(params: {
+  scadenzaId: string
+  userId: string
+  username: string
+  titolo: string
+  filePath: string
+  dataScadenza: Date
+  giorniPrima: number
+  /** Quando la scadenza e' entrata nel sistema: la sync che arma le sveglie deve essere successiva. */
+  createdAt: Date
+  oggi?: Date
+}): Promise<{ pushSent: number; motivo: 'sveglia-armata' | 'inviata' | 'fallita' }> {
+  const ultimoToken = await db.fcmToken.findFirst({
+    where: { userId: params.userId },
+    orderBy: { updatedAt: 'desc' },
+    select: { updatedAt: true },
+  })
+  if (ultimoToken && ultimoToken.updatedAt > params.createdAt) {
+    console.log(
+      '[SCADENZA-PREAVVISO] app aperta dopo la creazione: sveglia locale presumibilmente armata, push tace per',
+      params.titolo,
+    )
+    return { pushSent: 0, motivo: 'sveglia-armata' }
+  }
+
+  const dataIt = params.dataScadenza.toLocaleDateString('it-IT')
+  const giorni = params.giorniPrima
+  const esito = await sendPushToUserCanali(params.username, {
+    title: giorni === 1 ? '⏰ Scade domani' : `⏰ Scade tra ${giorni} giorni`,
+    body: `"${params.titolo}" scade il ${dataIt}. Aprilo dall'archivio.`,
+    url: scadenzaPushUrl(params.filePath),
+    tag: `pfc-scad-${params.scadenzaId}-p${giorni}`,
+    data: {
+      tipo: 'scadenza',
+      scadenzaId: params.scadenzaId,
+      giorniPrima: String(giorni),
+    },
+  }).catch((e) => {
+    console.error('[SCADENZA-PREAVVISO] push errore:', e)
+    return { fcm: 0, web: 0 }
+  })
+  const pushSent = esito.fcm + esito.web
+
+  if (pushSent > 0) {
+    await db.scadenza
+      .update({ where: { id: params.scadenzaId }, data: { pushInviata: true } })
+      .catch(() => {})
+  }
+
+  console.log(
+    `[SCADENZA-PREAVVISO] "${params.titolo}": push "Scade tra ${giorni} giorni" ` +
+      `${pushSent > 0 ? 'inviata' : 'NON consegnata'} (fcm=${esito.fcm} web=${esito.web})`,
+  )
+  return { pushSent, motivo: pushSent > 0 ? 'inviata' : 'fallita' }
 }

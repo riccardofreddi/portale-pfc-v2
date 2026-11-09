@@ -27,10 +27,33 @@
  *    preavvisi, 07:45 e 08:30 UTC dentro la finestra). Una chance in
  *    ritardo si auto-corregge: dopo le 08:35 italiane qualunque giro
  *    tenta la push, le guardie rendono tutto idempotente.
+ *
+ * v4.84 — RETE DI SICUREZZA DEL PREAVVISO (caso Freddi 9/11/2026): nei
+ * giorni di preavviso (anticipo dello studio + 10/3/1, stessa regola
+ * dell'app: giorniDiPreavviso) e dentro la finestra del mattino (dopo le
+ * 08:35 italiane), il server manda la push "⏰ Scade tra N giorni" SOLO se
+ * la sveglia locale NON PUO' esistere, cioe' l'app non e' stata riaperta
+ * dopo la creazione della scadenza (l'app ripresenta il token FCM a ogni
+ * apertura: max fcm_tokens.updated_at = ultima apertura certa; la guardia
+ * e' dentro notifyPreavvisoDiOggi). Chi apre l'app resta sulla sveglia
+ * locale — un solo avviso, mai il doppione. UNA sola push di preavviso per
+ * scadenza (flag pushInviata, significato storico v4.58): consegnata,
+ * la guardia "notificata && pushInviata" salta i giorni successivi; non
+ * consegnata, la chance dopo ritenta. Il contatore "preavvisi" nella
+ * risposta e' additivo: il workflow GitHub continua a leggere "ok":true.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { giorniMancanti, notifyScadenzaDiOggi, notifyScadenzaOggi, notifyScadenzaImminente, FINESTRA_PUSH_OGGI_MINUTI, oraItaliaMinuti } from '@/lib/scadenza-notify'
+import {
+  giorniDiPreavviso,
+  giorniMancanti,
+  notifyPreavvisoDiOggi,
+  notifyScadenzaDiOggi,
+  notifyScadenzaOggi,
+  notifyScadenzaImminente,
+  FINESTRA_PUSH_OGGI_MINUTI,
+  oraItaliaMinuti,
+} from '@/lib/scadenza-notify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -74,6 +97,8 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
     let notificate = 0
     let pushInviate = 0
     let avvisiOggi = 0
+    // v4.84 — quante push di preavviso "Scade tra N giorni" sono partite.
+    let preavvisi = 0
     const dettagli: Array<{ filePath: string; titolo: string; giorni: number }> = []
 
     for (const s of scadenze) {
@@ -144,11 +169,47 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       notificate++
       pushInviate += pushSent
       dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
+
+      // v4.84 — RETE DI SICUREZZA DEL PREAVVISO. Il giorno e' uno dei giorni
+      // di preavviso (stessa regola dell'app: anticipo dello studio + tacche
+      // fisse 10/3/1) e siamo dopo le 08:35 italiane: la sveglia locale delle
+      // 08:30 ha avuto il suo spazio. La push parte SOLO se la sveglia non
+      // puo' esistere (app non riaperta dopo la creazione: guardia dentro
+      // notifyPreavvisoDiOggi sul max fcm_tokens.updated_at) — chi apre
+      // l'app resta sulla sveglia locale, un solo avviso. Una sola push di
+      // preavviso per scadenza: consegnata, pushInviata=true e dal giro
+      // dopo la guardia "notificata && pushInviata" in cima salta tutto.
+      // Nota: qui pushInviata e' ancora false (la guardia in cima non ha
+      // saltato), quindi il blocco gira al massimo fino alla prima push
+      // consegnata.
+      if (
+        !s.pushInviata &&
+        oraItaliaMinuti(oggi) >= FINESTRA_PUSH_OGGI_MINUTI &&
+        giorniDiPreavviso(s.anticipoGiorni).includes(giorni)
+      ) {
+        const esitoPre = await notifyPreavvisoDiOggi({
+          scadenzaId: s.id,
+          userId: s.userId,
+          username: s.user.username,
+          titolo: s.titolo,
+          filePath: s.filePath,
+          dataScadenza: s.dataScadenza,
+          giorniPrima: giorni,
+          createdAt: s.createdAt,
+          oggi,
+        })
+        pushInviate += esitoPre.pushSent
+        if (esitoPre.pushSent > 0) {
+          preavvisi++
+          dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
+        }
+      }
     }
 
     console.log(
       `[CRON] scadenze notificate: ${notificate}/${scadenze.length} · ` +
-        `push inviate: ${pushInviate} · avvisi oggi: ${avvisiOggi} · ` +
+        `push inviate: ${pushInviate} · preavvisi v4.84: ${preavvisi} · ` +
+        `avvisi oggi: ${avvisiOggi} · ` +
         dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ')
     )
 
@@ -158,6 +219,7 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
       notificate,
       pushInviate,
       avvisiOggi,
+      preavvisi,
       dettagli,
     })
   } catch (err) {
