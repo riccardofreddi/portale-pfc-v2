@@ -9,7 +9,7 @@
     },
     {
       "path": "/api/scadenze/check",
-      "schedule": "0 6 * * *"
+      "schedule": "45 7 * * *"
     }
   ],
   "functions": {
