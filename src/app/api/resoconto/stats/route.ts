@@ -53,6 +53,9 @@ export async function GET() {
     'RECUPERA_FILE_CESTINO', 'ELIMINA_DEFINITIVO_CESTINO', 'SVUOTA_CESTINO',
     'MANUTENZIONE', 'RESET_AUDIT', 'ADMIN_ZIP', 'BACKUP_COMPLETO',
     'ESENTE_MANUTENZIONE', 'DELETE_BULK',
+    // v4.86 — azione di sistema del registro del check scadenze (righe
+    // giornaliere di username "sistema"): resta fuori dalle attivita' cliente.
+    'CRON_SCADENZE',
   ]
 
   const clientLogs = await db.auditLog.findMany({

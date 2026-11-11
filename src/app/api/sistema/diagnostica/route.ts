@@ -21,6 +21,22 @@ export async function GET() {
     db.auditLog.count(),
   ])
 
+  // v4.86 — REGISTRO DEL CHECK SCADENZE: quando e' girato l'ultimo giro
+  // (cron Vercel o manuale) e com'e' andato. Le righe CRON_SCADENZE di
+  // audit_log sono scritte da /api/scadenze/check a ogni giro. Se
+  // "minutiFa" cresce oltre le ~30 ore il giro quotidiano si e' fermato:
+  // si vede QUI, in una risposta, non nel silenzio.
+  const ultimoCheck = await db.auditLog
+    .findFirst({
+      where: { action: 'CRON_SCADENZE' },
+      orderBy: { ts: 'desc' },
+      select: { ts: true, detail: true },
+    })
+    .catch(() => null)
+  const minutiFaCheck = ultimoCheck
+    ? Math.max(0, Math.round((Date.now() - ultimoCheck.ts.getTime()) / 60000))
+    : null
+
   let r2Configured = false
   let r2Files = 0
   let r2Size = 0
@@ -52,6 +68,11 @@ export async function GET() {
       nFiles: r2Files,
       sizeTotale: r2Size,
       errore: r2Error,
+    },
+    checkScadenze: {
+      quando: ultimoCheck?.ts.toISOString() ?? null,
+      minutiFa: minutiFaCheck,
+      esito: ultimoCheck?.detail ?? null,
     },
   })
 }

@@ -65,6 +65,9 @@ const CRON_SECRET = process.env.CRON_SECRET
 async function runCheck(req: NextRequest): Promise<NextResponse> {
   const authHeader = req.headers.get('authorization')
   const providedSecret = authHeader?.replace('Bearer ', '')
+  // v4.86 — come e' stato chiamato questo giro: Bearer (cron Vercel) o
+  // sessione admin (test manuale). Serve alla riga di registro in fondo.
+  const viaCron = Boolean(providedSecret && CRON_SECRET && providedSecret === CRON_SECRET)
   if (providedSecret && providedSecret === CRON_SECRET) {
     // OK, cron
   } else {
@@ -213,6 +216,26 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
         dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ')
     )
 
+    // v4.86 — REGISTRO DI GIRO (flight recorder): ogni giro — cron Vercel o
+    // manuale — scrive in audit_log la riga "CRON_SCADENZE" (console Audit,
+    // username "sistema") con la via usata e l'esito completo. Prima un giro
+    // a vuoto non lasciava TRACCIA: alla domanda "il check e' girato oggi?"
+    // si poteva rispondere solo cercando a indizi. La registrazione e' in
+    // .catch(() => {}): se il registro fallisce, il check continua — il
+    // recorder non puo' MAI rompere il motore che registra.
+    await db.auditLog
+      .create({
+        data: {
+          username: 'sistema',
+          action: 'CRON_SCADENZE',
+          detail:
+            `ok via ${viaCron ? 'cron Vercel (Bearer)' : 'sessione admin (manuale)'} · ` +
+            `controllate:${scadenze.length} notificate:${notificate} ` +
+            `push:${pushInviate} preavvisi:${preavvisi} oggi:${avvisiOggi}`,
+        },
+      })
+      .catch(() => {})
+
     return NextResponse.json({
       ok: true,
       controllate: scadenze.length,
@@ -224,6 +247,19 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
     })
   } catch (err) {
     console.error('[SCADENZE] errore check:', err)
+    // v4.86 — anche l'errore lascia traccia in audit_log: un giro fallito
+    // non puo' piu' morire nei log di Vercel che nessuno legge. La riga
+    // ERRORE e' il campanello che accende la via di recupero (giro manuale
+    // del check: provato con successo l'11/11/2026 alle 09:05).
+    await db.auditLog
+      .create({
+        data: {
+          username: 'sistema',
+          action: 'CRON_SCADENZE',
+          detail: `ERRORE: ${String(err).slice(0, 180)}`,
+        },
+      })
+      .catch(() => {})
     return NextResponse.json({ error: 'Errore server', detail: String(err) }, { status: 500 })
   }
 }
