@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     const existingObjs = await listaOggetti(prefix)
     const existingNames = new Set(existingObjs.map((o) => o.key.slice(prefix.length)))
 
-    const results: { nome: string; key: string; size: number; status: 'caricato' | 'saltato' | 'rinominato' | 'sostituito' }[] = []
+    const results: { nome: string; origine: string; key: string; size: number; status: 'caricato' | 'saltato' | 'rinominato' | 'sostituito' }[] = []
 
     // Un file appena scritto (nuovo, rinominato o versione sostituita sulla stessa
     // key) deve ripartire da stato "nuovo" per il cliente: i vecchi record di
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
 
       if (existingNames.has(nomePulito)) {
         if (mode === 'skip') {
-          results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'saltato' })
+          results.push({ nome: nomePulito, origine: file.name, key: targetKey, size: file.size, status: 'saltato' })
           continue
         }
         if (mode === 'rename') {
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
           existingNames.add(newName)
           await conRetry(() => db.uploadDate.upsert({ where: { filePath: newKey }, create: { filePath: newKey }, update: { ts: new Date() } }))
           await azzeraStatoFileLetto(newKey)
-          results.push({ nome: newName, key: newKey, size: file.size, status: 'rinominato' })
+          results.push({ nome: newName, origine: file.name, key: newKey, size: file.size, status: 'rinominato' })
           continue
         }
         if (mode === 'versioning') {
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
           await salvaBytes(targetKey, buf)
           await conRetry(() => db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } }))
           await azzeraStatoFileLetto(targetKey)
-          results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'sostituito' })
+          results.push({ nome: nomePulito, origine: file.name, key: targetKey, size: file.size, status: 'sostituito' })
           continue
         }
       }
@@ -151,18 +151,24 @@ export async function POST(req: NextRequest) {
       existingNames.add(nomePulito)
       await conRetry(() => db.uploadDate.upsert({ where: { filePath: targetKey }, create: { filePath: targetKey }, update: { ts: new Date() } }))
       await azzeraStatoFileLetto(targetKey)
-      results.push({ nome: nomePulito, key: targetKey, size: file.size, status: 'caricato' })
+      results.push({ nome: nomePulito, origine: file.name, key: targetKey, size: file.size, status: 'caricato' })
     }
 
     // Crea le scadenze per i file appena caricati (se l'admin le ha indicate).
-    // La mappa scadenzeInput è per nome file finale; matchiamo sui risultati.
+    // v4.88 — FIX SCADENZE PERSE AL CARICAMENTO: la mappa del client e' per
+    // NOME ORIGINALE del file, ma il nome finale puo' essere diverso (rinomina
+    // automatica "_v2" quando il nome esiste gia', oppure sanitizzazione dei
+    // caratteri vietati). Prima matchavamo SOLO sul nome finale: ogni file
+    // rinominato perdeva in silenzio la sua scadenza e l'archivio cliente non
+    // mostrava la targhetta. Ora matchiamo prima sul nome finale e, in mancanza,
+    // sul nome originale portato dal risultato: piu' nessuna scadenza persa.
     const nCaricati = results.filter(
       (r) => r.status === 'caricato' || r.status === 'rinominato' || r.status === 'sostituito'
     )
     let scadenzeNotificate = 0
     if (Object.keys(scadenzeInput).length > 0 && nCaricati.length > 0) {
       for (const r of nCaricati) {
-        const spec = scadenzeInput[r.nome]
+        const spec = scadenzeInput[r.nome] ?? scadenzeInput[r.origine]
         if (!spec) continue
         const data = new Date(String(spec.data))
         if (isNaN(data.getTime())) continue

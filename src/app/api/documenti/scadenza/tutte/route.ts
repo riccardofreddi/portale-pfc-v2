@@ -8,6 +8,13 @@
  * se il cliente preme "Pagato" nel suo archivio, le targhette dell'admin
  * si aggiornano da sole e la finestra "Promemoria scadenza" risulta
  * compilata in automatico (pagata + chi + quando).
+ *
+ * v4.88 — include anche gli STATI DI CONSEGNA (notificata / pushInviata /
+ * emailInviata): il poll dell'archivio admin puo' cosi' aggiornare da solo
+ * la pillola "consegnata / in attesa" accanto alla targhetta della
+ * scadenza, senza riscaricare la lista file da R2, e aggiunge la targhetta
+ * alle scadenze create mentre la pagina era aperta (es. caricamento dal
+ * tab Invio Documenti).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -40,6 +47,9 @@ export async function GET(req: NextRequest) {
       pagata: true,
       pagataDa: true,
       pagataIl: true,
+      notificata: true,
+      pushInviata: true,
+      emailInviata: true,
     },
   })
 

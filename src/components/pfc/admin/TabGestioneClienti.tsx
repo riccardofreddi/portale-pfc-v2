@@ -156,7 +156,7 @@ export function TabGestioneClienti() {
         if (!res.ok) return
         const data = await res.json()
         if (!vivo) return
-        const lista = (data.scadenze ?? []) as Array<{ filePath: string; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null }>
+        const lista = (data.scadenze ?? []) as Array<{ id: string; filePath: string; titolo: string; dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata: boolean; pushInviata: boolean; emailInviata: boolean }>
         const perFile = new Map(lista.map((s) => [s.filePath, s]))
         setArchivioFiles((prev) => {
           let cambiato = false
@@ -164,11 +164,33 @@ export function TabGestioneClienti() {
           for (const [chiave, files] of Object.entries(prev)) {
             next[chiave] = files.map((f) => {
               const s = perFile.get(f.key)
-              const scad = (f as unknown as { scadenza?: { pagata: boolean; pagataDa?: string | null } | null }).scadenza
-              if (!s || !scad) return f
-              if (scad.pagata === s.pagata && (scad.pagataDa ?? null) === (s.pagataDa ?? null)) return f
+              const scad = (f as unknown as { scadenza?: { pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null }).scadenza
+              if (!s) {
+                // v4.88: la scadenza e' stata RIMOSSA altrove (altra schedra
+                // aperta): la targhetta sparisce da sola, la lista non mente.
+                if (scad) { cambiato = true; return { ...f, scadenza: null } }
+                return f
+              }
+              if (!scad) {
+                // v4.88: scadenza NUOVA creata mentre la pagina era aperta
+                // (es. caricamento dal tab Invio Documenti): la targhetta
+                // appare entro un giro del poll, senza riscaricare R2.
+                cambiato = true
+                return { ...f, scadenza: { id: s.id, titolo: s.titolo, dataScadenza: s.dataScadenza, anticipoGiorni: s.anticipoGiorni, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata } }
+              }
+              // v4.88: sincronizza anche la CONSEGNA (notificata/pushInviata/
+              // emailInviata), non solo il pagamento: la pillola "consegnata"
+              // si aggiorna da sola mentre la console e' aperta.
+              if (
+                scad.pagata === s.pagata &&
+                (scad.pagataDa ?? null) === (s.pagataDa ?? null) &&
+                (scad.pagataIl ?? null) === (s.pagataIl ?? null) &&
+                scad.notificata === s.notificata &&
+                scad.pushInviata === s.pushInviata &&
+                scad.emailInviata === s.emailInviata
+              ) return f
               cambiato = true
-              return { ...f, scadenza: { ...scad, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null } }
+              return { ...f, scadenza: { ...scad, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata } }
             })
           }
           return cambiato ? next : prev
@@ -176,8 +198,16 @@ export function TabGestioneClienti() {
         setScadenzaTarget((t) => {
           if (!t || scadenzaSaving) return t
           const s = perFile.get(t.key)
-          if (!s || (t.pagata === s.pagata && (t.pagataDa ?? null) === (s.pagataDa ?? null))) return t
-          return { ...t, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null }
+          if (!s) return t
+          if (
+            t.pagata === s.pagata &&
+            (t.pagataDa ?? null) === (s.pagataDa ?? null) &&
+            (t.pagataIl ?? null) === (s.pagataIl ?? null) &&
+            t.notificata === s.notificata &&
+            t.pushInviata === s.pushInviata &&
+            t.emailInviata === s.emailInviata
+          ) return t
+          return { ...t, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata }
         })
       } catch { /* silenzioso: il poll non deve rompere nulla */ }
     }
@@ -587,14 +617,25 @@ export function TabGestioneClienti() {
                                               {canPreviewFile(f.nome) && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'nuovo', isPreferito: false })}><Eye className="h-3 w-3" /></Button>}
                                               <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3 w-3" /></Button>
 <Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
-{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean } }).scadenza && (
+{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } }).scadenza && (
                                                 (() => {
-                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; pagata?: boolean } }).scadenza
+                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } }).scadenza
                                                   const pagata = !!sc.pagata
                                                   return (
-                                                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${pagata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                      {pagata ? '✅' : '⏰'} {new Date(sc.dataScadenza).toLocaleDateString('it-IT')}
-                                                    </span>
+                                                    <>
+                                                      <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${pagata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                        {pagata ? '✅' : '⏰'} {new Date(sc.dataScadenza).toLocaleDateString('it-IT')}
+                                                      </span>
+                                                      {/* v4.88: stato di CONSEGNA della notifica in lista, aggiornato
+                                                          dal poll ogni 30 secondi. Verde = push arrivata sul telefono
+                                                          del cliente; azzurro = avviata ma ancora in consegna. */}
+                                                      {!pagata && sc.pushInviata === true && (
+                                                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">✓ consegnata</span>
+                                                      )}
+                                                      {!pagata && sc.pushInviata !== true && sc.notificata === true && (
+                                                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-100 text-sky-700">⏳ in attesa</span>
+                                                      )}
+                                                    </>
                                                   )
                                                 })()
                                               )}
@@ -925,7 +966,7 @@ export function TabGestioneClienti() {
                     {consegnata
                       ? 'La notifica push è arrivata sul telefono del cliente.'
                       : avviata
-                        ? 'Il sveglione riprova la consegna ogni mattina verso le 8:00.'
+                        ? 'Il sveglione riprova la consegna ogni mattina.'
                         : 'La notifica partirà quando la scadenza entra nei giorni di preavviso.'}
                   </p>
                 </div>
