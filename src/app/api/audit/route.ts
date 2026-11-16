@@ -18,6 +18,12 @@ const ADMIN_ACTIONS = [
   'RECUPERA_FILE_CESTINO', 'ELIMINA_DEFINITIVO_CESTINO', 'SVUOTA_CESTINO',
   'MANUTENZIONE', 'RESET_AUDIT', 'ADMIN_ZIP', 'BACKUP_COMPLETO',
   'ESENTE_MANUTENZIONE', 'DELETE_BULK',
+  // v4.87 — righe di sistema del registro del check scadenze (v4.86 le
+  // scriveva a ogni giro: riempivano l'archivio di voci "sistema"). Dal
+  // v4.87 il registro vive in system_settings (riga unica) e le righe
+  // vecchie vengono cancellate al primo giro del check; il filtro qui
+  // copre il tempo tra deploy e primo giro + eventuale residuo.
+  'CRON_SCADENZE',
 ]
 
 export async function GET(req: NextRequest) {

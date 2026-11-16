@@ -53,8 +53,11 @@ export async function GET() {
     'RECUPERA_FILE_CESTINO', 'ELIMINA_DEFINITIVO_CESTINO', 'SVUOTA_CESTINO',
     'MANUTENZIONE', 'RESET_AUDIT', 'ADMIN_ZIP', 'BACKUP_COMPLETO',
     'ESENTE_MANUTENZIONE', 'DELETE_BULK',
-    // v4.86 — azione di sistema del registro del check scadenze (righe
-    // giornaliere di username "sistema"): resta fuori dalle attivita' cliente.
+    // v4.86 — azione di sistema del registro del check scadenze (username
+    // "sistema"): resta fuori dalle attivita' cliente. Dal v4.87 il
+    // registro vive in system_settings (riga unica) e le righe qui sono
+    // solo il residuo storico, cancellato al primo giro del check; il
+    // filtro resta per sicurezza.
     'CRON_SCADENZE',
   ]
 

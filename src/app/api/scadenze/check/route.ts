@@ -15,18 +15,22 @@
  *
  * v4.118 — GIORNO DELLA SCADENZA, logica unificata in un solo ramo:
  *  - campanella silenziosa sempre (una al giorno per file, guardia interna);
- *  - push "Scade OGGI" SOLO se: finestra aperta (dopo le 08:35 ora
- *    italiana, calcolata su Europe/Rome), il telefono NON ha confermato
+ *  - push "Scade OGGI" SOLO se: finestra aperta (dopo le 10:00 ora
+ *    italiana, v4.87, calcolata su Europe/Rome), il telefono NON ha confermato
  *    l'allarme locale (scadenze.allarme_locale_il di oggi) e la push non
  *    e' gia' consegnata oggi (guardia separata, type 'scadenza_oggi').
  *    Il vecchio requisito notificata && pushInviata e' VIA: prima chi non
  *    aveva ricevuto il preavviso non riceveva NIENTE il giorno stesso, e
  *    la guardia confondeva la campanella del mattino con la push.
- *  - gli scheduler restano: cron Vercel 06:00 UTC (preavvisi, la finestra
- *    chiusa lo tiene a campanelle) + chance GitHub Actions (06:05 riserva
- *    preavvisi, 07:45 e 08:30 UTC dentro la finestra). Una chance in
- *    ritardo si auto-corregge: dopo le 08:35 italiane qualunque giro
- *    tenta la push, le guardie rendono tutto idempotente.
+ *  - v4.87 — UNO scheduler solo: cron Vercel 09:15 UTC (10:15 it. solare /
+ *    11:15 it. legale). La chance GitHub e' VIA dal repo client (v4.125 ha
+ *    eliminato scadenze-daily.yml: i ritardi GitHub erano i doppioni
+ *    pomeridiani v4.118). Il giro parte DOPO l'uso mattutino tipico: chi
+ *    ha avuto la sveglia 08:30 e ha aperto l'app ha gia' confermato
+ *    l'allarme (allarme_locale_il) e la push "Scade OGGI" tace; chi non
+ *    ha mai aperto l'app (sveglia persa) la riceve comunque. Un giro
+ *    manuale prima delle 10:00 italiane resta a campanelle (finestra
+ *    chiusa): non puo' raddoppiare la sveglia del mattino.
  *
  * v4.84 — RETE DI SICUREZZA DEL PREAVVISO (caso Freddi 9/11/2026): nei
  * giorni di preavviso (anticipo dello studio + 10/3/1, stessa regola
@@ -60,6 +64,40 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const CRON_SECRET = process.env.CRON_SECRET
+
+// v4.87 — REGISTRO DI GIRO FUORI DALL'ARCHIVIO: niente piu' righe
+// CRON_SCADENZE in audit_log (v4.86 ne scriveva una a ogni giro: dopo pochi
+// giorni l'archivio log attivita' si riempiva di voci "sistema" che il
+// titolare non vuole e che occupano DB). Il registro vive ora in
+// system_settings, chiave "ultimo_check_scadenze", SEMPRE una riga sola
+// riscritta a ogni giro (upsert): crescita zero, diagnosi identica (la
+// diagnostica legge la chiave e mostra quando e com'e' girato l'ultimo
+// check). In piu' ogni giro PULISCE le vecchie righe CRON_SCADENZE
+// rimaste dal v4.86: al primo giro dopo il deploy (cron del mattino o
+// test manuale) l'archivio torna solo attivita' dei clienti. Errori
+// inclusi: la riga unica diventa "ERRORE: ..." fino al primo giro
+// riuscito. Tutte le scritture sono best-effort: il recorder non puo'
+// MAI rompere il motore che registra.
+async function registraGiro(detail: string) {
+  const valore = JSON.stringify({ ts: new Date().toISOString(), detail })
+  try {
+    await db.systemSetting.upsert({
+      where: { key: 'ultimo_check_scadenze' },
+      update: { value: valore },
+      create: { key: 'ultimo_check_scadenze', value: valore },
+    })
+  } catch {
+    // il registro non puo' rompere il check
+  }
+  try {
+    // v4.87 — auto-pulizia: le righe storiche del registro v4.86 escono
+    // dall'archivio (il primo giro dopo il deploy le cancella; dai giri
+    // dopo, la deleteMany trova 0 righe e costa nulla).
+    await db.auditLog.deleteMany({ where: { action: 'CRON_SCADENZE' } })
+  } catch {
+    // idem
+  }
+}
 
 // Logica condivisa tra GET (cron Vercel) e POST (test manuali).
 async function runCheck(req: NextRequest): Promise<NextResponse> {
@@ -175,8 +213,9 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
 
       // v4.84 — RETE DI SICUREZZA DEL PREAVVISO. Il giorno e' uno dei giorni
       // di preavviso (stessa regola dell'app: anticipo dello studio + tacche
-      // fisse 10/3/1) e siamo dopo le 08:35 italiane: la sveglia locale delle
-      // 08:30 ha avuto il suo spazio. La push parte SOLO se la sveglia non
+      // fisse 10/3/1) e siamo dopo le 10:00 italiane (v4.87): la sveglia
+      // locale delle 08:30 e il giro mattutino hanno avuto il loro spazio.
+      // La push parte SOLO se la sveglia non
       // puo' esistere (app non riaperta dopo la creazione: guardia dentro
       // notifyPreavvisoDiOggi sul max fcm_tokens.updated_at) — chi apre
       // l'app resta sulla sveglia locale, un solo avviso. Una sola push di
@@ -216,25 +255,13 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
         dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ')
     )
 
-    // v4.86 — REGISTRO DI GIRO (flight recorder): ogni giro — cron Vercel o
-    // manuale — scrive in audit_log la riga "CRON_SCADENZE" (console Audit,
-    // username "sistema") con la via usata e l'esito completo. Prima un giro
-    // a vuoto non lasciava TRACCIA: alla domanda "il check e' girato oggi?"
-    // si poteva rispondere solo cercando a indizi. La registrazione e' in
-    // .catch(() => {}): se il registro fallisce, il check continua — il
-    // recorder non puo' MAI rompere il motore che registra.
-    await db.auditLog
-      .create({
-        data: {
-          username: 'sistema',
-          action: 'CRON_SCADENZE',
-          detail:
-            `ok via ${viaCron ? 'cron Vercel (Bearer)' : 'sessione admin (manuale)'} · ` +
-            `controllate:${scadenze.length} notificate:${notificate} ` +
-            `push:${pushInviate} preavvisi:${preavvisi} oggi:${avvisiOggi}`,
-        },
-      })
-      .catch(() => {})
+    // v4.87 — REGISTRO DI GIRO: riga unica in system_settings (vedi
+    // registraGiro sopra) + auto-pulizia delle vecchie righe audit_log.
+    await registraGiro(
+      `ok via ${viaCron ? 'cron Vercel (Bearer)' : 'sessione admin (manuale)'} · ` +
+        `controllate:${scadenze.length} notificate:${notificate} ` +
+        `push:${pushInviate} preavvisi:${preavvisi} oggi:${avvisiOggi}`
+    )
 
     return NextResponse.json({
       ok: true,
@@ -247,19 +274,12 @@ async function runCheck(req: NextRequest): Promise<NextResponse> {
     })
   } catch (err) {
     console.error('[SCADENZE] errore check:', err)
-    // v4.86 — anche l'errore lascia traccia in audit_log: un giro fallito
-    // non puo' piu' morire nei log di Vercel che nessuno legge. La riga
-    // ERRORE e' il campanello che accende la via di recupero (giro manuale
-    // del check: provato con successo l'11/11/2026 alle 09:05).
-    await db.auditLog
-      .create({
-        data: {
-          username: 'sistema',
-          action: 'CRON_SCADENZE',
-          detail: `ERRORE: ${String(err).slice(0, 180)}`,
-        },
-      })
-      .catch(() => {})
+    // Anche l'errore lascia traccia (nella riga unica di system_settings,
+    // non in audit_log): un giro fallito non puo' morire nei log di Vercel
+    // che nessuno legge. La voce ERRORE e' il campanello che accende la
+    // via di recupero (giro manuale del check: provato con successo
+    // l'11/11/2026 alle 09:05).
+    await registraGiro(`ERRORE: ${String(err).slice(0, 180)}`)
     return NextResponse.json({ error: 'Errore server', detail: String(err) }, { status: 500 })
   }
 }

@@ -56,32 +56,50 @@
  * di fcm_tokens.updated_at e' l'ultima apertura certa; vedi
  * notifyPreavvisoDiOggi). Chi apre l'app ha la sveglia armata e resta
  * coperto da lei — un solo avviso, mai il doppione (principio v4.83).
- * La push parte dentro la stessa finestra del giorno stesso (dopo le 08:35
- * italiane: chance GitHub 07:45/08:30 UTC), una sola volta per scadenza
+ * La push parte dentro la stessa finestra del giorno stesso (v4.87: dopo
+ * le 10:00 italiane), una sola volta per scadenza
  * (flag pushInviata, il significato storico v4.58) e con lo stesso tag
  * della sveglia locale del preallarme ("pfc-scad-<id>-p<N>"): anche nel
  * caso limite entrambe finiscono nella stessa riga del vassoio, non
  * affiancate.
+ *
+ * v4.87 — LA RISERVA "SCADE OGGI" PARLA PIU' TARDI, PER NON RADDOPPIARE
+ * (caso reale 13-14/11/2026, doppia notifica alle 08:30 e alle 09:30): il
+ * giro del cron alle 08:45 mandava la push "Scade OGGI" PRIMA che il
+ * telefono avesse potuto confermare l'allarme locale — la conferma
+ * (allarme_locale_il) esiste solo a app aperta, e Google consegna la push
+ * al primo uso del telefono (~09:30): doppione sistematico per chi aveva
+ * la sveglia ma non apre l'app prima delle 08:45. Da oggi la finestra si
+ * sposta alle 10:00 italiane (FINESTRA_PUSH_OGGI_MINUTI) e il cron Vercel
+ * alle 09:15 UTC (10:15 it. solare / 11:15 it. legale): chi apre l'app
+ * la mattina conferma PRIMA del giro e la push tace; chi non l'ha mai
+ * aperta (sveglia persa, telefono morto) riceve comunque la riserva —
+ * mai il silenzio, principio v4.118 intoccato.
  */
 import { db } from './db'
 import { sendPushToUserCanali } from './push'
 import { sendEmail } from './email'
 
 /**
- * v4.118 — Finestra della push "Scade OGGI": la push del giorno stesso parte
- * SOLO a partire dalle 08:35 ora italiana (Europe/Rome). Prima il cron
- * sparava a qualunque ora gli capitasse (le chance di riserva su GitHub
- * partono con ritardi di ore) e la sveglia locale delle 08:30 rischiava il
- * doppione; ora lei ha il campo libero e la push entra dopo.
+ * v4.87 — Finestra della push "Scade OGGI": la push del giorno stesso parte
+ * SOLO a partire dalle 10:00 ora italiana (Europe/Rome). Prima era 08:35
+ * (v4.118): il giro delle 08:45 sparava la push prima che il telefono
+ * potesse confermare l'allarme locale (la conferma esiste solo a app
+ * aperta) e chi aveva la sveglia riceveva anche la push ~09:30. Con la
+ * finestra alle 10:00 il giro del cron (09:15 UTC = 10:15 it. solare)
+ * trova la conferma di chi ha usato l'app la mattina, e un giro manuale
+ * del mattino resta a campanelle. La sveglia locale 08:30 ha SEMPRE il
+ * campo libero: la push entra solo dopo, come riserva.
  */
-export const FINESTRA_PUSH_OGGI_MINUTI = 8 * 60 + 35 // 08:35
+export const FINESTRA_PUSH_OGGI_MINUTI = 10 * 60 // 10:00
 
 /**
  * v4.78c — Lease dello slot push "Scade OGGI": se un pending 'scadenza_oggi'
  * e' piu' giovane di cosi', un altro giro sta pushando ORA e tacciamo. Un
  * pending piu' vecchio e' un giro morto (crash tra presa e chiusura): lo
  * slot si riprende e la push riparte. 10 minuti e' ben sotto la distanza
- * tra le chance (45 min) e ben sopra la durata di un giro (maxDuration 60s).
+ * tra i giri possibili (cron 10:15 + eventuali manuali) e ben sopra la
+ * durata di un giro (maxDuration 60s).
  */
 export const LEASE_PUSH_OGGI_MINUTI = 10
 
@@ -657,11 +675,11 @@ export function giorniDiPreavviso(anticipoGiorni: number): number[] {
  *
  * QUANDO la chiama il cron (/api/scadenze/check, unico chiamante): il giorno
  * e' uno dei giorni di preavviso (giorniDiPreavviso) e l'ora italiana e'
- * dentro la finestra del mattino (dopo le 08:35, FINESTRA_PUSH_OGGI_MINUTI:
+ * dentro la finestra (v4.87: dopo le 10:00 italiane, FINESTRA_PUSH_OGGI_MINUTI:
  * la stessa del giorno stesso — chi la sveglia ce l'ha scattata alle 08:30,
- * chi no riceve la rete). Il cron Vercel delle 06:00 UTC (07:00 italiane) e'
- * fuori finestra: fa solo le campanelle; le chance GitHub Actions 07:45 e
- * 08:30 UTC sono dentro e portano la push.
+ * chi no riceve la rete). La chance unica del cron Vercel 09:15 UTC
+ * (10:15 it. solare) e' dentro e porta la push; i giri manuali del mattino
+ * restano a campanelle.
  *
  * UNA SOLA VOLTA PER SCADENZA: push consegnata (fcm+web > 0) ->
  * scadenze.push_inviata = true (il significato storico v4.58, riportato in
