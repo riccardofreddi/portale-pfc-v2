@@ -52,6 +52,11 @@ export function TabGestioneClienti() {
   const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
   const [renameNewName, setRenameNewName] = useState('')
   const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } | null>(null)
+  // v4.91: l'ultimo giro del check scadenze (da /scadenza/tutte, aggiornato
+  // dal poll da 30 secondi): la finestra Promemoria lo mostra per dire se
+  // la macchina e' viva e se la push di riserva di oggi e' gia' stata
+  // tentata per una scadenza ancora "in attesa".
+  const [checkLog, setCheckLog] = useState<{ ts: string; detail: string } | null>(null)
   const [scadenzaData, setScadenzaData] = useState('')
   const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
   const [scadenzaSaving, setScadenzaSaving] = useState(false)
@@ -156,6 +161,9 @@ export function TabGestioneClienti() {
         if (!res.ok) return
         const data = await res.json()
         if (!vivo) return
+        // v4.91: registro di giro del check scadenze (data/ora + esito).
+        const log = (data.ultimoCheck ?? null) as { ts: string; detail: string } | null
+        setCheckLog(log && typeof log.ts === 'string' ? log : null)
         const lista = (data.scadenze ?? []) as Array<{ id: string; filePath: string; titolo: string; dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata: boolean; pushInviata: boolean; emailInviata: boolean; allarmeLocaleIl?: string | null }>
         const perFile = new Map(lista.map((s) => [s.filePath, s]))
         setArchivioFiles((prev) => {
@@ -1009,6 +1017,19 @@ export function TabGestioneClienti() {
               const dataScad = new Date(vy, (vm || 1) - 1, vd || 1)
               const inizioOggi = new Date(); inizioOggi.setHours(0, 0, 0, 0)
               const passata = scadenzaData.trim() !== '' && vy >= 1900 && vy <= 2100 && dataScad < inizioOggi
+              // v4.91 — diagnostica del giro del check (orologio del browser
+              // = ora italiana dell'admin): la scadenza e' OGGI? il giro di
+              // oggi e' gia' passato, e dopo le 10:00 (finestra della push
+              // di riserva)? Con questo lo stato "in attesa" dice DA SOLA
+              // se la riserva e' gia' stata tentata o se deve ancora
+              // arrivare, senza aprire la diagnostica.
+              const adesso = new Date()
+              const scadeOggi = scadenzaData.trim() !== '' && vy >= 1900 && vy <= 2100 && dataScad.toDateString() === adesso.toDateString()
+              const giro = checkLog ? new Date(checkLog.ts) : null
+              const giroValida = giro ? !isNaN(giro.getTime()) : false
+              const giroOggi = giroValida && giro!.toDateString() === adesso.toDateString()
+              const giroDopoLe10 = giroValida && giro!.getHours() * 60 + giro!.getMinutes() >= 600
+              const giroOre = giroValida ? giro!.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : ''
               return (
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -1035,12 +1056,21 @@ export function TabGestioneClienti() {
                         ? `La sveglia delle 8:30 è scattata sul telefono del cliente${scadenzaTarget.allarmeLocaleIl ? ` (confermata il ${new Date(scadenzaTarget.allarmeLocaleIl).toLocaleDateString('it-IT')})` : ''}.`
                         : email
                           ? 'Il cliente non ha canali push: l\'avviso è partito via email.'
-                          : avviata && !passata
-                            ? 'La sveglia 8:30 del telefono avvisa nei giorni del piano qui sopra; il check mattutino riprova la push di riserva ogni giorno, ma solo se l\'app risulta chiusa.'
-                            : avviata && passata
-                              ? 'La scadenza è passata e il check non riprova più. Il cliente ha comunque la campanella in app; per le scadenze vecchie il segno della push "Scade OGGI" non veniva registrato (v4.90 lo registra da oggi in poi).'
-                              : 'La notifica partirà quando la scadenza entra nei giorni di avviso del piano.'}
+                          : avviata && !passata && scadeOggi && giroOggi && giroDopoLe10
+                            ? `Il giro di controllo di oggi è passato alle ${giroOre} e la push di riserva "Scade OGGI" non è riuscita a consegnarsi: il canale push del cliente probabilmente non risponde (token vecchio, app disinstallata o telefono spento). La sveglia delle 8:30 di oggi è comunque partita: il server la vedrà solo quando il cliente aprirà l'app.`
+                            : avviata && !passata && scadeOggi
+                              ? 'Oggi è il giorno della scadenza: alle 10:15 il giro del server manderà la push di riserva "Scade OGGI" (se l\'allarme delle 8:30 non risulta confermato) e la pillola diventerà verde.'
+                              : avviata && !passata
+                                ? 'La sveglia 8:30 del telefono avvisa nei giorni del piano qui sopra, ma il server non può vederla finché il cliente non apre l\'app. La prova di consegna che accende la pillola arriva con la push di riserva: alle 10:15 del giorno della scadenza, o prima nei giorni di avviso se l\'app risulta chiusa da prima della creazione della scadenza.'
+                                : avviata && passata
+                                  ? 'La scadenza è passata e il check non riprova più. Il cliente ha comunque la campanella in app; per le scadenze vecchie il segno della push "Scade OGGI" non veniva registrato (v4.90 lo registra da oggi in poi).'
+                                  : 'La notifica partirà quando la scadenza entra nei giorni di avviso del piano.'}
                   </p>
+                  {avviata && !consegnata && giroValida && (
+                    <p className="text-[11px] text-slate-400 pl-0.5">
+                      Ultimo giro del check scadenze: {giro!.toLocaleDateString('it-IT')} alle {giroOre} — {checkLog?.detail || 'esito non disponibile'}
+                    </p>
+                  )}
                 </div>
               )
             })()}

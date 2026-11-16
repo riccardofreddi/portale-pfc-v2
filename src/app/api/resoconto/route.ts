@@ -1,11 +1,12 @@
 /**
  * /api/resoconto - admin: statistiche archivio per cliente
  */
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
 import { listaOggetti, haConfigurazioneR2, DOCS_PREFIX } from '@/lib/r2'
 import { formatBytes } from '@/lib/pfc-utils'
+import { forseRimedioGiroMancato } from '@/lib/scadenze-check'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -15,6 +16,14 @@ export async function GET() {
   if (!session || session.role !== 'admin') {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
   }
+
+  // v4.91 — auto-guarigione: se il giro del check scadenze di OGGI manca
+  // (cron Vercel perso o in ritardo) e sono passate le 10:00 italiane, lo
+  // faccio partire dopo la risposta. Best-effort, guardia interna: una
+  // sola cura al giorno, tace se il giro c'e' gia'.
+  after(async () => {
+    await forseRimedioGiroMancato('piggyback resoconto')
+  })
 
   const clienti = await db.user.findMany({
     where: { role: 'client' },

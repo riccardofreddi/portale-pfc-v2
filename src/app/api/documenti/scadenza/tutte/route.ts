@@ -22,12 +22,26 @@
  * su cui il server non spinge per design: la pillola verde "consegnata"
  * dell'archivio si accende anche per loro, non solo quando la push di
  * riserva e' partita.
+ *
+ * v4.91 — due novita' per la finestra "Promemoria scadenza":
+ *  - ultimoCheck nella risposta (quando e come e' girato l'ultimo check
+ *    delle scadenze, dal registro ultimo_check_scadenze): l'admin vede se
+ *    la macchina e' viva e, per una scadenza di oggi ancora "in attesa",
+ *    capisce se la push di riserva e' gia' stata tentata;
+ *  - AUTO-GUARIGIONE dopo la risposta (after, best-effort): se il giro di
+ *    OGGI manca ancora (cron Vercel perso, caso reale 11/11/2026) e sono
+ *    passate le 10:00 italiane, il giro parte da qui. Guardia interna:
+ *    una sola cura al giorno, e se il giro c'e' gia' tace.
  */
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
+import { forseRimedioGiroMancato, leggiUltimoGiro } from '@/lib/scadenze-check'
 
 export const dynamic = 'force-dynamic'
+// after() fa girare la cura del giro mancato DOPO la risposta: serve
+// tempo a disposizione (il giro tocca tutto il database).
+export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
   const session = await getSession()
@@ -40,7 +54,7 @@ export async function GET(req: NextRequest) {
   if (!username) return NextResponse.json({ error: 'Username mancante' }, { status: 400 })
 
   const user = await db.user.findUnique({ where: { username }, select: { id: true } })
-  if (!user) return NextResponse.json({ scadenze: [] })
+  if (!user) return NextResponse.json({ scadenze: [], ultimoCheck: null })
 
   const scadenze = await db.scadenza.findMany({
     where: { userId: user.id },
@@ -64,5 +78,15 @@ export async function GET(req: NextRequest) {
     },
   })
 
-  return NextResponse.json({ scadenze })
+  // v4.91 — auto-guarigione: se il giro di oggi manca (cron perso) e sono
+  // passate le 10:00 italiane, lo faccio partire dopo la risposta, senza
+  // rallentare il poll da 30 secondi. Best-effort: non puo' rompere nulla.
+  after(async () => {
+    await forseRimedioGiroMancato('piggyback scadenza/tutte')
+  })
+
+  // v4.91 — il registro di giro per la finestra Promemoria (vedi il
+  // commento in testa): null se il check non ha mai girato.
+  const ultimoCheck = await leggiUltimoGiro()
+  return NextResponse.json({ scadenze, ultimoCheck })
 }

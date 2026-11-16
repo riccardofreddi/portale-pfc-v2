@@ -646,8 +646,10 @@ export async function notifyScadenzaDiOggi(params: {
 // (client-safe): la finestra "Promemoria scadenza" dell'admin disegna il
 // piano avvisi con la STESSA funzione del server — una sola regola in tutto
 // il progetto. Il re-export mantiene la vecchia via d'import del cron
-// (check/route.ts continua a prenderla da qui).
-export { giorniDiPreavviso } from '@/lib/pfc-utils'
+// (check/route.ts continua a prenderla da qui). Percorso RELATIVO (v4.91):
+// l'alias '@/...' non esiste per jest (i test del check importano questo
+// file direttamente) e dalla v4.90 la suite scadenza-oggi non partiva piu'.
+export { giorniDiPreavviso } from './pfc-utils'
 
 /**
  * v4.84 — PUSH "Scade tra N giorni" DEL SERVER: la rete di sicurezza del

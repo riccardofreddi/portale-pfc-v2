@@ -101,8 +101,18 @@ export const db = {
     }),
   },
   scadenza: {
-    findUnique: jest.fn(),
-    update: jest.fn(),
+    // v4.91 — implementazioni di default (la suite era ferma dalla v4.90
+    // per l'alias '@/...' di pfc-utils, e nel frattempo la v4.89 aveva
+    // aggiunto in scadenza-notify le scritture pushInviata con .catch():
+    // un jest.fn() nudo restituiva undefined e il test schiantava).
+    findUnique: jest.fn(async () => null),
+    findMany: jest.fn(async () => []), // v4.91: motore del check (scadenze da controllare)
+    update: jest.fn(async () => ({})),
+  },
+  // v4.91: registro di giro + cura del giro mancato (scadenze-check.ts)
+  systemSetting: {
+    findUnique: jest.fn(async () => null),
+    upsert: jest.fn(async () => ({})),
   },
   fcmToken: { count: jest.fn() },
   pushSubscription: { count: jest.fn() },
