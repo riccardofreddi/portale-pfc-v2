@@ -15,6 +15,13 @@
  * scadenza, senza riscaricare la lista file da R2, e aggiunge la targhetta
  * alle scadenze create mentre la pagina era aperta (es. caricamento dal
  * tab Invio Documenti).
+ *
+ * v4.89 — include anche allarmeLocaleIl: la conferma che la sveglia 08:30
+ * e' scattata sul telefono del cliente (POST /api/documenti/scadenza/
+ * allarme-confermato). E' la prova di consegna per i clienti con l'app,
+ * su cui il server non spinge per design: la pillola verde "consegnata"
+ * dell'archivio si accende anche per loro, non solo quando la push di
+ * riserva e' partita.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -50,6 +57,10 @@ export async function GET(req: NextRequest) {
       notificata: true,
       pushInviata: true,
       emailInviata: true,
+      // v4.89: quando il telefono ha confermato la sveglia 08:30 del giorno
+      // della scadenza (POST allarme-confermato): la prova di consegna per
+      // i clienti con l'app, su cui il server non spinge per design.
+      allarmeLocaleIl: true,
     },
   })
 

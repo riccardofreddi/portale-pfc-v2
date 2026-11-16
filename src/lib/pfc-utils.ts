@@ -113,3 +113,22 @@ export function validaEmail(raw: string): { ok: boolean; normalized: string | nu
   if (!EMAIL_REGEX.test(email)) return { ok: false, normalized: null, msg: 'Inserisci un indirizzo email valido' }
   return { ok: true, normalized: email, msg: '' }
 }
+
+/**
+ * v4.90 — I giorni di PREAVVISO di una scadenza, STESSA regola di app e
+ * server (app: src/lib/scadenze-locali.ts v4.124): l'anticipo scelto dallo
+ * studio entra lui stesso nei preavvisi, insieme alle tacche fisse 10/3/1,
+ * filtrate a [1..anticipo] e senza doppioni. Esempi: anticipo 4 -> [4, 3, 1];
+ * anticipo 10 -> [10, 3, 1]; anticipo 2 -> [2, 1]; anticipo 1 -> [1].
+ * Difesa NaN come l'app: anticipo non valido = 10 (il default del server).
+ * Regola UNA per tutto il progetto: la sveglia 08:30 del telefono e la push
+ * di riserva del server escono esattamente in questi giorni, e la finestra
+ * "Promemoria scadenza" dell'admin disegna il piano con questa funzione
+ * (scadenza-notify.ts la re-esporta per il cron).
+ */
+export function giorniDiPreavviso(anticipoGiorni: number): number[] {
+  const anticipo = Number.isFinite(anticipoGiorni) && anticipoGiorni > 0 ? anticipoGiorni : 10
+  return Array.from(new Set([anticipo, 10, 3, 1]))
+    .filter((n) => n >= 1 && n <= anticipo)
+    .sort((a, b) => b - a)
+}

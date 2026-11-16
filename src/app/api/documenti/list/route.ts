@@ -129,6 +129,9 @@ export async function GET(req: NextRequest) {
       notificata: s.notificata,
       pushInviata: s.pushInviata,
       emailInviata: s.emailInviata,
+      // v4.89: conferma della sveglia 08:30 erogata sul telefono (prova di
+      // consegna per i clienti con l'app, letta dalla pillola dell'archivio).
+      allarmeLocaleIl: s.allarmeLocaleIl,
     })
     const enrichedWithDate = enriched.map(f => ({
       ...f,
@@ -157,6 +160,9 @@ export async function GET(req: NextRequest) {
       notificata: s.notificata,
       pushInviata: s.pushInviata,
       emailInviata: s.emailInviata,
+      // v4.89: conferma della sveglia 08:30 erogata sul telefono (prova di
+      // consegna per i clienti con l'app, letta dalla pillola dell'archivio).
+      allarmeLocaleIl: s.allarmeLocaleIl,
     })
     const filesWithDate = files.map(f => ({
       ...f,

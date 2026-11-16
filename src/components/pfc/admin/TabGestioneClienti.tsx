@@ -15,7 +15,7 @@ import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, EyeOff, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight, Edit2, CalendarClock } from 'lucide-react'
-import { formatBytes, ottieniIconaFile, canPreviewFile, formatDateShort, MAX_FILE_SIZE_MB } from '@/lib/pfc-utils'
+import { formatBytes, ottieniIconaFile, canPreviewFile, formatDateShort, MAX_FILE_SIZE_MB, giorniDiPreavviso } from '@/lib/pfc-utils'
 
 interface Cliente { username: string; name: string; email?: string | null; exemptMaintenance: boolean; createdAt: string }
 interface CassettoFile { nome: string; key: string; size: number; sizeStr: string; lastModified: Date | null }
@@ -51,7 +51,7 @@ export function TabGestioneClienti() {
   const [deleteBulkTarget, setDeleteBulkTarget] = useState<{ anno: string; cartella?: string } | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
   const [renameNewName, setRenameNewName] = useState('')
-  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null>(null)
+  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } | null>(null)
   const [scadenzaData, setScadenzaData] = useState('')
   const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
   const [scadenzaSaving, setScadenzaSaving] = useState(false)
@@ -156,7 +156,7 @@ export function TabGestioneClienti() {
         if (!res.ok) return
         const data = await res.json()
         if (!vivo) return
-        const lista = (data.scadenze ?? []) as Array<{ id: string; filePath: string; titolo: string; dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata: boolean; pushInviata: boolean; emailInviata: boolean }>
+        const lista = (data.scadenze ?? []) as Array<{ id: string; filePath: string; titolo: string; dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata: boolean; pushInviata: boolean; emailInviata: boolean; allarmeLocaleIl?: string | null }>
         const perFile = new Map(lista.map((s) => [s.filePath, s]))
         setArchivioFiles((prev) => {
           let cambiato = false
@@ -164,7 +164,7 @@ export function TabGestioneClienti() {
           for (const [chiave, files] of Object.entries(prev)) {
             next[chiave] = files.map((f) => {
               const s = perFile.get(f.key)
-              const scad = (f as unknown as { scadenza?: { pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null }).scadenza
+              const scad = (f as unknown as { scadenza?: { pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } | null }).scadenza
               if (!s) {
                 // v4.88: la scadenza e' stata RIMOSSA altrove (altra schedra
                 // aperta): la targhetta sparisce da sola, la lista non mente.
@@ -176,7 +176,7 @@ export function TabGestioneClienti() {
                 // (es. caricamento dal tab Invio Documenti): la targhetta
                 // appare entro un giro del poll, senza riscaricare R2.
                 cambiato = true
-                return { ...f, scadenza: { id: s.id, titolo: s.titolo, dataScadenza: s.dataScadenza, anticipoGiorni: s.anticipoGiorni, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata } }
+                return { ...f, scadenza: { id: s.id, titolo: s.titolo, dataScadenza: s.dataScadenza, anticipoGiorni: s.anticipoGiorni, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata, allarmeLocaleIl: s.allarmeLocaleIl ?? null } }
               }
               // v4.88: sincronizza anche la CONSEGNA (notificata/pushInviata/
               // emailInviata), non solo il pagamento: la pillola "consegnata"
@@ -187,10 +187,11 @@ export function TabGestioneClienti() {
                 (scad.pagataIl ?? null) === (s.pagataIl ?? null) &&
                 scad.notificata === s.notificata &&
                 scad.pushInviata === s.pushInviata &&
-                scad.emailInviata === s.emailInviata
+                scad.emailInviata === s.emailInviata &&
+                (scad.allarmeLocaleIl ?? null) === (s.allarmeLocaleIl ?? null)
               ) return f
               cambiato = true
-              return { ...f, scadenza: { ...scad, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata } }
+              return { ...f, scadenza: { ...scad, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata, allarmeLocaleIl: s.allarmeLocaleIl ?? null } }
             })
           }
           return cambiato ? next : prev
@@ -205,9 +206,10 @@ export function TabGestioneClienti() {
             (t.pagataIl ?? null) === (s.pagataIl ?? null) &&
             t.notificata === s.notificata &&
             t.pushInviata === s.pushInviata &&
-            t.emailInviata === s.emailInviata
+            t.emailInviata === s.emailInviata &&
+            (t.allarmeLocaleIl ?? null) === (s.allarmeLocaleIl ?? null)
           ) return t
-          return { ...t, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata }
+          return { ...t, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata, allarmeLocaleIl: s.allarmeLocaleIl ?? null }
         })
       } catch { /* silenzioso: il poll non deve rompere nulla */ }
     }
@@ -311,7 +313,7 @@ export function TabGestioneClienti() {
 
   function openScadenza(f: { key: string; nome: string }) {
     // Se il file ha già una scadenza (passata dalla lista), precompila i campi.
-    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } }).scadenza
+    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } }).scadenza
     let dataIniziale = ''
     let anticipoIniziale = 10
     if (scad) {
@@ -322,7 +324,7 @@ export function TabGestioneClienti() {
       }
       anticipoIniziale = scad.anticipoGiorni
     }
-    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false, pagataDa: scad?.pagataDa ?? null, pagataIl: scad?.pagataIl ?? null, notificata: scad?.notificata ?? false, pushInviata: scad?.pushInviata ?? false, emailInviata: scad?.emailInviata ?? false })
+    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false, pagataDa: scad?.pagataDa ?? null, pagataIl: scad?.pagataIl ?? null, notificata: scad?.notificata ?? false, pushInviata: scad?.pushInviata ?? false, emailInviata: scad?.emailInviata ?? false, allarmeLocaleIl: scad?.allarmeLocaleIl ?? null })
     setScadenzaData(dataIniziale)
     setScadenzaAnticipo(String(anticipoIniziale))
     // v4.60: rilettura FRESCA dal server. La riga della lista può essere
@@ -334,7 +336,7 @@ export function TabGestioneClienti() {
         const res = await fetch(`/api/documenti/scadenza?filePath=${encodeURIComponent(f.key)}`)
         if (!res.ok) return
         const data = await res.json()
-        const s = data.scadenza as { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } | null
+        const s = data.scadenza as { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } | null
         if (!s) return
         const d = new Date(s.dataScadenza)
         if (!isNaN(d.getTime())) setScadenzaData(d.toISOString().slice(0, 10))
@@ -348,6 +350,7 @@ export function TabGestioneClienti() {
           notificata: s.notificata ?? false,
           pushInviata: s.pushInviata ?? false,
           emailInviata: s.emailInviata ?? false,
+          allarmeLocaleIl: s.allarmeLocaleIl ?? null,
         } : t))
       } catch { /* resta il prefill dalla riga */ }
     })()
@@ -617,22 +620,36 @@ export function TabGestioneClienti() {
                                               {canPreviewFile(f.nome) && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'nuovo', isPreferito: false })}><Eye className="h-3 w-3" /></Button>}
                                               <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3 w-3" /></Button>
 <Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
-{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } }).scadenza && (
+{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } }).scadenza && (
                                                 (() => {
-                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean } }).scadenza
+                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } }).scadenza
                                                   const pagata = !!sc.pagata
+                                                  // v4.89: l'avviso e' CONSEGNATO quando e' arrivato davvero
+                                                  // sul telefono con UNA delle tre vie: sveglia 08:30 confermata
+                                                  // dall'app (allarmeLocaleIl, la via normale per i clienti con
+                                                  // l'app: il server tace apposta), push di riserva consegnata
+                                                  // (pushInviata) o email di cortesia (emailInviata).
+                                                  const consegnata = sc.pushInviata === true || sc.allarmeLocaleIl != null || sc.emailInviata === true
+                                                  // v4.90: la pillola azzurra "in attesa" esiste SOLO per le
+                                                  // scadenze FUTURE (il check riprova davvero ogni mattina).
+                                                  // Per le passate senza prova niente pillola: la storia della
+                                                  // consegna e' finita, i dettagli stanno nella finestra
+                                                  // Promemoria — niente piu' "in attesa" che non arrivera' mai.
+                                                  const inizioOggi = new Date(); inizioOggi.setHours(0, 0, 0, 0)
+                                                  const passata = new Date(sc.dataScadenza) < inizioOggi
                                                   return (
                                                     <>
                                                       <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${pagata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                                         {pagata ? '✅' : '⏰'} {new Date(sc.dataScadenza).toLocaleDateString('it-IT')}
                                                       </span>
-                                                      {/* v4.88: stato di CONSEGNA della notifica in lista, aggiornato
-                                                          dal poll ogni 30 secondi. Verde = push arrivata sul telefono
-                                                          del cliente; azzurro = avviata ma ancora in consegna. */}
-                                                      {!pagata && sc.pushInviata === true && (
+                                                      {/* v4.90: stato di CONSEGNA dell'avviso in lista, aggiornato
+                                                          dal poll ogni 30 secondi. Verde = sveglia confermata sul
+                                                          telefono / push di riserva arrivata / email partita;
+                                                          azzurro = solo scadenze future avviate senza conferma. */}
+                                                      {!pagata && consegnata && (
                                                         <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">✓ consegnata</span>
                                                       )}
-                                                      {!pagata && sc.pushInviata !== true && sc.notificata === true && (
+                                                      {!pagata && !consegnata && !passata && sc.notificata === true && (
                                                         <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-100 text-sky-700">⏳ in attesa</span>
                                                       )}
                                                     </>
@@ -927,7 +944,9 @@ export function TabGestioneClienti() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-amber-600" /> Promemoria scadenza</DialogTitle>
             <DialogDescription>
-              Il cliente riceverà una notifica push N giorni prima della scadenza (anche se non è loggato).
+              Avviso vero = la sveglia delle 8:30 sul telefono del cliente, nei giorni di avviso del piano qui sotto,
+              anche a app chiusa e senza login. Il server aggiunge solo le reti di sicurezza: campanella in app,
+              push di riserva (solo se l'app risulta chiusa) ed email di cortesia (solo per chi non ha canali push).
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -942,32 +961,85 @@ export function TabGestioneClienti() {
                 <Input type="number" min={1} max={365} value={scadenzaAnticipo} onChange={(e) => setScadenzaAnticipo(e.target.value)} />
               </div>
             </div>
-            {/* Stato notifica: pillola verde = push arrivata sul telefono del cliente.
-                Legge i flag scritti dal motore scadenza-notify (pushInviata = consegnata davvero). */}
+            {/* v4.90: piano avvisi VERO, calcolato con la stessa regola di app e
+                server (giorniDiPreavviso: anticipo + tacche 10/3/1). Si aggiorna
+                mentre l'admin modifica data o anticipo, cosi' il piano mostrato e'
+                sempre quello che poi eseguira' il sistema. */}
+            {(() => {
+              const [py, pm, pd] = scadenzaData.split('-').map(Number)
+              const base = new Date(py, (pm || 1) - 1, pd || 1)
+              const dataValida = scadenzaData.trim() !== '' && py >= 1900 && py <= 2100 && !isNaN(base.getTime())
+              const giorni = giorniDiPreavviso(Number(scadenzaAnticipo))
+              const fmtGiorno = (g: number) => {
+                const d = new Date(base.getTime())
+                d.setDate(d.getDate() - g)
+                return d.toLocaleDateString('it-IT')
+              }
+              const etichetta = (g: number) => (g === 1 ? '1 giorno prima' : g === 0 ? 'giorno stesso' : `${g} giorni prima`)
+              return (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 space-y-1">
+                  <p className="font-semibold text-slate-700">Piano avvisi — sveglia 8:30 sul telefono</p>
+                  <p>
+                    {dataValida
+                      ? [...giorni].map((g) => `${fmtGiorno(g)} (${etichetta(g)})`).join(' · ') + ` · ${fmtGiorno(0)} (giorno stesso)`
+                      : `${giorni.map(etichetta).join(' · ')} · giorno stesso`}
+                  </p>
+                  <p className="text-slate-500">
+                    In questi giorni la sveglia parte alle 8:30 anche a app chiusa e senza login. La push di riserva
+                    del server esce SOLO se l'app risulta chiusa (nei giorni di avviso dopo le 10:00; il giorno stesso
+                    se la sveglia non è stata confermata). Chi non ha l'app riceve l'email di cortesia nei 2 giorni finali.
+                  </p>
+                </div>
+              )
+            })()}
+            {/* Stato notifica (v4.90): pillola verde = l'avviso e' ARRIVATO davvero sul
+                telefono del cliente, con una delle tre vie: sveglia 08:30 confermata
+                dall'app (allarmeLocaleIl), push di riserva consegnata (pushInviata) o
+                email di cortesia (emailInviata). Azzurra = avviato ma senza ancora
+                nessuna conferma, SOLO per scadenze future (il check riprova ogni
+                mattina). Grigia "passata senza conferma" = la scadenza e' gia' passata
+                e il check non riprova piu': niente piu' "in attesa" che non arriva mai. */}
             {scadenzaTarget?.had && (() => {
-              const consegnata = scadenzaTarget.pushInviata === true
+              const sveglia = scadenzaTarget.allarmeLocaleIl != null
+              const push = scadenzaTarget.pushInviata === true
+              const email = scadenzaTarget.emailInviata === true
+              const consegnata = sveglia || push || email
               const avviata = scadenzaTarget.notificata === true
+              const [vy, vm, vd] = scadenzaData.split('-').map(Number)
+              const dataScad = new Date(vy, (vm || 1) - 1, vd || 1)
+              const inizioOggi = new Date(); inizioOggi.setHours(0, 0, 0, 0)
+              const passata = scadenzaData.trim() !== '' && vy >= 1900 && vy <= 2100 && dataScad < inizioOggi
               return (
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <Label className="text-slate-600">Stato notifica</Label>
                     {consegnata ? (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">✅ Push consegnata</span>
-                    ) : avviata ? (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">
+                        {push ? '✅ Push consegnata' : sveglia ? '✅ Sveglia arrivata' : '✅ Avvisato via email'}
+                      </span>
+                    ) : avviata && !passata ? (
                       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">⏳ In attesa di consegna</span>
+                    ) : avviata && passata ? (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600">Scadenza passata senza conferma</span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600">Non ancora avviata</span>
                     )}
-                    {scadenzaTarget.emailInviata === true && (
+                    {email && (push || sveglia) && (
                       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-sky-100 text-sky-700">📧 Email di cortesia inviata</span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 pl-0.5">
-                    {consegnata
+                    {push
                       ? 'La notifica push è arrivata sul telefono del cliente.'
-                      : avviata
-                        ? 'Il sveglione riprova la consegna ogni mattina.'
-                        : 'La notifica partirà quando la scadenza entra nei giorni di preavviso.'}
+                      : sveglia
+                        ? `La sveglia delle 8:30 è scattata sul telefono del cliente${scadenzaTarget.allarmeLocaleIl ? ` (confermata il ${new Date(scadenzaTarget.allarmeLocaleIl).toLocaleDateString('it-IT')})` : ''}.`
+                        : email
+                          ? 'Il cliente non ha canali push: l\'avviso è partito via email.'
+                          : avviata && !passata
+                            ? 'La sveglia 8:30 del telefono avvisa nei giorni del piano qui sopra; il check mattutino riprova la push di riserva ogni giorno, ma solo se l\'app risulta chiusa.'
+                            : avviata && passata
+                              ? 'La scadenza è passata e il check non riprova più. Il cliente ha comunque la campanella in app; per le scadenze vecchie il segno della push "Scade OGGI" non veniva registrato (v4.90 lo registra da oggi in poi).'
+                              : 'La notifica partirà quando la scadenza entra nei giorni di avviso del piano.'}
                   </p>
                 </div>
               )

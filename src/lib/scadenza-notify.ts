@@ -609,6 +609,18 @@ export async function notifyScadenzaDiOggi(params: {
         .deleteMany({ where: { id: { in: segni.slice(1).map((n) => n.id) } } })
         .catch(() => {})
     }
+    // v4.89 — push accettata => pushInviata = true (significato storico v4.58:
+    // "una push su questa scadenza e' arrivata davvero"). Prima la flag non
+    // veniva MAI scritta su questa via: per i clienti con l'app (a cui il
+    // server tace per design, la sveglia 08:30 fa da avviso) e per chi
+    // riceveva solo la riserva del giorno stesso, la pillola dell'archivio
+    // admin restava "in attesa" anche a notifica consegnata. Nessun effetto
+    // collaterale: le letture della flag (salto del preavviso "notificata &&
+    // pushInviata" nel cron, guardia scadeOggi di notifyScadenzaImminente)
+    // riguardano i giorni PRIMA della scadenza, e qui siamo nel giorno stesso.
+    await db.scadenza
+      .update({ where: { id: params.scadenzaId }, data: { pushInviata: true } })
+      .catch(() => {})
   } else {
     // RILASCIO: la push non e' stata accettata da nessun canale. Il pending
     // torna campanella del mattino ('scadenza', testo standard): la chance
@@ -630,21 +642,12 @@ export async function notifyScadenzaDiOggi(params: {
   return { pushSent }
 }
 
-/**
- * v4.84 — I giorni di PREAVVISO di una scadenza, STESSA regola dell'app
- * (src/lib/scadenze-locali.ts v4.124): l'anticipo scelto dallo studio entra
- * lui stesso nei preavvisi, insieme alle tacche fisse 10/3/1, filtrate a
- * [1..anticipo] e senza doppioni. Esempi: anticipo 4 -> [4, 3, 1];
- * anticipo 10 -> [10, 3, 1]; anticipo 2 -> [2, 1]; anticipo 1 -> [1].
- * Difesa NaN come l'app: anticipo non valido = 10 (il default del server).
- */
-export function giorniDiPreavviso(anticipoGiorni: number): number[] {
-  const anticipo =
-    Number.isFinite(anticipoGiorni) && anticipoGiorni > 0 ? anticipoGiorni : 10
-  return Array.from(new Set([anticipo, 10, 3, 1]))
-    .filter((n) => n >= 1 && n <= anticipo)
-    .sort((a, b) => b - a)
-}
+// v4.90 — la regola dei giorni di preavviso vive ora in pfc-utils
+// (client-safe): la finestra "Promemoria scadenza" dell'admin disegna il
+// piano avvisi con la STESSA funzione del server — una sola regola in tutto
+// il progetto. Il re-export mantiene la vecchia via d'import del cron
+// (check/route.ts continua a prenderla da qui).
+export { giorniDiPreavviso } from '@/lib/pfc-utils'
 
 /**
  * v4.84 — PUSH "Scade tra N giorni" DEL SERVER: la rete di sicurezza del
