@@ -15,7 +15,7 @@ import { usePfcStore } from '@/store/pfc'
 import { api } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { UserPlus, Trash2, Edit, Loader2, Users, FolderOpen, Eye, EyeOff, Download, UploadCloud, Briefcase, ChevronDown, ChevronRight, Edit2, CalendarClock } from 'lucide-react'
-import { formatBytes, ottieniIconaFile, canPreviewFile, formatDateShort, MAX_FILE_SIZE_MB, giorniDiPreavviso, etichettaAnticipo, statoAvvisiPiano } from '@/lib/pfc-utils'
+import { formatBytes, ottieniIconaFile, canPreviewFile, formatDateShort, MAX_FILE_SIZE_MB, giorniDiPreavviso, etichettaAnticipo, pillolaScadenza } from '@/lib/pfc-utils'
 
 interface Cliente { username: string; name: string; email?: string | null; exemptMaintenance: boolean; createdAt: string }
 interface CassettoFile { nome: string; key: string; size: number; sizeStr: string; lastModified: Date | null }
@@ -630,35 +630,31 @@ export function TabGestioneClienti() {
 <Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
 {(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } }).scadenza && (
                                                 (() => {
-                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } }).scadenza
+                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } }).scadenza
                                                   const pagata = !!sc.pagata
-                                                  // v4.89: l'avviso e' CONSEGNATO quando e' arrivato davvero
-                                                  // sul telefono con UNA delle tre vie: sveglia 08:30 confermata
-                                                  // dall'app (allarmeLocaleIl, la via normale per i clienti con
-                                                  // l'app: il server tace apposta), push di riserva consegnata
-                                                  // (pushInviata) o email di cortesia (emailInviata).
-                                                  const consegnata = sc.pushInviata === true || sc.allarmeLocaleIl != null || sc.emailInviata === true
-                                                  // v4.90: la pillola azzurra "in attesa" esiste SOLO per le
-                                                  // scadenze FUTURE (il check riprova davvero ogni mattina).
-                                                  // Per le passate senza prova niente pillola: la storia della
-                                                  // consegna e' finita, i dettagli stanno nella finestra
-                                                  // Promemoria — niente piu' "in attesa" che non arrivera' mai.
-                                                  const inizioOggi = new Date(); inizioOggi.setHours(0, 0, 0, 0)
-                                                  const passata = new Date(sc.dataScadenza) < inizioOggi
+                                                  // v4.93: la pillola della lista usa LA STESSA FUNZIONE della
+                                                  // finestra Promemoria (pillolaScadenza in pfc-utils): una sola
+                                                  // logica per lista e finestra, piu' incoerenze impossibili.
+                                                  // Nei giorni del piano la lista dice "🔔 sveglia oggi" come la
+                                                  // finestra dice "Avviso di oggi" — non piu' "in attesa" mentre
+                                                  // la sveglia e' suonata (caso reale 17/11/2026, Glifato).
+                                                  const [ly, lm, ld] = sc.dataScadenza.split('-').map(Number)
+                                                  const dataLista = new Date(ly, (lm || 1) - 1, ld || 1)
+                                                  const pill = pillolaScadenza({ dataScadenza: dataLista, anticipoGiorni: sc.anticipoGiorni, notificata: sc.notificata, pushInviata: sc.pushInviata, emailInviata: sc.emailInviata, allarmeLocaleIl: sc.allarmeLocaleIl ?? null }, new Date())
+                                                  const clsPill = pill?.tono === 'verde' ? 'bg-emerald-100 text-emerald-700' : pill?.tono === 'amber' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                                                   return (
                                                     <>
                                                       <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${pagata ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                                         {pagata ? '✅' : '⏰'} {new Date(sc.dataScadenza).toLocaleDateString('it-IT')}
                                                       </span>
-                                                      {/* v4.90: stato di CONSEGNA dell'avviso in lista, aggiornato
-                                                          dal poll ogni 30 secondi. Verde = sveglia confermata sul
-                                                          telefono / push di riserva arrivata / email partita;
-                                                          azzurro = solo scadenze future avviate senza conferma. */}
-                                                      {!pagata && consegnata && (
-                                                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">✓ consegnata</span>
-                                                      )}
-                                                      {!pagata && !consegnata && !passata && sc.notificata === true && (
-                                                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-100 text-sky-700">⏳ in attesa</span>
+                                                      {/* v4.93: stato di consegna in lista, identico alla finestra
+                                                          Promemoria e aggiornato dal poll ogni 30 secondi. Verde =
+                                                          prova di consegna (sveglia confermata / push / email);
+                                                          amber "🔔 sveglia oggi" / "avviso in corso" = il piano
+                                                          avvisi sta agendo; '' = nessuna pillola (prima del piano
+                                                          o scadenza passata senza prova). */}
+                                                      {!pagata && pill && pill.lista !== '' && (
+                                                        <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${clsPill}`}>{pill.lista}</span>
                                                       )}
                                                     </>
                                                   )
@@ -952,9 +948,7 @@ export function TabGestioneClienti() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-amber-600" /> Promemoria scadenza</DialogTitle>
             <DialogDescription>
-              Avviso vero = la sveglia delle 8:30 sul telefono del cliente, nei giorni di avviso del piano qui sotto,
-              anche a app chiusa e senza login. Il server aggiunge solo le reti di sicurezza: campanella in app,
-              push di riserva (solo se l'app risulta chiusa) ed email di cortesia (solo per chi non ha canali push).
+              La sveglia 8:30 sul telefono del cliente è l'avviso vero, nei giorni del piano qui sotto.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -992,109 +986,49 @@ export function TabGestioneClienti() {
                       ? [...giorni].map((g) => `${fmtGiorno(g)} (${etichetta(g)})`).join(' · ') + ` · ${fmtGiorno(0)} (giorno stesso)`
                       : `${giorni.map(etichetta).join(' · ')} · giorno stesso`}
                   </p>
-                  <p className="text-slate-500">
-                    In questi giorni la sveglia parte alle 8:30 anche a app chiusa e senza login. La push di riserva
-                    del server esce SOLO se l'app risulta chiusa (nei giorni di avviso dopo le 10:00; il giorno stesso
-                    se la sveglia non è stata confermata). Chi non ha l'app riceve l'email di cortesia nei 2 giorni finali.
-                  </p>
+                  {/* v4.93: niente paragrafo di spiegazioni qui — il piano sono le
+                      date, lo stato e' la pillola qui sotto. Una riga sola. */}
                 </div>
               )
             })()}
-            {/* Stato notifica (v4.90, piano v4.92): pillola verde = l'avviso e'
-                ARRIVATO davvero sul telefono del cliente, con una delle tre vie:
-                sveglia 08:30 confermata dall'app (allarmeLocaleIl), push di riserva
-                consegnata (pushInviata) o email di cortesia (emailInviata).
-                v4.92 — il PIANO AVVISI entra nello stato: la sveglia 8:30 e' l'avviso
-                vero e scatta SUL TELEFONO nei giorni del piano, anche mentre il
-                server non ha ancora scritto nulla (il giro e' alle 10:15). Cosi' il
-                mattino di un giorno di piano la pillola dice "avviso attivo oggi"
-                invece di smentire la sveglia appena suonata con "non ancora avviata"
-                (caso reale 17/11/2026, Glifato). Grigia "passata senza conferma" =
-                la scadenza e' passata e il check non riprova piu', per qualsiasi
-                stato dei flag: niente "non ancora avviata" eterna. */}
+            {/* Stato notifica (v4.93): UNA SOLA FUNZIONE (pillolaScadenza in
+                pfc-utils) decide pillola e frase, identica per LISTA e FINESTRA:
+                prima le due viste avevano logiche separate e il 17/11/2026 la
+                lista diceva "in attesa" mentre la finestra diceva "Avviso di
+                oggi" per la stessa scadenza. La finestra resta snella: pillola,
+                UNA riga corta e l'"Ultimo giro del check" (v4.93 taglia i
+                paragrafi lunghi della v4.91/v4.92). */}
             {scadenzaTarget?.had && (() => {
-              const sveglia = scadenzaTarget.allarmeLocaleIl != null
-              const push = scadenzaTarget.pushInviata === true
-              const email = scadenzaTarget.emailInviata === true
-              const consegnata = sveglia || push || email
-              const avviata = scadenzaTarget.notificata === true
-              const [vy, vm, vd] = scadenzaData.split('-').map(Number)
-              const dataScad = new Date(vy, (vm || 1) - 1, vd || 1)
-              const inizioOggi = new Date(); inizioOggi.setHours(0, 0, 0, 0)
-              const passata = scadenzaData.trim() !== '' && vy >= 1900 && vy <= 2100 && dataScad < inizioOggi
-              // v4.91 — diagnostica del giro del check (orologio del browser
-              // = ora italiana dell'admin): la scadenza e' OGGI? il giro di
-              // oggi e' gia' passato, e dopo le 10:00 (finestra della push
-              // di riserva)? Con questo lo stato "in attesa" dice DA SOLA
-              // se la riserva e' gia' stata tentata o se deve ancora
-              // arrivare, senza aprire la diagnostica.
-              const adesso = new Date()
-              const scadeOggi = scadenzaData.trim() !== '' && vy >= 1900 && vy <= 2100 && dataScad.toDateString() === adesso.toDateString()
-              // v4.92 — dove siamo nel piano avvisi (stessa regola della sezione
-              // "Piano avvisi" qui sopra: giorniDiPreavviso + giorno stesso), con
-              // l'orologio del browser. null = data non ancora valida (admin sta
-              // scrivendo): in quel caso le pillole del piano non compaiono.
-              const piano = statoAvvisiPiano(dataScad, Number(scadenzaAnticipo), adesso)
-              const oggiPiano = !!piano?.oggiPiano
-              const pianoPassati = piano?.passati ?? []
-              const primaSveglia = piano?.futuri[0] ?? null
-              const svegliaGiaScattata = !!piano?.svegliaGiaScattata
+              const [wy, wm, wd] = scadenzaData.split('-').map(Number)
+              const dataWin = new Date(wy, (wm || 1) - 1, wd || 1)
+              const pill = pillolaScadenza(
+                {
+                  dataScadenza: dataWin,
+                  anticipoGiorni: Number(scadenzaAnticipo),
+                  notificata: scadenzaTarget.notificata === true,
+                  pushInviata: scadenzaTarget.pushInviata === true,
+                  emailInviata: scadenzaTarget.emailInviata === true,
+                  allarmeLocaleIl: scadenzaTarget.allarmeLocaleIl ?? null,
+                },
+                new Date(),
+              )
               const giro = checkLog ? new Date(checkLog.ts) : null
               const giroValida = giro ? !isNaN(giro.getTime()) : false
-              const giroOggi = giroValida && giro!.toDateString() === adesso.toDateString()
-              const giroDopoLe10 = giroValida && giro!.getHours() * 60 + giro!.getMinutes() >= 600
               const giroOre = giroValida ? giro!.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : ''
+              const clsPill = pill?.tono === 'verde' ? 'bg-emerald-100 text-emerald-700' : pill?.tono === 'amber' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
               return (
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <Label className="text-slate-600">Stato notifica</Label>
-                    {consegnata ? (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">
-                        {push ? '✅ Push consegnata' : sveglia ? '✅ Sveglia arrivata' : '✅ Avvisato via email'}
-                      </span>
-                    ) : passata ? (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600">Scadenza passata senza conferma</span>
-                    ) : oggiPiano ? (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">🔔 Avviso di oggi: sveglia 8:30</span>
-                    ) : pianoPassati.length > 0 ? (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">🔔 Avviso in corso</span>
-                    ) : avviata ? (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">⏳ In attesa di consegna</span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600">Non ancora avviata</span>
+                    {pill && (
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${clsPill}`}>{pill.etichetta}</span>
                     )}
-                    {email && (push || sveglia) && (
+                    {pill?.tono === 'verde' && scadenzaTarget.emailInviata === true && (scadenzaTarget.pushInviata === true || scadenzaTarget.allarmeLocaleIl != null) && (
                       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold bg-sky-100 text-sky-700">📧 Email di cortesia inviata</span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 pl-0.5">
-                    {push
-                      ? 'La notifica push è arrivata sul telefono del cliente.'
-                      : sveglia
-                        ? `La sveglia delle 8:30 è scattata sul telefono del cliente${scadenzaTarget.allarmeLocaleIl ? ` (confermata il ${new Date(scadenzaTarget.allarmeLocaleIl).toLocaleDateString('it-IT')})` : ''}.`
-                        : email
-                          ? 'Il cliente non ha canali push: l\'avviso è partito via email.'
-                          : passata
-                            ? 'La scadenza è passata e il check non riprova più. Il cliente ha comunque la campanella in app; per le scadenze vecchie il segno della push "Scade OGGI" non veniva registrato (v4.90 lo registra da oggi in poi).'
-                            : scadeOggi && giroOggi && giroDopoLe10
-                              ? `Il giro di controllo di oggi è passato alle ${giroOre} e la push di riserva "Scade OGGI" non è riuscita a consegnarsi: il canale push del cliente probabilmente non risponde (token vecchio, app disinstallata o telefono spento). La sveglia delle 8:30 di oggi è comunque partita: il server la vedrà solo quando il cliente aprirà l'app.`
-                              : scadeOggi
-                                ? svegliaGiaScattata
-                                  ? 'Oggi è il giorno della scadenza: la sveglia 8:30 del telefono del cliente è l\'avviso vero ed è già scattata (anche a app chiusa). Alle 10:15 il giro del server manderà la push di riserva "Scade OGGI" (se l\'allarme non risulta confermato) e aggiornerà questo stato.'
-                                  : 'Oggi è il giorno della scadenza: la sveglia 8:30 sul telefono del cliente suonerà alle 8:30, anche a app chiusa e senza login. Alle 10:15 il giro del server manderà la push di riserva "Scade OGGI" (se l\'allarme non risulta confermato) e aggiornerà questo stato.'
-                                : oggiPiano
-                                  ? svegliaGiaScattata
-                                    ? `Oggi è un giorno di avviso del piano (${etichettaAnticipo(piano!.giorniAllaScadenza)}): la sveglia 8:30 del telefono del cliente è l'avviso vero ed è già scattata — il server la vedrà solo quando il cliente aprirà l'app. ${avviata ? 'Il giro di oggi ha già registrato l\'avvio (campanella in app).' : 'Alle 10:15 il giro del check registrerà l\'avvio (campanella in app).'} La pillola diventa verde quando arriva la prova di consegna: la conferma della sveglia (il giorno della scadenza) o la push di riserva (solo se l'app risulta chiusa).`
-                                    : `Oggi è un giorno di avviso del piano (${etichettaAnticipo(piano!.giorniAllaScadenza)}): la sveglia 8:30 sul telefono del cliente suonerà alle 8:30, anche a app chiusa e senza login. ${avviata ? 'Il giro di oggi ha già registrato l\'avvio (campanella in app).' : 'Alle 10:15 il giro del check registrerà l\'avvio (campanella in app).'} La pillola diventa verde quando arriva la prova di consegna.`
-                                  : pianoPassati.length > 0
-                                    ? `La sveglia 8:30 ha già scattato nei giorni del piano (${pianoPassati.map((v) => v.data.toLocaleDateString('it-IT')).join(', ')}); la prossima sveglia è il ${primaSveglia!.data.toLocaleDateString('it-IT')} (${etichettaAnticipo(primaSveglia!.g)}). ${avviata ? 'L\'avvio è già registrato dal check: vedi "Ultimo giro del check" qui sotto.' : 'Il giro del check registra l\'avvio ogni mattina alle 10:15 (campanella in app).'}`
-                                    : avviata
-                                      ? 'La sveglia 8:30 del telefono avvisa nei giorni del piano qui sopra, ma il server non può vederla finché il cliente non apre l\'app. La prova di consegna che accende la pillola arriva con la push di riserva: alle 10:15 del giorno della scadenza, o prima nei giorni di avviso se l\'app risulta chiusa da prima della creazione della scadenza.'
-                                      : primaSveglia
-                                        ? `Il primo avviso (la sveglia 8:30 sul telefono del cliente) scatta il ${primaSveglia.data.toLocaleDateString('it-IT')} (${etichettaAnticipo(primaSveglia.g)}). Prima di quella data il server tace di proposito: campanella, push di riserva ed email entrano nei giorni del piano qui sopra.`
-                                        : 'La notifica partirà quando la scadenza entra nei giorni di avviso del piano.'}
-                  </p>
-                  {!consegnata && giroValida && (
+                  {pill?.riga && <p className="text-xs text-slate-500 pl-0.5">{pill.riga}</p>}
+                  {pill && pill.tono !== 'verde' && giroValida && (
                     <p className="text-[11px] text-slate-400 pl-0.5">
                       Ultimo giro del check scadenze: {giro!.toLocaleDateString('it-IT')} alle {giroOre} — {checkLog?.detail || 'esito non disponibile'}
                     </p>

@@ -202,3 +202,112 @@ export function statoAvvisiPiano(
     giorniAllaScadenza: Math.round((scadMezzanotte.getTime() - inizioOggi.getTime()) / 86400000),
   }
 }
+
+/**
+ * v4.93 — LO STATO DELL'AVVISO IN UNA SOLA FUNZIONE, usata identica dalla
+ * pillola della LISTA archivio (Gestione Clienti) e dalla finestra
+ * "Promemoria scadenza". Prima le due viste avevano logiche separate
+ * (lista: solo flag server, v4.88; finestra: piano avvisi, v4.92) e il
+ * 17/11/2026 la lista diceva "in attesa" mentre la finestra diceva
+ * "Avviso di oggi: sveglia 8:30" per la STESSA scadenza — la sveglia era
+ * suonata e la lista non lo sapeva dire. Da qui in poi una sola verita'.
+ *
+ * Ordine di giudizio (il primo che vale):
+ *  1. prova di consegna (pushInviata / allarmeLocaleIl / emailInviata) -> VERDE
+ *     "consegnata": l'avviso e' arrivato davvero sul telefono, con la prova.
+ *  2. scadenza passata senza prova -> GRIGIO "passata senza conferma"
+ *     (lista: niente pillola, la storia e' finita).
+ *  3. oggi e' un giorno del piano -> AMBER "sveglia oggi": la sveglia 8:30
+ *     e' l'avviso vero, prima o dopo le 8:30 la riga lo dice di conseguenza.
+ *  4. tra due giorni del piano -> AMBER "avviso in corso" con la prossima
+ *     sveglia.
+ *  5. avvio gia' registrato dal check (notificata, fuori dal piano) ->
+ *     AMBER "in attesa".
+ *  6. futuro prima del primo giorno di piano -> GRIGIO "Non ancora avviata"
+ *     (lista: niente pillola, come prima della v4.93).
+ *
+ * `riga` e' la UNICA frase sotto la pillola nella finestra: corta di
+ * proposito (la v4.93 taglia i paragrafi lunghi). `lista` e' la pillola
+ * corta della lista archivio ('' = nessuna pillola).
+ *
+ * Torna null solo se la data non e' valida (admin sta scrivendo).
+ */
+export function pillolaScadenza(
+  s: {
+    dataScadenza: Date
+    anticipoGiorni: number
+    notificata?: boolean
+    pushInviata?: boolean
+    emailInviata?: boolean
+    allarmeLocaleIl?: string | null
+  },
+  adesso: Date,
+): { tono: 'verde' | 'amber' | 'grigio'; lista: string; etichetta: string; riga: string } | null {
+  const piano = statoAvvisiPiano(s.dataScadenza, s.anticipoGiorni, adesso)
+  if (!piano) return null
+  const push = s.pushInviata === true
+  const sveglia = s.allarmeLocaleIl != null
+  const email = s.emailInviata === true
+  const passata = piano.giorniAllaScadenza < 0
+  const fmt = (d: Date) => d.toLocaleDateString('it-IT')
+  if (push || sveglia || email) {
+    return {
+      tono: 'verde',
+      lista: '✓ consegnata',
+      etichetta: push ? '✅ Push consegnata' : sveglia ? '✅ Sveglia arrivata' : '✅ Avvisato via email',
+      riga: push
+        ? 'La push di riserva è arrivata sul telefono del cliente.'
+        : sveglia
+          ? `La sveglia 8:30 è scattata sul telefono del cliente${s.allarmeLocaleIl ? ` (confermata il ${fmt(new Date(s.allarmeLocaleIl))})` : ''}.`
+          : 'Il cliente non ha canali push: l\'avviso è partito via email.',
+    }
+  }
+  if (passata) {
+    return {
+      tono: 'grigio',
+      lista: '',
+      etichetta: 'Scadenza passata senza conferma',
+      riga: 'La scadenza è passata e il check non riprova più: il cliente ha comunque la campanella in app.',
+    }
+  }
+  if (piano.oggiPiano) {
+    const ultimoGiorno = piano.giorniAllaScadenza === 0
+    return {
+      tono: 'amber',
+      lista: '🔔 sveglia oggi',
+      etichetta: '🔔 Avviso di oggi: sveglia 8:30',
+      riga: ultimoGiorno
+        ? piano.svegliaGiaScattata
+          ? 'La sveglia 8:30 di oggi è già scattata. Se il cliente non apre l\'app, alle 10:15 il giro manda la push di riserva.'
+          : 'La sveglia 8:30 suonerà alle 8:30. Alle 10:15, se serve, il giro manda la push di riserva.'
+        : piano.svegliaGiaScattata
+          ? 'La sveglia 8:30 di oggi è già scattata sul telefono del cliente: l\'avviso vero è quello.'
+          : 'La sveglia 8:30 suonerà alle 8:30, anche a app chiusa e senza login.',
+    }
+  }
+  const prossima = piano.futuri[0] ?? null
+  if (piano.passati.length > 0 && prossima) {
+    return {
+      tono: 'amber',
+      lista: '🔔 avviso in corso',
+      etichetta: '🔔 Avviso in corso',
+      riga: `La prossima sveglia è il ${fmt(prossima.data)} (${etichettaAnticipo(prossima.g)}).`,
+    }
+  }
+  if (s.notificata === true) {
+    return {
+      tono: 'amber',
+      lista: '⏳ in attesa',
+      etichetta: '⏳ In attesa di consegna',
+      riga: 'Il giro del check ha già registrato l\'avvio (campanella in app).',
+    }
+  }
+  return {
+    tono: 'grigio',
+    lista: '',
+    etichetta: 'Non ancora avviata',
+    riga: prossima
+      ? `Il primo avviso (sveglia 8:30) scatta il ${fmt(prossima.data)} (${etichettaAnticipo(prossima.g)}).`
+      : 'La notifica partirà quando la scadenza entra nei giorni di avviso del piano.',
+  }
+}
