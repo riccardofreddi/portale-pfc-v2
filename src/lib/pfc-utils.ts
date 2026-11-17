@@ -230,6 +230,15 @@ export function statoAvvisiPiano(
  * proposito (la v4.93 taglia i paragrafi lunghi). `lista` e' la pillola
  * corta della lista archivio ('' = nessuna pillola).
  *
+ * v4.94 — la certezza si legge, non si indovina: OGNI riga non-verde
+ * finisce con "Prova al 100%: non ancora" (amber = avviso programmato e,
+ * per orologio, gia' scattato — ma la ricevuta non e' ancora scritta nel
+ * DB), OGNI riga verde inizia con "Prova al 100%:" (la prova c'e', con la
+ * data quando il telefono l'ha confermata). Domanda reale dell'utente
+ * dopo la v4.93: "e' sicuro che e' arrivata la notifica? devo essere
+ * sicuro al 100 per cento" — la riga "l'avviso vero e' quello" sembrava
+ * una ricevuta e non lo era.
+ *
  * Torna null solo se la data non e' valida (admin sta scrivendo).
  */
 export function pillolaScadenza(
@@ -256,10 +265,10 @@ export function pillolaScadenza(
       lista: '✓ consegnata',
       etichetta: push ? '✅ Push consegnata' : sveglia ? '✅ Sveglia arrivata' : '✅ Avvisato via email',
       riga: push
-        ? 'La push di riserva è arrivata sul telefono del cliente.'
+        ? 'Prova al 100%: la push di riserva è stata consegnata sul telefono del cliente.'
         : sveglia
-          ? `La sveglia 8:30 è scattata sul telefono del cliente${s.allarmeLocaleIl ? ` (confermata il ${fmt(new Date(s.allarmeLocaleIl))})` : ''}.`
-          : 'Il cliente non ha canali push: l\'avviso è partito via email.',
+          ? `Prova al 100%: la sveglia 8:30 è scattata e il telefono del cliente l'ha confermata${s.allarmeLocaleIl ? ` il ${fmt(new Date(s.allarmeLocaleIl))}` : ''}.`
+          : 'Prova al 100%: l\'avviso è partito via email al cliente (nessun canale push).',
     }
   }
   if (passata) {
@@ -278,11 +287,11 @@ export function pillolaScadenza(
       etichetta: '🔔 Avviso di oggi: sveglia 8:30',
       riga: ultimoGiorno
         ? piano.svegliaGiaScattata
-          ? 'La sveglia 8:30 di oggi è già scattata. Se il cliente non apre l\'app, alle 10:15 il giro manda la push di riserva.'
-          : 'La sveglia 8:30 suonerà alle 8:30. Alle 10:15, se serve, il giro manda la push di riserva.'
+          ? 'Sveglia 8:30 scattata oggi sul telefono (programmata dall\'app). Prova al 100%: non ancora — se il cliente non apre l\'app, alle 10:15 il giro manda la push di riserva.'
+          : 'La sveglia suonerà alle 8:30 (programmata: suona anche a app chiusa). Prova al 100%: non ancora — se serve, alle 10:15 parte la push di riserva.'
         : piano.svegliaGiaScattata
-          ? 'La sveglia 8:30 di oggi è già scattata sul telefono del cliente: l\'avviso vero è quello.'
-          : 'La sveglia 8:30 suonerà alle 8:30, anche a app chiusa e senza login.',
+          ? 'Sveglia 8:30 scattata oggi sul telefono (programmata: suona anche a app chiusa). Prova al 100%: non ancora — verde appena il cliente apre l\'app.'
+          : 'La sveglia suonerà alle 8:30 (programmata: suona anche a app chiusa). Prova al 100%: non ancora.',
     }
   }
   const prossima = piano.futuri[0] ?? null
@@ -291,7 +300,7 @@ export function pillolaScadenza(
       tono: 'amber',
       lista: '🔔 avviso in corso',
       etichetta: '🔔 Avviso in corso',
-      riga: `La prossima sveglia è il ${fmt(prossima.data)} (${etichettaAnticipo(prossima.g)}).`,
+      riga: `La prossima sveglia è il ${fmt(prossima.data)} (${etichettaAnticipo(prossima.g)}). Prova al 100%: non ancora.`,
     }
   }
   if (s.notificata === true) {
@@ -299,7 +308,7 @@ export function pillolaScadenza(
       tono: 'amber',
       lista: '⏳ in attesa',
       etichetta: '⏳ In attesa di consegna',
-      riga: 'Il giro del check ha già registrato l\'avvio (campanella in app).',
+      riga: 'Il giro del check ha già registrato l\'avvio (campanella in app). Prova al 100%: non ancora.',
     }
   }
   return {

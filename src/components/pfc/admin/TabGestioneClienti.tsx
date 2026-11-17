@@ -948,7 +948,7 @@ export function TabGestioneClienti() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-amber-600" /> Promemoria scadenza</DialogTitle>
             <DialogDescription>
-              La sveglia 8:30 sul telefono del cliente è l'avviso vero, nei giorni del piano qui sotto.
+              La sveglia 8:30 sul telefono del cliente è l&apos;avviso principale nei giorni del piano qui sotto: la certezza al 100% è la pillola verde.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">

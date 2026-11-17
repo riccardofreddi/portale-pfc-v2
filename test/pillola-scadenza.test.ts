@@ -40,7 +40,8 @@ describe('pillolaScadenza — caso reale Glifato (scadenza 20/11/2026, anticipo 
     expect(p.tono).toBe('amber')
     expect(p.lista).toBe('🔔 sveglia oggi')
     expect(p.etichetta).toBe('🔔 Avviso di oggi: sveglia 8:30')
-    expect(p.riga).toContain('già scattata')
+    expect(p.riga).toContain('scattata oggi')
+    expect(p.riga).toContain('Prova al 100%: non ancora')
     expect(p.riga).not.toContain('attesa')
   })
 
@@ -49,6 +50,7 @@ describe('pillolaScadenza — caso reale Glifato (scadenza 20/11/2026, anticipo 
     expect(p.tono).toBe('amber')
     expect(p.lista).toBe('🔔 sveglia oggi')
     expect(p.riga).toContain('suonerà')
+    expect(p.riga).toContain('Prova al 100%: non ancora')
   })
 
   test('18/11 (tra due giorni di piano): amber "avviso in corso" con la prossima sveglia 19/11', () => {
@@ -58,6 +60,7 @@ describe('pillolaScadenza — caso reale Glifato (scadenza 20/11/2026, anticipo 
     expect(p.etichetta).toBe('🔔 Avviso in corso')
     expect(p.riga).toContain('19/11/2026')
     expect(p.riga).toContain('1 giorno prima')
+    expect(p.riga).toContain('Prova al 100%: non ancora')
   })
 
   test('20/11 (giorno stesso): la riga parla della push di riserva delle 10:15', () => {
@@ -65,6 +68,7 @@ describe('pillolaScadenza — caso reale Glifato (scadenza 20/11/2026, anticipo 
     expect(p.tono).toBe('amber')
     expect(p.lista).toBe('🔔 sveglia oggi')
     expect(p.riga).toContain('push di riserva')
+    expect(p.riga).toContain('Prova al 100%: non ancora')
   })
 
   test('21/11 senza prova: grigio "passata senza conferma", NESSUNA pillola in lista', () => {
@@ -80,6 +84,7 @@ describe('pillolaScadenza — caso reale Glifato (scadenza 20/11/2026, anticipo 
     expect(p.lista).toBe('✓ consegnata')
     expect(p.etichetta).toBe('✅ Push consegnata')
     expect(p.riga).toContain('push')
+    expect(p.riga.startsWith('Prova al 100%:')).toBe(true)
   })
 
   test('prova di consegna: sveglia confermata dall`app -> VERDE "Sveglia arrivata"', () => {
@@ -87,12 +92,16 @@ describe('pillolaScadenza — caso reale Glifato (scadenza 20/11/2026, anticipo 
     expect(p.tono).toBe('verde')
     expect(p.etichetta).toBe('✅ Sveglia arrivata')
     expect(p.riga).toContain('scattata')
+    expect(p.riga).toContain('confermata')
+    expect(p.riga.startsWith('Prova al 100%:')).toBe(true)
   })
 
   test('email sola -> VERDE "Avvisato via email" (cliente senza canali push)', () => {
     const p = pillolaScadenza({ ...base, emailInviata: true }, mattino20)!
     expect(p.tono).toBe('verde')
     expect(p.etichetta).toBe('✅ Avvisato via email')
+    expect(p.riga).toContain('email')
+    expect(p.riga.startsWith('Prova al 100%:')).toBe(true)
   })
 
   test('futuro prima del piano (15/11): grigio "Non ancora avviata" che dice QUANDO scatta il primo avviso, lista senza pillola', () => {
@@ -125,6 +134,38 @@ describe('pillolaScadenza — caso reale Glifato (scadenza 20/11/2026, anticipo 
 
   test('data non valida -> null (admin sta scrivendo, niente pillola)', () => {
     expect(pillolaScadenza({ ...base, dataScadenza: new Date(NaN) }, mattino17dopoSveglia)).toBeNull()
+  })
+
+  test('v4.94 — la certezza si legge: OGNI amber dice "Prova al 100%: non ancora", OGNI verde inizia con "Prova al 100%:"', () => {
+    const amb: Array<[string, Date, Record<string, unknown>, Date]> = [
+      ['oggi piano, sveglia scattata', SCADENZA, {}, mattino17dopoSveglia],
+      ['oggi piano, prima della sveglia', SCADENZA, {}, mattino17primaSveglia],
+      ['giorno stesso, scattata', SCADENZA, {}, mattino20],
+      ['avviso in corso', SCADENZA, { notificata: true }, mezzo18],
+      ['in attesa, fuori piano', new Date(2026, 10, 30), { notificata: true }, mezzo18],
+    ]
+    for (const [desc, scad, flags, adesso] of amb) {
+      const p = pillolaScadenza({ ...base, dataScadenza: scad, ...flags }, adesso)!
+      expect(`${desc} -> ${p.tono}`).toBe(`${desc} -> amber`)
+      expect(`${desc} -> ${p.riga}`).toContain('Prova al 100%: non ancora')
+    }
+    const verdi: Array<[string, Record<string, unknown>]> = [
+      ['push', { pushInviata: true }],
+      ['sveglia confermata', { allarmeLocaleIl: '2026-11-20T08:31:00.000Z' }],
+      ['email', { emailInviata: true }],
+    ]
+    for (const [desc, flags] of verdi) {
+      const p = pillolaScadenza({ ...base, ...flags }, mattino20)!
+      expect(`${desc} -> ${p.tono}`).toBe(`${desc} -> verde`)
+      expect(`${desc} -> ${p.riga.startsWith('Prova al 100%:')}`).toBe(`${desc} -> true`)
+    }
+  })
+
+  test('v4.94 — i grigi non promettono prove: passata senza conferma e Non ancora avviata non dicono "Prova al 100%"', () => {
+    const passata = pillolaScadenza({ ...base, notificata: true }, mattino21)!
+    expect(passata.riga).not.toContain('Prova al 100%')
+    const futura = pillolaScadenza({ ...base }, pomeriggio15)!
+    expect(futura.riga).not.toContain('Prova al 100%')
   })
 
   test('la lista e la finestra ricevono la STESSA verita` (stessa funzione, due formati)', () => {
