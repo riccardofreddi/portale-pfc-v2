@@ -132,3 +132,73 @@ export function giorniDiPreavviso(anticipoGiorni: number): number[] {
     .filter((n) => n >= 1 && n <= anticipo)
     .sort((a, b) => b - a)
 }
+
+/** v4.92 — Le PAROLE dei giorni del piano, una sola per tutto il progetto
+ * (finestra admin: sezione "Piano avvisi" e pillole di stato; test). */
+export function etichettaAnticipo(g: number): string {
+  if (g === 1) return '1 giorno prima'
+  if (g === 0) return 'giorno stesso'
+  return `${g} giorni prima`
+}
+
+/**
+ * v4.92 — DOVE SIAMO NEL PIANO AVVISI, calcolato dalla data e dall'anticipo
+ * senza toccare il database (client-safe: nessun import server). Serve alla
+ * finestra "Promemoria scadenza" dell'admin per dire la verita' ANCHE PRIMA
+ * che il giro delle 10:15 scriva i suoi flag: la sveglia 8:30 e' l'avviso
+ * vero e scatta SUL TELEFONO del cliente nei giorni del piano, quindi il
+ * mattino del primo giorno di piano (8:30-10:15) lo stato non puo' dire
+ * "non ancora avviata" (caso reale 17/11/2026, Glifato: sveglia suonata
+ * alle 8:30, pillola grigia "non ancora avviata" finche' il giro non era
+ * passato — la finestra mostrava "Non ancora avviata" sotto un piano che
+ * diceva 17/11 come giorno di avviso, smentendosi da sola).
+ *
+ * `adesso` e' la Date del chiamante: nel browser e' l'orologio dell'admin
+ * (ora italiana), nei test e' fisso e deterministico. Torna null se la
+ * data non e' valida.
+ *
+ * vociPiano = le date delle sveglie: i giorni di giorniDiPreavviso(anticipo)
+ * PIU' il giorno stesso (g=0, che non fa parte di giorniDiPreavviso ma il
+ * piano lo mostra e la sveglia del giorno stesso esiste), ordinati dal piu'
+ * lontano al piu' vicino. Confronti tutti sull'orologio del chiamante:
+ * stesso orologio = nessun errore di fuso.
+ */
+export function statoAvvisiPiano(
+  dataScadenza: Date,
+  anticipoGiorni: number,
+  adesso: Date,
+): {
+  vociPiano: Array<{ g: number; data: Date }>
+  oggiPiano: boolean
+  passati: Array<{ g: number; data: Date }>
+  futuri: Array<{ g: number; data: Date }>
+  svegliaGiaScattata: boolean
+  giorniAllaScadenza: number
+} | null {
+  const t = dataScadenza.getTime()
+  if (!Number.isFinite(t) || isNaN(t)) return null
+  const inizioOggi = new Date(adesso.getFullYear(), adesso.getMonth(), adesso.getDate())
+  const fineOggi = new Date(inizioOggi.getTime())
+  fineOggi.setDate(fineOggi.getDate() + 1)
+  const vociPiano = [
+    ...giorniDiPreavviso(anticipoGiorni).map((g) => {
+      const d = new Date(t)
+      d.setDate(d.getDate() - g)
+      return { g, data: d }
+    }),
+    { g: 0, data: new Date(t) },
+  ].sort((a, b) => a.data.getTime() - b.data.getTime())
+  const scadMezzanotte = new Date(
+    dataScadenza.getFullYear(),
+    dataScadenza.getMonth(),
+    dataScadenza.getDate(),
+  )
+  return {
+    vociPiano,
+    oggiPiano: vociPiano.some((v) => v.data >= inizioOggi && v.data < fineOggi),
+    passati: vociPiano.filter((v) => v.data < inizioOggi),
+    futuri: vociPiano.filter((v) => v.data >= fineOggi),
+    svegliaGiaScattata: adesso.getHours() * 60 + adesso.getMinutes() >= 8 * 60 + 30,
+    giorniAllaScadenza: Math.round((scadMezzanotte.getTime() - inizioOggi.getTime()) / 86400000),
+  }
+}
