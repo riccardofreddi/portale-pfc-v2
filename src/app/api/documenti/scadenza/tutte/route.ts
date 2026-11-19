@@ -32,11 +32,23 @@
  *    OGGI manca ancora (cron Vercel perso, caso reale 11/11/2026) e sono
  *    passate le 10:00 italiane, il giro parte da qui. Guardia interna:
  *    una sola cura al giorno, e se il giro c'e' gia' tace.
+ *
+ * v4.95 — due novita' per la finestra "Promemoria scadenza" (e la pillola
+ * della lista):
+ *  - sveglie: il REGISTRO SVEGLIE (sveglie-registro.ts) filtrato sulle
+ *    scadenze di questo cliente: una voce per OGNI sveglia del piano
+ *    (10/3/1/anticipo + giorno stesso) con data, ora e cosa ha fatto il
+ *    giro — la risposta alla domanda "perche' non ci sono tutte le
+ *    scadenze notificate?": ora ognuna si vede, con il suo giorno;
+ *  - campanelleLette: i filePath di questo cliente con almeno una
+ *    campanella APERTA dal cliente (notifications.read=true): la QUARTA
+ *    prova di consegna ("Vista in app"), immediata al poll di 30 secondi.
  */
 import { NextRequest, NextResponse, after } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
 import { forseRimedioGiroMancato, leggiUltimoGiro } from '@/lib/scadenze-check'
+import { leggiRegistroSveglie } from '@/lib/sveglie-registro'
 
 export const dynamic = 'force-dynamic'
 // after() fa girare la cura del giro mancato DOPO la risposta: serve
@@ -88,5 +100,32 @@ export async function GET(req: NextRequest) {
   // v4.91 — il registro di giro per la finestra Promemoria (vedi il
   // commento in testa): null se il check non ha mai girato.
   const ultimoCheck = await leggiUltimoGiro()
-  return NextResponse.json({ scadenze, ultimoCheck })
+
+  // v4.95 — registro sveglie (filtrato su questo cliente) + campanelle
+  // aperte dal cliente (prova "Vista in app"): due query, entrambe
+  // best-effort nella natura (errore = lista vuota, la pagina resta viva).
+  const filePathsCliente = scadenze.map((s) => s.filePath)
+  const sveglie: Record<string, unknown> = {}
+  let campanelleLette: string[] = []
+  try {
+    const [registro, lette] = await Promise.all([
+      leggiRegistroSveglie(),
+      db.notification.findMany({
+        where: {
+          userId: user.id,
+          read: true,
+          OR: [{ type: 'scadenza' }, { type: 'scadenza_oggi' }],
+        },
+        select: { detail: true },
+      }),
+    ])
+    for (const fp of filePathsCliente) {
+      if (registro[fp]) sveglie[fp] = registro[fp]
+    }
+    campanelleLette = Array.from(new Set(lette.map((n) => n.detail).filter(Boolean)))
+  } catch {
+    // la finestra resta funzionante anche se queste letture falliscono
+  }
+
+  return NextResponse.json({ scadenze, ultimoCheck, sveglie, campanelleLette })
 }

@@ -187,13 +187,13 @@ export async function notifyScadenzaImminente(params: {
   oggi?: Date
   /** Email del cliente (da User.email). Se presente e il cliente NON ha canali push, manda fallback email (v4.83). */
   emailCliente?: string | null
-}): Promise<{ notified: boolean; pushSent: number; emailSent: boolean }> {
+}): Promise<{ notified: boolean; pushSent: number; emailSent: boolean; campanellaCreata: boolean }> {
   const oggi = params.oggi ?? new Date()
   const anticipo = params.anticipoGiorni ?? 10
   const pagata = params.pagata ?? false
 
   if (!isScadenzaImminente(params.dataScadenza, anticipo, pagata, oggi)) {
-    return { notified: false, pushSent: 0, emailSent: false }
+    return { notified: false, pushSent: 0, emailSent: false, campanellaCreata: false }
   }
 
   const text = buildScadenzaNotificaText(params.titolo, params.dataScadenza, oggi)
@@ -207,6 +207,9 @@ export async function notifyScadenzaImminente(params: {
     where: { id: params.scadenzaId },
     select: { notificata: true },
   })
+  // v4.95: il giro registra la sveglia con la frase giusta ("creata" vs
+  // "già in app"): il fatto è se ADESSO la campanella nasce o esisteva già.
+  let campanellaCreata = false
   if (!giaNotificata?.notificata || params.forceNotifica) {
     await db.notification.create({
       data: {
@@ -216,6 +219,7 @@ export async function notifyScadenzaImminente(params: {
         detail: params.filePath,
       },
     })
+    campanellaCreata = true
   }
 
   // v4.83 — NIENTE PUSH DI PREAVVISO. Fino alla v4.82 qui il server mandava
@@ -322,7 +326,7 @@ export async function notifyScadenzaImminente(params: {
     },
   })
 
-  return { notified: true, pushSent: 0, emailSent }
+  return { notified: true, pushSent: 0, emailSent, campanellaCreata }
 }
 
 /**

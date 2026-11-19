@@ -44,6 +44,7 @@ function matcha(n: NotificaMock, w: any): boolean {
   if (w.userId !== undefined && n.userId !== w.userId) return false
   if (w.detail !== undefined && n.detail !== w.detail) return false
   if (w.type !== undefined && n.type !== w.type) return false
+  if (w.read !== undefined && Boolean(n.read) !== w.read) return false
   if (w.id !== undefined) {
     if (typeof w.id === 'string') {
       if (n.id !== w.id) return false
@@ -114,6 +115,6 @@ export const db = {
     findUnique: jest.fn(async () => null),
     upsert: jest.fn(async () => ({})),
   },
-  fcmToken: { count: jest.fn() },
+  fcmToken: { count: jest.fn(), findFirst: jest.fn(async () => null) },
   pushSubscription: { count: jest.fn() },
 }

@@ -37,6 +37,14 @@ import {
   FINESTRA_PUSH_OGGI_MINUTI,
   oraItaliaMinuti,
 } from './scadenza-notify'
+import {
+  campanellaLetta,
+  chiudiRegistroSveglie,
+  testoEsitoOggi,
+  testoEsitoPreavviso,
+  type StatoPush,
+  type VoceDelGiro,
+} from './sveglie-registro'
 
 // v4.87 — REGISTRO DI GIRO FUORI DALL'ARCHIVIO: niente piu' righe
 // CRON_SCADENZE in audit_log (v4.86 ne scriveva una a ogni giro: dopo pochi
@@ -129,6 +137,11 @@ export async function eseguiCheckScadenze(via: string): Promise<EsitoCheck> {
   // v4.84 — quante push di preavviso "Scade tra N giorni" sono partite.
   let preavvisi = 0
   const dettagli: Array<{ filePath: string; titolo: string; giorni: number }> = []
+  // v4.95 — REGISTRO SVEGLIE: una voce per OGNI sveglia del piano processata
+  // in questo giro (g = 10/3/1/anticipo oppure 0 = giorno stesso), cosi'
+  // l'admin vede la storia completa delle 4 sveglie, non solo il flag
+  // notificata scritto una volta (vedi sveglie-registro.ts).
+  const vociSveglie: VoceDelGiro[] = []
 
   for (const s of scadenze) {
     const giorni = giorniMancanti(s.dataScadenza, oggi)
@@ -158,6 +171,7 @@ export async function eseguiCheckScadenze(via: string): Promise<EsitoCheck> {
       const finestraAperta = oraItaliaMinuti(oggi) >= FINESTRA_PUSH_OGGI_MINUTI
       const allarmeConfermatoOggi =
         s.allarmeLocaleIl != null && s.allarmeLocaleIl >= inizioOggi
+      let pushOggi: StatoPush = 'none'
       if (finestraAperta && !allarmeConfermatoOggi) {
         const esitoOggi = await notifyScadenzaDiOggi({
           scadenzaId: s.id,
@@ -169,19 +183,55 @@ export async function eseguiCheckScadenze(via: string): Promise<EsitoCheck> {
           oggi,
         })
         pushInviate += esitoOggi.pushSent
+        pushOggi = esitoOggi.pushSent > 0 ? 'consegnata' : 'fallita'
         if (esitoOggi.pushSent > 0) {
           avvisiOggi++
           dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
         }
+      } else if (allarmeConfermatoOggi) {
+        pushOggi = 'taciuta-sveglia'
       }
+      // v4.95 — voce del registro per la sveglia del giorno stesso + prova
+      // campanella letta (il cliente l'ha aperta in app).
+      vociSveglie.push({
+        filePath: s.filePath,
+        titolo: s.titolo,
+        dataScadenza: s.dataScadenza,
+        anticipo: s.anticipoGiorni,
+        g: 0,
+        esito: testoEsitoOggi(pushOggi),
+        letta: await campanellaLetta(s.userId, s.filePath),
+      })
       continue
     }
 
     // Preavviso gia' consegnato e NON e' il giorno della scadenza: qui
     // non c'e' niente da dire (v4.75: prima la query li escludeva gia').
-    if (s.notificata && s.pushInviata) continue
+    // v4.95 — ma il giro che TACE registra comunque la sua sveglia quando
+    // il giorno e' uno dei giorni di piano: la push di rete e' arrivata in
+    // un giorno di piano precedente, quindi il server tace di proposito
+    // (un avviso solo) e la voce del registro dice la verita' completa.
+    if (s.notificata && s.pushInviata) {
+      if (giorniDiPreavviso(s.anticipoGiorni).includes(giorni)) {
+        vociSveglie.push({
+          filePath: s.filePath,
+          titolo: s.titolo,
+          dataScadenza: s.dataScadenza,
+          anticipo: s.anticipoGiorni,
+          g: giorni,
+          esito: testoEsitoPreavviso({
+            campanellaCreata: false,
+            push: 'gia-consegnata',
+            giorni,
+            emailInviata: false,
+          }),
+          letta: await campanellaLetta(s.userId, s.filePath),
+        })
+      }
+      continue
+    }
 
-    const { notified, pushSent } = await notifyScadenzaImminente({
+    const { notified, pushSent, campanellaCreata, emailSent } = await notifyScadenzaImminente({
       scadenzaId: s.id,
       userId: s.userId,
       username: s.user.username,
@@ -212,12 +262,14 @@ export async function eseguiCheckScadenze(via: string): Promise<EsitoCheck> {
     // Nota: qui pushInviata e' ancora false (la guardia in cima non ha
     // saltato), quindi il blocco gira al massimo fino alla prima push
     // consegnata.
+    const giornoPiano = giorniDiPreavviso(s.anticipoGiorni).includes(giorni)
+    let esitoPre: Awaited<ReturnType<typeof notifyPreavvisoDiOggi>> | null = null
     if (
       !s.pushInviata &&
       oraItaliaMinuti(oggi) >= FINESTRA_PUSH_OGGI_MINUTI &&
-      giorniDiPreavviso(s.anticipoGiorni).includes(giorni)
+      giornoPiano
     ) {
-      const esitoPre = await notifyPreavvisoDiOggi({
+      esitoPre = await notifyPreavvisoDiOggi({
         scadenzaId: s.id,
         userId: s.userId,
         username: s.user.username,
@@ -234,6 +286,35 @@ export async function eseguiCheckScadenze(via: string): Promise<EsitoCheck> {
         dettagli.push({ filePath: s.filePath, titolo: s.titolo, giorni })
       }
     }
+
+    // v4.95 — voce del registro SOLO per le sveglie del PIANO (i giorni
+    // 10/3/1/anticipo, le stesse della sveglia 8:30): i giorni intermedi
+    // (es. g=2) non sono sveglie e non entrano nella storia.
+    if (giornoPiano) {
+      let pushPre: StatoPush = 'none'
+      if (esitoPre) {
+        pushPre =
+          esitoPre.motivo === 'sveglia-armata'
+            ? 'taciuta-sveglia'
+            : esitoPre.pushSent > 0
+              ? 'consegnata'
+              : 'fallita'
+      }
+      vociSveglie.push({
+        filePath: s.filePath,
+        titolo: s.titolo,
+        dataScadenza: s.dataScadenza,
+        anticipo: s.anticipoGiorni,
+        g: giorni,
+        esito: testoEsitoPreavviso({
+          campanellaCreata: campanellaCreata === true,
+          push: pushPre,
+          giorni,
+          emailInviata: emailSent === true,
+        }),
+        letta: await campanellaLetta(s.userId, s.filePath),
+      })
+    }
   }
 
   console.log(
@@ -243,12 +324,17 @@ export async function eseguiCheckScadenze(via: string): Promise<EsitoCheck> {
       dettagli.map((d) => `${d.titolo} (${d.giorni}g)`).join(', ')
   )
 
+  // v4.95 — CHIUSURA REGISTRO SVEGLIE: pulizia + unione delle voci di
+  // questo giro + scrittura (best-effort: non puo' rompere il giro).
+  await chiudiRegistroSveglie(vociSveglie)
+
   // v4.87 — REGISTRO DI GIRO: riga unica in system_settings (vedi
   // registraGiro sopra) + auto-pulizia delle vecchie righe audit_log.
   await registraGiro(
     `ok via ${via} · ` +
       `controllate:${scadenze.length} notificate:${notificate} ` +
-      `push:${pushInviate} preavvisi:${preavvisi} oggi:${avvisiOggi}`
+      `push:${pushInviate} preavvisi:${preavvisi} oggi:${avvisiOggi} ` +
+      `sveglie:${vociSveglie.length}`
   )
 
   return {

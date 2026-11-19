@@ -239,6 +239,15 @@ export function statoAvvisiPiano(
  * sicuro al 100 per cento" — la riga "l'avviso vero e' quello" sembrava
  * una ricevuta e non lo era.
  *
+ * v4.95 — QUARTA PROVA DI CONSEGNA: la campanella in app. Il flag read
+ * della notifica (notifications.read) diventa true SOLO quando il cliente
+ * tocca la campanella nell'app (o il pulsante "Segna come letta" della
+ * push): e' una prova SCRITTA nel DB che l'avviso e' arrivato e stato
+ * VISTO, anche quando push/sveglia/email non hanno niente (il giro tace
+ * perche' la sveglia e' armata). Registro sveglie (sveglie-registro.ts)
+ * e /scadenza/tutte la calcolano; qui diventa verde "Vista in app",
+ * preceduta da push e sveglia, prima dell'email.
+ *
  * Torna null solo se la data non e' valida (admin sta scrivendo).
  */
 export function pillolaScadenza(
@@ -249,6 +258,8 @@ export function pillolaScadenza(
     pushInviata?: boolean
     emailInviata?: boolean
     allarmeLocaleIl?: string | null
+    /** v4.95: la campanella in app e' stata aperta dal cliente (read=true o registro sveglie). */
+    campanellaLetta?: boolean
   },
   adesso: Date,
 ): { tono: 'verde' | 'amber' | 'grigio'; lista: string; etichetta: string; riga: string } | null {
@@ -257,18 +268,27 @@ export function pillolaScadenza(
   const push = s.pushInviata === true
   const sveglia = s.allarmeLocaleIl != null
   const email = s.emailInviata === true
+  const campanella = s.campanellaLetta === true
   const passata = piano.giorniAllaScadenza < 0
   const fmt = (d: Date) => d.toLocaleDateString('it-IT')
-  if (push || sveglia || email) {
+  if (push || sveglia || campanella || email) {
     return {
       tono: 'verde',
       lista: '✓ consegnata',
-      etichetta: push ? '✅ Push consegnata' : sveglia ? '✅ Sveglia arrivata' : '✅ Avvisato via email',
+      etichetta: push
+        ? '✅ Push consegnata'
+        : sveglia
+          ? '✅ Sveglia arrivata'
+          : campanella
+            ? '✅ Vista in app'
+            : '✅ Avvisato via email',
       riga: push
         ? 'Prova al 100%: la push di riserva è stata consegnata sul telefono del cliente.'
         : sveglia
           ? `Prova al 100%: la sveglia 8:30 è scattata e il telefono del cliente l'ha confermata${s.allarmeLocaleIl ? ` il ${fmt(new Date(s.allarmeLocaleIl))}` : ''}.`
-          : 'Prova al 100%: l\'avviso è partito via email al cliente (nessun canale push).',
+          : campanella
+            ? 'Prova al 100%: la campanella in app è stata aperta dal cliente (avviso visto).'
+            : 'Prova al 100%: l\'avviso è partito via email al cliente (nessun canale push).',
     }
   }
   if (passata) {

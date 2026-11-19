@@ -185,3 +185,46 @@ describe('pillolaScadenza — caso reale Glifato (scadenza 20/11/2026, anticipo 
     expect(p.riga.length).toBeLessThan(140)
   })
 })
+
+describe('pillolaScadenza — v4.95 la quarta prova: campanella aperta in app', () => {
+  test('campanellaLetta sola -> VERDE "Vista in app" con prova al 100% (l\'avviso e\' arrivato E visto)', () => {
+    const p = pillolaScadenza({ ...base, campanellaLetta: true }, mattino17dopoSveglia)!
+    expect(`campanellaLetta sola -> ${p.tono}`).toBe('campanellaLetta sola -> verde')
+    expect(p.etichetta).toBe('✅ Vista in app')
+    expect(p.lista).toBe('✓ consegnata')
+    expect(p.riga.startsWith('Prova al 100%:')).toBe(true)
+    expect(p.riga).toContain('campanella in app')
+  })
+
+  test('precedenza: push consegnata resta il testo anche se la campanella e\' letta', () => {
+    const p = pillolaScadenza({ ...base, pushInviata: true, campanellaLetta: true }, mattino20)!
+    expect(p.tono).toBe('verde')
+    expect(p.etichetta).toBe('✅ Push consegnata')
+    expect(p.riga).toContain('push di riserva')
+  })
+
+  test('precedenza: sveglia confermata batte la campanella letta', () => {
+    const p = pillolaScadenza({ ...base, allarmeLocaleIl: '2026-11-20T08:31:00.000Z', campanellaLetta: true }, mattino20)!
+    expect(p.tono).toBe('verde')
+    expect(p.etichetta).toBe('✅ Sveglia arrivata')
+  })
+
+  test('precedenza: campanella letta batte l\'email (testo piu` specifico: il cliente l\'ha vista)', () => {
+    const p = pillolaScadenza({ ...base, emailInviata: true, campanellaLetta: true }, mattino20)!
+    expect(p.tono).toBe('verde')
+    expect(p.etichetta).toBe('✅ Vista in app')
+    expect(p.riga).toContain('campanella in app')
+  })
+
+  test('scadenza passata con campanella letta -> VERDE (la prova vale anche per le passate)', () => {
+    const p = pillolaScadenza({ ...base, campanellaLetta: true }, mattino21)!
+    expect(p.tono).toBe('verde')
+    expect(p.etichetta).toBe('✅ Vista in app')
+  })
+
+  test('senza campanellaLetta tutto resta come prima (le righe v4.94 non cambiano)', () => {
+    const p = pillolaScadenza({ ...base, notificata: true }, mattino17dopoSveglia)!
+    expect(p.tono).toBe('amber')
+    expect(p.riga).toContain('Prova al 100%: non ancora')
+  })
+})

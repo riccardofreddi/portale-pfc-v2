@@ -51,12 +51,20 @@ export function TabGestioneClienti() {
   const [deleteBulkTarget, setDeleteBulkTarget] = useState<{ anno: string; cartella?: string } | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ key: string; nome: string } | null>(null)
   const [renameNewName, setRenameNewName] = useState('')
-  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } | null>(null)
+  const [scadenzaTarget, setScadenzaTarget] = useState<{ key: string; nome: string; had: boolean; pagata?: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null; campanellaLetta?: boolean } | null>(null)
   // v4.91: l'ultimo giro del check scadenze (da /scadenza/tutte, aggiornato
   // dal poll da 30 secondi): la finestra Promemoria lo mostra per dire se
   // la macchina e' viva e se la push di riserva di oggi e' gia' stata
   // tentata per una scadenza ancora "in attesa".
   const [checkLog, setCheckLog] = useState<{ ts: string; detail: string } | null>(null)
+  // v4.95: REGISTRO SVEGLIE (da /scadenza/tutte, aggiornato dal poll): una
+  // voce per OGNI sveglia del piano (10/3/1/anticipo + giorno stesso) con
+  // cosa ha fatto il giro — la finestra mostra la storia completa, e il
+  // flag letta alimenta la prova "Vista in app" della pillola.
+  const [sveglieReg, setSveglieReg] = useState<Record<string, { t: string; sc: string; ant: number; letta: boolean; voci: Record<string, { il: string; esito: string }> }>>({})
+  // v4.95: i filePath di questo cliente con una campanella APERTA dal
+  // cliente (read=true): prova di consegna immediata al poll.
+  const [campanelleLette, setCampanelleLette] = useState<Set<string>>(new Set())
   const [scadenzaData, setScadenzaData] = useState('')
   const [scadenzaAnticipo, setScadenzaAnticipo] = useState('10')
   const [scadenzaSaving, setScadenzaSaving] = useState(false)
@@ -164,6 +172,14 @@ export function TabGestioneClienti() {
         // v4.91: registro di giro del check scadenze (data/ora + esito).
         const log = (data.ultimoCheck ?? null) as { ts: string; detail: string } | null
         setCheckLog(log && typeof log.ts === 'string' ? log : null)
+        // v4.95: registro sveglie + campanelle aperte dal cliente (prova
+        // "Vista in app"): la pillola e la finestra si aggiornano al volo.
+        const registroSveglie = (data.sveglie ?? {}) as Record<string, { t: string; sc: string; ant: number; letta: boolean; voci: Record<string, { il: string; esito: string }> }>
+        const lette = new Set<string>((data.campanelleLette ?? []) as string[])
+        setSveglieReg(registroSveglie)
+        setCampanelleLette(lette)
+        const campanellaLettaDi = (filePath: string) =>
+          lette.has(filePath) || registroSveglie[filePath]?.letta === true
         const lista = (data.scadenze ?? []) as Array<{ id: string; filePath: string; titolo: string; dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata: boolean; pushInviata: boolean; emailInviata: boolean; allarmeLocaleIl?: string | null }>
         const perFile = new Map(lista.map((s) => [s.filePath, s]))
         setArchivioFiles((prev) => {
@@ -172,19 +188,20 @@ export function TabGestioneClienti() {
           for (const [chiave, files] of Object.entries(prev)) {
             next[chiave] = files.map((f) => {
               const s = perFile.get(f.key)
-              const scad = (f as unknown as { scadenza?: { pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } | null }).scadenza
+              const scad = (f as unknown as { scadenza?: { pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null; campanellaLetta?: boolean } | null }).scadenza
               if (!s) {
                 // v4.88: la scadenza e' stata RIMOSSA altrove (altra schedra
                 // aperta): la targhetta sparisce da sola, la lista non mente.
                 if (scad) { cambiato = true; return { ...f, scadenza: null } }
                 return f
               }
+              const lettaAdesso = campanellaLettaDi(f.key)
               if (!scad) {
                 // v4.88: scadenza NUOVA creata mentre la pagina era aperta
                 // (es. caricamento dal tab Invio Documenti): la targhetta
                 // appare entro un giro del poll, senza riscaricare R2.
                 cambiato = true
-                return { ...f, scadenza: { id: s.id, titolo: s.titolo, dataScadenza: s.dataScadenza, anticipoGiorni: s.anticipoGiorni, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata, allarmeLocaleIl: s.allarmeLocaleIl ?? null } }
+                return { ...f, scadenza: { id: s.id, titolo: s.titolo, dataScadenza: s.dataScadenza, anticipoGiorni: s.anticipoGiorni, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata, allarmeLocaleIl: s.allarmeLocaleIl ?? null, campanellaLetta: lettaAdesso } }
               }
               // v4.88: sincronizza anche la CONSEGNA (notificata/pushInviata/
               // emailInviata), non solo il pagamento: la pillola "consegnata"
@@ -196,10 +213,11 @@ export function TabGestioneClienti() {
                 scad.notificata === s.notificata &&
                 scad.pushInviata === s.pushInviata &&
                 scad.emailInviata === s.emailInviata &&
-                (scad.allarmeLocaleIl ?? null) === (s.allarmeLocaleIl ?? null)
+                (scad.allarmeLocaleIl ?? null) === (s.allarmeLocaleIl ?? null) &&
+                (scad.campanellaLetta === true) === lettaAdesso
               ) return f
               cambiato = true
-              return { ...f, scadenza: { ...scad, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata, allarmeLocaleIl: s.allarmeLocaleIl ?? null } }
+              return { ...f, scadenza: { ...scad, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata, allarmeLocaleIl: s.allarmeLocaleIl ?? null, campanellaLetta: lettaAdesso } }
             })
           }
           return cambiato ? next : prev
@@ -208,6 +226,7 @@ export function TabGestioneClienti() {
           if (!t || scadenzaSaving) return t
           const s = perFile.get(t.key)
           if (!s) return t
+          const lettaAdesso = campanellaLettaDi(t.key)
           if (
             t.pagata === s.pagata &&
             (t.pagataDa ?? null) === (s.pagataDa ?? null) &&
@@ -215,9 +234,10 @@ export function TabGestioneClienti() {
             t.notificata === s.notificata &&
             t.pushInviata === s.pushInviata &&
             t.emailInviata === s.emailInviata &&
-            (t.allarmeLocaleIl ?? null) === (s.allarmeLocaleIl ?? null)
+            (t.allarmeLocaleIl ?? null) === (s.allarmeLocaleIl ?? null) &&
+            (t.campanellaLetta === true) === lettaAdesso
           ) return t
-          return { ...t, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata, allarmeLocaleIl: s.allarmeLocaleIl ?? null }
+          return { ...t, pagata: s.pagata, pagataDa: s.pagataDa ?? null, pagataIl: s.pagataIl ?? null, notificata: s.notificata, pushInviata: s.pushInviata, emailInviata: s.emailInviata, allarmeLocaleIl: s.allarmeLocaleIl ?? null, campanellaLetta: lettaAdesso }
         })
       } catch { /* silenzioso: il poll non deve rompere nulla */ }
     }
@@ -321,7 +341,7 @@ export function TabGestioneClienti() {
 
   function openScadenza(f: { key: string; nome: string }) {
     // Se il file ha già una scadenza (passata dalla lista), precompila i campi.
-    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } }).scadenza
+    const scad = (f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata: boolean; pagataDa?: string | null; pagataIl?: string | null; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null; campanellaLetta?: boolean } }).scadenza
     let dataIniziale = ''
     let anticipoIniziale = 10
     if (scad) {
@@ -332,7 +352,7 @@ export function TabGestioneClienti() {
       }
       anticipoIniziale = scad.anticipoGiorni
     }
-    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false, pagataDa: scad?.pagataDa ?? null, pagataIl: scad?.pagataIl ?? null, notificata: scad?.notificata ?? false, pushInviata: scad?.pushInviata ?? false, emailInviata: scad?.emailInviata ?? false, allarmeLocaleIl: scad?.allarmeLocaleIl ?? null })
+    setScadenzaTarget({ key: f.key, nome: f.nome, had: !!scad, pagata: scad?.pagata ?? false, pagataDa: scad?.pagataDa ?? null, pagataIl: scad?.pagataIl ?? null, notificata: scad?.notificata ?? false, pushInviata: scad?.pushInviata ?? false, emailInviata: scad?.emailInviata ?? false, allarmeLocaleIl: scad?.allarmeLocaleIl ?? null, campanellaLetta: scad?.campanellaLetta === true })
     setScadenzaData(dataIniziale)
     setScadenzaAnticipo(String(anticipoIniziale))
     // v4.60: rilettura FRESCA dal server. La riga della lista può essere
@@ -628,9 +648,9 @@ export function TabGestioneClienti() {
                                               {canPreviewFile(f.nome) && <Button variant="outline" size="sm" onClick={() => setPreviewFile({ ...f, stato: 'nuovo', isPreferito: false })}><Eye className="h-3 w-3" /></Button>}
                                               <Button variant="outline" size="sm" onClick={() => handleDownload(f.key, f.nome)}><Download className="h-3 w-3" /></Button>
 <Button variant="outline" size="sm" onClick={() => { setRenameTarget({ key: f.key, nome: f.nome }); setRenameNewName(f.nome) }}><Edit2 className="h-3 w-3" /></Button>
-{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } }).scadenza && (
+{(f as unknown as { scadenza?: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null; campanellaLetta?: boolean } }).scadenza && (
                                                 (() => {
-                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null } }).scadenza
+                                                  const sc = (f as unknown as { scadenza: { dataScadenza: string; anticipoGiorni: number; pagata?: boolean; notificata?: boolean; pushInviata?: boolean; emailInviata?: boolean; allarmeLocaleIl?: string | null; campanellaLetta?: boolean } }).scadenza
                                                   const pagata = !!sc.pagata
                                                   // v4.93: la pillola della lista usa LA STESSA FUNZIONE della
                                                   // finestra Promemoria (pillolaScadenza in pfc-utils): una sola
@@ -640,7 +660,7 @@ export function TabGestioneClienti() {
                                                   // la sveglia e' suonata (caso reale 17/11/2026, Glifato).
                                                   const [ly, lm, ld] = sc.dataScadenza.split('-').map(Number)
                                                   const dataLista = new Date(ly, (lm || 1) - 1, ld || 1)
-                                                  const pill = pillolaScadenza({ dataScadenza: dataLista, anticipoGiorni: sc.anticipoGiorni, notificata: sc.notificata, pushInviata: sc.pushInviata, emailInviata: sc.emailInviata, allarmeLocaleIl: sc.allarmeLocaleIl ?? null }, new Date())
+                                                  const pill = pillolaScadenza({ dataScadenza: dataLista, anticipoGiorni: sc.anticipoGiorni, notificata: sc.notificata, pushInviata: sc.pushInviata, emailInviata: sc.emailInviata, allarmeLocaleIl: sc.allarmeLocaleIl ?? null, campanellaLetta: sc.campanellaLetta === true }, new Date())
                                                   const clsPill = pill?.tono === 'verde' ? 'bg-emerald-100 text-emerald-700' : pill?.tono === 'amber' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
                                                   return (
                                                     <>
@@ -1009,6 +1029,7 @@ export function TabGestioneClienti() {
                   pushInviata: scadenzaTarget.pushInviata === true,
                   emailInviata: scadenzaTarget.emailInviata === true,
                   allarmeLocaleIl: scadenzaTarget.allarmeLocaleIl ?? null,
+                  campanellaLetta: scadenzaTarget.campanellaLetta === true || campanelleLette.has(scadenzaTarget.key),
                 },
                 new Date(),
               )
@@ -1032,6 +1053,51 @@ export function TabGestioneClienti() {
                     <p className="text-[11px] text-slate-400 pl-0.5">
                       Ultimo giro del check scadenze: {giro!.toLocaleDateString('it-IT')} alle {giroOre} — {checkLog?.detail || 'esito non disponibile'}
                     </p>
+                  )}
+                </div>
+              )
+            })()}
+            {/* v4.95 — SVEGLIE REGISTRATE DAL GIRO: la storia completa del piano
+                avvisi per questa scadenza, una riga per sveglia (giorni di
+                piano 10/3/1/anticipo + giorno stesso), con data/ora e cosa ha
+                fatto il giro del check. E' la risposta alla domanda "perche'
+                non ci sono tutte le scadenze notificate?": ora ognuna si vede
+                con il suo giorno. Il flag letta (campanella aperta dal cliente)
+                e' la prova "Vista in app", alimentata dal registro (durable
+                anche dopo "pulisci lette" nell'app) e dal poll. */}
+            {scadenzaTarget?.had && (() => {
+              const reg = sveglieReg[scadenzaTarget.key]
+              const voci = reg
+                ? Object.entries(reg.voci)
+                    .map(([g, v]) => ({ g: Number(g), il: v.il, esito: v.esito }))
+                    .filter((v) => Number.isFinite(v.g) && v.g >= 0)
+                    .sort((a, b) => b.g - a.g)
+                : []
+              const lettaInApp = (reg?.letta === true) || campanelleLette.has(scadenzaTarget.key)
+              return (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 space-y-1">
+                  <p className="font-semibold text-slate-700">Sveglie registrate dal giro del check</p>
+                  {voci.length === 0 ? (
+                    <p>
+                      Il giro del check scrive qui una riga per OGNI sveglia del piano (giorni di piano + giorno stesso), con data, ora e cosa ha fatto. Per questa scadenza non c&apos;&egrave; ancora nessuna registrazione: la prima arriva il primo giorno di piano con il giro delle 10:15.
+                    </p>
+                  ) : (
+                    voci.map((v) => {
+                      const quando = new Date(v.il)
+                      const quandoOk = !isNaN(quando.getTime())
+                      return (
+                        <p key={v.g}>
+                          <span className="font-medium text-slate-700">{etichettaAnticipo(v.g)}</span>
+                          {quandoOk && (
+                            <> — {quando.toLocaleDateString('it-IT')} alle {quando.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</>
+                          )}
+                          : {v.esito}
+                        </p>
+                      )
+                    })
+                  )}
+                  {lettaInApp && (
+                    <p className="font-medium text-emerald-700">Campanella in app: aperta dal cliente — prova di lettura.</p>
                   )}
                 </div>
               )
